@@ -17,7 +17,6 @@ async function load() {
     $('#menu-status').classList.add('hidden');
     $('#builder').classList.remove('hidden');
     renderBuilder();
-    renderGalleryPrices();
     renderTruffledMenu();
     const traditionalTab = $('[data-menu-category="traditional"]');
     const truffledTab = $('[data-menu-category="truffled"]');

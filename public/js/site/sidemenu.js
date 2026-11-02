@@ -77,6 +77,7 @@ function applyAuthUI(customer, points) {
   $('#header-greeting').classList.toggle('hidden', !signedIn);
   $('#header-login').classList.toggle('hidden', signedIn);
   $('#header-register').classList.toggle('hidden', signedIn);
+  $('#login-promo')?.classList.toggle('hidden', signedIn);
   $('#menu-signed-in').classList.toggle('hidden', !signedIn);
   $('#menu-signed-out').classList.toggle('hidden', signedIn);
   $('#side-menu-hello').textContent = signedIn ? `Olá, ${first}! 👋` : 'Olá! 👋';
