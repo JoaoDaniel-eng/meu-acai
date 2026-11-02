@@ -198,7 +198,7 @@ router.patch('/orders/:code/customer', async (req, res, next) => {
     }
     const o = found.rows[0];
     if (!EDITABLE_STATUSES.includes(o.status))
-      return res.status(409).json({ error: 'A loja já começou a preparar este pedido, então ele não pode mais ser editado pelo site. Fale com a loja pelo WhatsApp.' });
+      return res.status(409).json({ error: 'Não é possível editar um pedido que já está sendo preparado. Para qualquer ajuste agora, fale com a loja pelo WhatsApp.' });
     const items = Array.isArray(req.body.items) ? req.body.items : null;
     if (!items || !items.length || items.length > 30)
       return res.status(400).json({ error: 'O pedido precisa ter pelo menos um item.' });
