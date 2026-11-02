@@ -3,6 +3,8 @@ import { getPool } from './pool.js';
 const schema = `
 CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY, name VARCHAR(120) NOT NULL, description TEXT NOT NULL DEFAULT '',
+  product_type VARCHAR(20) NOT NULL DEFAULT 'traditional' CHECK(product_type IN ('traditional','truffled')),
+  image_url TEXT,
   active BOOLEAN NOT NULL DEFAULT TRUE, sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -130,6 +132,8 @@ export async function initializeDatabase() {
   await db.query('ALTER TABLE developers ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ');
   // Auditoria compartilhada: 'admin' (painel da loja) ou 'dev' (painel do desenvolvedor). Linhas antigas viram 'admin'.
   await db.query("ALTER TABLE admin_audit_logs ADD COLUMN IF NOT EXISTS actor VARCHAR(10) NOT NULL DEFAULT 'admin'");
+  await db.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS product_type VARCHAR(20) NOT NULL DEFAULT 'traditional'");
+  await db.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT');
   await db.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo TEXT');
   // Fotos novas ficam no armazenamento de arquivos (Cloudinary); o banco guarda só o endereço.
   await db.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo_url TEXT');
@@ -208,6 +212,17 @@ export async function initializeDatabase() {
       productId = (await db.query('INSERT INTO products(name,description,sort_order) VALUES($1,$2,0) RETURNING id', [product.name, product.description])).rows[0].id;
     for (const [name, price] of product.sizes)
       await db.query('INSERT INTO product_sizes(product_id,name,price_cents) VALUES($1,$2,$3) ON CONFLICT(product_id,name) DO NOTHING', [productId, name, price]);
+  }
+  // Sabores trufados são produtos independentes: o tamanho já determina o preço e não aceita adicionais.
+  const truffledFlavors = ['Morango com Chocolate', 'Ninho com Chocolate', 'Ninho com Morango', 'Ninho com Maracujá', 'Ninho com Paçoca'];
+  for (const [index, flavor] of truffledFlavors.entries()) {
+    let productId = (await db.query("SELECT id FROM products WHERE LOWER(TRIM(name))=LOWER(TRIM($1))", [flavor])).rows[0]?.id;
+    if (!productId)
+      productId = (await db.query("INSERT INTO products(name,description,product_type,sort_order) VALUES($1,$2,'truffled',$3) RETURNING id", [flavor, 'Receita predefinida de açaí trufado.', 100 + index])).rows[0].id;
+    else
+      await db.query("UPDATE products SET product_type='truffled' WHERE id=$1", [productId]);
+    for (const [sizeName, price] of [['400 ml', 2000], ['500 ml', 2500]])
+      await db.query('INSERT INTO product_sizes(product_id,name,price_cents,sort_order) VALUES($1,$2,$3,$4) ON CONFLICT(product_id,name) DO NOTHING', [productId, sizeName, price, sizeName === '400 ml' ? 0 : 1]);
   }
   for (const item of options)
     await db.query('INSERT INTO options(name,category,price_cents,sort_order) VALUES($1,$2,$3,$4) ON CONFLICT(name,category) DO NOTHING', [item.name, item.category, item.price, item.sort]);

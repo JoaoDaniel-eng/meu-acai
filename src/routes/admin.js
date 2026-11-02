@@ -506,10 +506,14 @@ router.patch('/menu/options/:id', async (req, res, next) => {
 });
 router.patch('/menu/products/:id', async (req, res, next) => {
   try {
-    if (typeof req.body.active !== 'boolean')
+    if (req.body.active !== undefined && typeof req.body.active !== 'boolean')
       return res.status(400).json({ error: 'Disponibilidade inválida.' });
-    const active = req.body.active;
-    const r = await getPool().query('UPDATE products SET active=$1 WHERE id=$2 RETURNING *', [active, Number(req.params.id)]);
+    const imageUrl = req.body.imageUrl === undefined ? undefined : String(req.body.imageUrl || '').trim();
+    if (imageUrl !== undefined && imageUrl.length > 1000)
+      return res.status(400).json({ error: 'Endereço da imagem muito longo.' });
+    if (imageUrl && !(/^(https:\/\/|\/)/i).test(imageUrl))
+      return res.status(400).json({ error: 'Use um endereço HTTPS ou caminho local para a imagem.' });
+    const r = await getPool().query('UPDATE products SET active=COALESCE($1,active), image_url=CASE WHEN $2 THEN $3 ELSE image_url END WHERE id=$4 RETURNING *', [typeof req.body.active === 'boolean' ? req.body.active : null, imageUrl !== undefined, imageUrl || null, Number(req.params.id)]);
     if (!r.rowCount)
       return res.status(404).json({ error: 'Produto não encontrado.' });
     res.json(r.rows[0]);

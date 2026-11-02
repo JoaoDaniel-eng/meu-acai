@@ -78,7 +78,7 @@ router.post('/orders', async (req, res, next) => {
     const sizeIds = [...new Set(items.map(i => Number(i.sizeId)))];
     if (sizeIds.some(id => !Number.isInteger(id) || id < 1) || items.some(item => Array.isArray(item.optionIds) && item.optionIds.some(id => !Number.isInteger(Number(id)) || Number(id) < 1)) || items.some(item => item.optionIds !== undefined && !Array.isArray(item.optionIds)))
       return res.status(400).json({ error: 'Tamanho ou adicional inválido.' });
-    const sizes = (await db.query('SELECT s.id,s.name,s.price_cents,p.name AS product_name FROM product_sizes s JOIN products p ON p.id=s.product_id WHERE s.id=ANY($1::int[]) AND s.active=true AND p.active=true', [sizeIds])).rows;
+    const sizes = (await db.query('SELECT s.id,s.name,s.price_cents,p.name AS product_name,p.product_type FROM product_sizes s JOIN products p ON p.id=s.product_id WHERE s.id=ANY($1::int[]) AND s.active=true AND p.active=true', [sizeIds])).rows;
     if (sizes.length !== sizeIds.length)
       return res.status(400).json({ error: 'Um dos tamanhos escolhidos não está disponível.' });
     const optionIds = [...new Set(items.flatMap(i => Array.isArray(i.optionIds) ? i.optionIds.map(Number) : []))];
@@ -94,6 +94,8 @@ router.post('/orders', async (req, res, next) => {
       const ids = Array.isArray(item.optionIds) ? [...new Set(item.optionIds.map(Number))] : [];
       if (!Number.isInteger(qty) || qty < 1 || qty > 20 || ids.length > 30)
         return res.status(400).json({ error: 'Quantidade inválida (1 a 20 por item).' });
+      if (size.product_type === 'truffled' && ids.length)
+        return res.status(400).json({ error: 'Açaís trufados possuem receita predefinida e não aceitam adicionais.' });
       normalized.push(buildOrderItem({ size, options: ids.map(id => optionMap.get(id)), quantity: qty, maxToppings }));
     }
     const { subtotalCents: subtotal, itemCount } = summarizeItems(normalized);
@@ -210,7 +212,7 @@ router.patch('/orders/:code/customer', async (req, res, next) => {
     if (requested.some(x => !Number.isInteger(x.idx) || !old[x.idx] || !Number.isInteger(x.qty) || x.qty < 0 || x.qty > 20 || (x.qty > 0 && (!Number.isInteger(x.sizeId) || x.sizeId < 1))))
       return res.status(400).json({ error: 'Confira quantidade, tamanho e itens selecionados.' });
     const activeSizeIds = [...new Set(requested.filter(x => x.qty > 0).map(x => x.sizeId))];
-    const sizeRows = activeSizeIds.length ? (await db.query('SELECT s.id,s.name,s.price_cents,p.name AS product_name FROM product_sizes s JOIN products p ON p.id=s.product_id WHERE s.id=ANY($1::int[]) AND s.active=true AND p.active=true', [activeSizeIds])).rows : [];
+    const sizeRows = activeSizeIds.length ? (await db.query('SELECT s.id,s.name,s.price_cents,p.name AS product_name,p.product_type FROM product_sizes s JOIN products p ON p.id=s.product_id WHERE s.id=ANY($1::int[]) AND s.active=true AND p.active=true', [activeSizeIds])).rows : [];
     if (sizeRows.length !== activeSizeIds.length)
       return res.status(400).json({ error: 'Um dos tamanhos escolhidos não está mais disponível.' });
     const allOptionIds = [...new Set(requested.filter(x => x.qty > 0).flatMap(x => x.optionIds))];
