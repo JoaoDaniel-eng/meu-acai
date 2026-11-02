@@ -1,6 +1,5 @@
 import bcrypt from 'bcryptjs';
 import { getPool } from './pool.js';
-
 const schema = `
 CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY, name VARCHAR(120) NOT NULL, description TEXT NOT NULL DEFAULT '',
@@ -69,29 +68,76 @@ CREATE TABLE IF NOT EXISTS customer_favorites (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS customer_favorites_customer_idx ON customer_favorites(customer_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS inventory_items (
+ id BIGSERIAL PRIMARY KEY, name VARCHAR(140) NOT NULL, unit VARCHAR(20) NOT NULL,
+ quantity NUMERIC(14,3) NOT NULL DEFAULT 0 CHECK(quantity>=0), minimum_quantity NUMERIC(14,3) NOT NULL DEFAULT 0 CHECK(minimum_quantity>=0),
+ unit_cost NUMERIC(14,4) NOT NULL DEFAULT 0 CHECK(unit_cost>=0), option_id INTEGER UNIQUE REFERENCES options(id) ON DELETE SET NULL,
+ active BOOLEAN NOT NULL DEFAULT TRUE, auto_disable BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS inventory_recipes (
+ id BIGSERIAL PRIMARY KEY, inventory_item_id BIGINT NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+ size_id INTEGER REFERENCES product_sizes(id) ON DELETE CASCADE, option_id INTEGER REFERENCES options(id) ON DELETE CASCADE,
+ quantity NUMERIC(14,3) NOT NULL CHECK(quantity>0), CHECK ((size_id IS NOT NULL)::int + (option_id IS NOT NULL)::int = 1),
+ UNIQUE(inventory_item_id,size_id,option_id)
+);
+CREATE TABLE IF NOT EXISTS inventory_movements (
+ id BIGSERIAL PRIMARY KEY, inventory_item_id BIGINT NOT NULL REFERENCES inventory_items(id), movement_type VARCHAR(20) NOT NULL,
+ quantity NUMERIC(14,3) NOT NULL CHECK(quantity>0), unit_cost NUMERIC(14,4) NOT NULL DEFAULT 0,
+ reason TEXT, supplier VARCHAR(160), order_id BIGINT REFERENCES orders(id) ON DELETE SET NULL,
+ idempotency_key VARCHAR(180) UNIQUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS inventory_recipe_size_uidx ON inventory_recipes(inventory_item_id,size_id) WHERE size_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS inventory_recipe_option_uidx ON inventory_recipes(inventory_item_id,option_id) WHERE option_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS inventory_movements_item_idx ON inventory_movements(inventory_item_id,created_at DESC);
+CREATE TABLE IF NOT EXISTS inventory_calibrations (
+ id BIGSERIAL PRIMARY KEY, inventory_item_id BIGINT NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+ size_id INTEGER REFERENCES product_sizes(id) ON DELETE CASCADE, option_id INTEGER REFERENCES options(id) ON DELETE CASCADE,
+ samples NUMERIC(14,3)[] NOT NULL, average_quantity NUMERIC(14,3) NOT NULL, approved BOOLEAN NOT NULL DEFAULT FALSE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), approved_at TIMESTAMPTZ
+);
 `;
-
 const products = [
-  { name: 'Açaí tradicional', description: 'Monte do seu jeito com acompanhamentos e caldas.', sizes: [['300 ml',1200],['400 ml',1600],['500 ml',1900],['700 ml',2300],['Pote de 1 litro',3800],['1 copo especial',3500]] }
+  { name: 'Açaí tradicional', description: 'Monte do seu jeito com acompanhamentos e caldas.', sizes: [['300 ml', 1200], ['400 ml', 1600], ['500 ml', 1900], ['700 ml', 2300], ['Pote de 1 litro', 3800], ['1 copo especial', 3500]] }
 ];
 const options = [
-  ...['Paçoca','Granola','Amendoim','Granulado','Flocos de arroz','Chocobool','Sucrilhos','Leite em pó','Aveia','Jujuba'].map((name,i)=>({name,category:'topping',price:0,sort:i})),
-  ...['Morango','Chocolate','Menta','Uva','Banana caramelizada','Maracujá'].map((name,i)=>({name,category:'syrup',price:0,sort:i})),
-  ...[['Nutella',600],['Creme de paçoca',600],['Creme de avelã',500],['Creme de beijinho',600],['Ovomaltine',500],['Doce de leite',400]].map(([name,price],i)=>({name,category:'extra',price,sort:i})),
-  ...[['Mousse de maracujá',500],['Mousse de morango',500],['Mousse de limão',500]].map(([name,price],i)=>({name,category:'mousse',price,sort:i}))
+  ...['Paçoca', 'Granola', 'Amendoim', 'Granulado', 'Flocos de arroz', 'Chocobool', 'Sucrilhos', 'Leite em pó', 'Aveia', 'Jujuba'].map((name, i) => ({ name, category: 'topping', price: 0, sort: i })),
+  ...['Morango', 'Chocolate', 'Menta', 'Uva', 'Banana caramelizada', 'Maracujá'].map((name, i) => ({ name, category: 'syrup', price: 0, sort: i })),
+  ...[['Nutella', 600], ['Creme de paçoca', 600], ['Creme de avelã', 500], ['Creme de beijinho', 600], ['Ovomaltine', 500], ['Doce de leite', 400]].map(([name, price], i) => ({ name, category: 'extra', price, sort: i })),
+  ...[['Mousse de maracujá', 500], ['Mousse de morango', 500], ['Mousse de limão', 500]].map(([name, price], i) => ({ name, category: 'mousse', price, sort: i }))
 ];
 // Taxas provisórias por faixas de distância a partir do Cruzeiro (Vale do Paquequer).
 // A lista foi reduzida para bairros próximos; confirme a distância pela rota antes de ativar vendas.
 const zones = [
-  ['Cruzeiro',500],
-  ['Pessegueiros',1000], ['Andradas',1000], ['Santa Rita',1000], ['Campo Limpo',1000],
-  ['Providência',1500], ['Ponte Nova',1500], ['Granja Mafra',1500]
+  ['Cruzeiro', 500],
+  ['Pessegueiros', 1000], ['Andradas', 1000], ['Santa Rita', 1000], ['Campo Limpo', 1000],
+  ['Providência', 1500], ['Ponte Nova', 1500], ['Granja Mafra', 1500]
 ];
-
 export async function initializeDatabase() {
   const db = getPool();
   await db.query(schema);
   await db.query('DROP TABLE IF EXISTS admin_login_attempts');
+  await db.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo TEXT');
+  // Fotos novas ficam no armazenamento de arquivos (Cloudinary); o banco guarda só o endereço.
+  await db.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo_url TEXT');
+  await db.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo_public_id TEXT');
+  await db.query('ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS purchase_total NUMERIC(14,2) NOT NULL DEFAULT 0');
+  await db.query('ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS capacity_quantity NUMERIC(14,3) NOT NULL DEFAULT 0');
+  await db.query('UPDATE inventory_items SET capacity_quantity=quantity WHERE capacity_quantity=0 AND quantity>0');
+  await db.query('ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS consumption_quantity NUMERIC(14,3)');
+  await db.query('ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS consumption_unit VARCHAR(10)');
+  await db.query('ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(14,4) NOT NULL DEFAULT 0');
+  await db.query('ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS reason TEXT');
+  await db.query('ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS supplier VARCHAR(160)');
+  await db.query('ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS order_id BIGINT REFERENCES orders(id) ON DELETE SET NULL');
+  await db.query('ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(180)');
+  await db.query('CREATE UNIQUE INDEX IF NOT EXISTS inventory_movements_idempotency_uidx ON inventory_movements(idempotency_key) WHERE idempotency_key IS NOT NULL');
+  // Vincula automaticamente itens cujo nome corresponde exatamente a um acompanhamento existente.
+  await db.query(`WITH candidates AS (
+    SELECT DISTINCT ON (o.id) i.id AS item_id,o.id AS option_id
+    FROM inventory_items i JOIN options o ON LOWER(TRIM(i.name))=LOWER(TRIM(o.name))
+    WHERE i.active=true AND i.option_id IS NULL AND NOT EXISTS (SELECT 1 FROM inventory_items x WHERE x.option_id=o.id)
+    ORDER BY o.id,i.id
+  ) UPDATE inventory_items i SET option_id=c.option_id,auto_disable=TRUE FROM candidates c WHERE i.id=c.item_id`);
   // Consolida produtos duplicados criados por inicializações anteriores.
   // Mantém o produto mais antigo e transfere tamanhos que ainda não existam nele.
   await db.query(`
@@ -129,23 +175,28 @@ export async function initializeDatabase() {
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS combo_discount_cents INTEGER NOT NULL DEFAULT 0");
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_minutes_min INTEGER NOT NULL DEFAULT 35");
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_minutes_max INTEGER NOT NULL DEFAULT 55");
-  for (const [key,value] of Object.entries({
-    manual_closed:'false', store_name:'Açaí da Roça', whatsapp_number: process.env.WHATSAPP_NUMBER || '5521969081157',
-    timezone:'America/Sao_Paulo', opening_days:'2,3,4,5,6,0', opening_time:'13:30', closing_time:'22:00',
-    minimum_schedule_minutes:'30', max_free_toppings:'5', combo_min_items:'2', combo_discount_percent:'5', estimated_minutes_min:'35', estimated_minutes_max:'55'
-  })) await db.query('INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO NOTHING',[key,value]);
+  for (const [key, value] of Object.entries({
+    manual_closed: 'false', store_name: 'Açaí da Roça', whatsapp_number: process.env.WHATSAPP_NUMBER || '5521969081157',
+    timezone: 'America/Sao_Paulo', opening_days: '2,3,4,5,6,0', opening_time: '13:30', closing_time: '22:00',
+    minimum_schedule_minutes: '30', max_free_toppings: '5', combo_min_items: '2', combo_discount_percent: '5', estimated_minutes_min: '35', estimated_minutes_max: '55'
+  }))
+    await db.query('INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO NOTHING', [key, value]);
   for (const product of products) {
-    let productId = (await db.query('SELECT id FROM products WHERE LOWER(TRIM(name))=LOWER(TRIM($1)) ORDER BY id LIMIT 1',[product.name])).rows[0]?.id;
-    if (!productId) productId = (await db.query('INSERT INTO products(name,description,sort_order) VALUES($1,$2,0) RETURNING id',[product.name,product.description])).rows[0].id;
-    for (const [name,price] of product.sizes) await db.query('INSERT INTO product_sizes(product_id,name,price_cents) VALUES($1,$2,$3) ON CONFLICT(product_id,name) DO NOTHING',[productId,name,price]);
+    let productId = (await db.query('SELECT id FROM products WHERE LOWER(TRIM(name))=LOWER(TRIM($1)) ORDER BY id LIMIT 1', [product.name])).rows[0]?.id;
+    if (!productId)
+      productId = (await db.query('INSERT INTO products(name,description,sort_order) VALUES($1,$2,0) RETURNING id', [product.name, product.description])).rows[0].id;
+    for (const [name, price] of product.sizes)
+      await db.query('INSERT INTO product_sizes(product_id,name,price_cents) VALUES($1,$2,$3) ON CONFLICT(product_id,name) DO NOTHING', [productId, name, price]);
   }
-  for (const item of options) await db.query('INSERT INTO options(name,category,price_cents,sort_order) VALUES($1,$2,$3,$4) ON CONFLICT(name,category) DO NOTHING',[item.name,item.category,item.price,item.sort]);
+  for (const item of options)
+    await db.query('INSERT INTO options(name,category,price_cents,sort_order) VALUES($1,$2,$3,$4) ON CONFLICT(name,category) DO NOTHING', [item.name, item.category, item.price, item.sort]);
   // Desativa zonas antigas de demonstração que não pertencem à área de entrega solicitada.
-  await db.query("UPDATE delivery_zones SET active=FALSE WHERE name = ANY($1::text[])", [['Centro','Alto','Várzea','Agriões','Barra do Imbuí']]);
-  for (const [name,fee] of zones) await db.query('INSERT INTO delivery_zones(name,fee_cents) VALUES($1,$2) ON CONFLICT(name) DO UPDATE SET fee_cents=EXCLUDED.fee_cents, active=TRUE',[name,fee]);
+  await db.query("UPDATE delivery_zones SET active=FALSE WHERE name = ANY($1::text[])", [['Centro', 'Alto', 'Várzea', 'Agriões', 'Barra do Imbuí']]);
+  for (const [name, fee] of zones)
+    await db.query('INSERT INTO delivery_zones(name,fee_cents) VALUES($1,$2) ON CONFLICT(name) DO UPDATE SET fee_cents=EXCLUDED.fee_cents, active=TRUE', [name, fee]);
   if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);
-    await db.query('INSERT INTO admins(email,password_hash) VALUES($1,$2) ON CONFLICT(email) DO NOTHING',[process.env.ADMIN_EMAIL.toLowerCase(),hash]);
+    await db.query('INSERT INTO admins(email,password_hash) VALUES($1,$2) ON CONFLICT(email) DO NOTHING', [process.env.ADMIN_EMAIL.toLowerCase(), hash]);
   }
   console.log('Banco de dados inicializado.');
 }

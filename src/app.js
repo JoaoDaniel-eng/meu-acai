@@ -1,0 +1,94 @@
+import express from 'express';
+import path from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import publicRoutes from './routes/public.js';
+import orderRoutes from './routes/orders.js';
+import adminRoutes from './routes/admin.js';
+import customerRoutes from './routes/customers.js';
+import { PricingError } from './services/pricing.js';
+import { getPool } from './db/pool.js';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Monta o app Express sem abrir porta nem conectar ao banco. O server.js liga tudo; os testes de rota usam direto.
+export function createApp() {
+  const app = express();
+  app.disable('x-powered-by');
+  app.set('trust proxy', 1);
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    if (req.path === '/admin' || req.path.startsWith('/admin/') || req.path.startsWith('/api/'))
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    next();
+  });
+  // Limites de corpo por rota (os parsers específicos vêm antes: o primeiro que lê o corpo vale).
+  // Backup/restauração leva o banco inteiro (inclui fotos de avaliações); avaliação com foto chega perto de 1 MB; o resto cabe em 100 KB.
+  app.use('/api/admin/backup', express.json({ limit: '10mb' }));
+  app.use('/api/reviews', express.json({ limit: '1200kb' }));
+  app.use(express.json({ limit: '100kb' }));
+  app.use(express.urlencoded({ extended: false, limit: '100kb' }));
+  // Express 5 deixa req.body indefinido quando a requisição não traz corpo; sem isso, rotas que leem req.body.campo dariam erro 500.
+  app.use((req, _res, next) => {
+    if (req.body === undefined)
+      req.body = {};
+    next();
+  });
+  app.use('/api', publicRoutes);
+  app.use('/api', orderRoutes);
+  app.use('/api', customerRoutes);
+  app.use('/api/admin', adminRoutes);
+  // SEO: endereço público do site. Defina SITE_URL no Render (ex.: https://www.seudominio.com.br); sem ela, usa o endereço da própria requisição.
+  const siteUrl = req => (process.env.SITE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+  let indexHtml = null;
+  const sendIndex = async (req, res, next) => {
+    try {
+      indexHtml ??= await readFile(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+      res.type('html').set('Cache-Control', 'no-cache').send(indexHtml.replaceAll('__SITE_URL__', siteUrl(req)));
+    }
+    catch (err) {
+      next(err);
+    }
+  };
+  app.get(['/', '/index.html'], sendIndex);
+  app.get('/robots.txt', (req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${siteUrl(req)}/sitemap.xml\n`));
+  app.get('/sitemap.xml', (req, res) => res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${siteUrl(req)}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n  <url><loc>${siteUrl(req)}/privacidade.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>\n</urlset>\n`));
+  app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
+  app.use(express.static(path.join(__dirname, '..', 'public')));
+  app.get('/api/health', (_req, res) => res.json({ status: 'ok', app: 'Açaí da Roça' }));
+  // Checa o banco com um SELECT 1 e limite de 5 s. Fica separado do /api/health de propósito: o Neon suspende o banco
+  // quando ocioso e a primeira consulta pode demorar; se o Render usasse esta rota como health check, poderia
+  // reiniciar o serviço à toa. Use em monitor externo (ex.: UptimeRobot).
+  app.get('/api/health/db', async (_req, res) => {
+    let timer;
+    try {
+      await Promise.race([
+        getPool().query('SELECT 1'),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), 5000); })
+      ]);
+      res.json({ status: 'ok', database: 'ok' });
+    }
+    catch {
+      res.status(503).json({ status: 'error', database: 'indisponível' });
+    }
+    finally {
+      clearTimeout(timer);
+    }
+  });
+  app.use((req, res) => req.path.startsWith('/api/') ? res.status(404).json({ error: 'Rota não encontrada.' }) : res.status(404).sendFile(path.join(__dirname, '..', 'public', '404.html')));
+  app.use((err, _req, res, _next) => {
+    if (err instanceof PricingError)
+      return res.status(err.status).json({ error: err.message });
+    if (err.type === 'entity.too.large')
+      return res.status(413).json({ error: 'Os dados enviados são grandes demais.' });
+    if (err.type === 'entity.parse.failed')
+      return res.status(400).json({ error: 'Dados inválidos.' });
+    console.error(err);
+    if (err.code === '23503')
+      return res.status(400).json({ error: 'Não foi possível concluir por causa de uma referência inválida.' });
+    res.status(500).json({ error: 'Ocorreu um erro interno. Tente novamente.' });
+  });
+  return app;
+}
