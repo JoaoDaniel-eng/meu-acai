@@ -309,3 +309,11 @@
 - Os elementos internos (`#favorites-list`, `#favorites-message`) mantêm os mesmos IDs; carregar, adicionar ao pedido e remover favoritos continuam iguais.
 - Cache atualizado para `menu-fix-5`.
 - Falta: conferir no navegador (abrir/fechar, tema escuro, celular). O atalho "Meus favoritos" do menu lateral só rola até a seção; com o painel fechado ele não abre sozinho (mesmo comportamento de "Meus cupons").
+
+
+## Painel: seção "Trufados" no Cardápio e preços (02/11/2026)
+- A seção "Produtos" virou **Trufados**: um cartão por sabor (Morango com Chocolate, Ninho com Chocolate/Morango/Maracujá/Paçoca), com o botão de disponibilidade do sabor, Salvar, Excluir e, logo abaixo, os dois tamanhos (400 ml e 500 ml), cada um com **valor editável (R$)**, Disponível e Salvar, igual ao açaí tradicional.
+- "Açaí tradicional" saiu da lista de sabores; continua na seção **Tamanhos** (que agora lista só os tamanhos dele, sem repetir os dos trufados).
+- Removido o campo "Imagem (URL)". Ao salvar o sabor, o painel envia só a disponibilidade, então a imagem que já está cadastrada não é apagada. Não houve mudança de API nem de banco.
+- Arquivos: `public/js/admin/menu.js` e um trecho novo no fim de `public/css/styles.css`.
+- Testado em navegador headless com API simulada: 5 cartões, preço salvo em centavos para o tamanho certo (27,90 → 2790), sabor desmarcado envia só `active`, sem estouro no celular. Tema escuro e integração com o banco real não foram conferidos.

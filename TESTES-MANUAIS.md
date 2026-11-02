@@ -213,3 +213,10 @@ A tela chega na 3.3b; por enquanto confira a rota (use o token do painel, que fi
 6. Um cupom usado cujo pedido foi excluído deve indicar "Pedido usado excluído".
 7. Confirme que os cupons automáticos não têm botões de editar/excluir; cupons manuais continuam com as ações normais.
 8. Repita no tema escuro e em celular; não deve haver rolagem horizontal.
+
+## Cardápio e preços: Trufados
+
+1. Em /admin, aba **Cardápio e preços**: a primeira seção deve se chamar **Trufados**, com os 5 sabores e, em cada um, os tamanhos 400 ml e 500 ml.
+2. Altere o valor do 500 ml de um sabor, clique em **Salvar** naquele tamanho, recarregue o painel e veja o valor mantido. Confira no site (Açaís Trufados) o novo preço.
+3. Desmarque **Disponível** num sabor e salve: ele deve sumir do site. Marque de novo e salve.
+4. Confirme que o "Açaí tradicional" aparece só em **Tamanhos**, e que as fotos dos sabores no site continuam as mesmas.
