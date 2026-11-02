@@ -700,3 +700,8 @@ html[data-theme="dark"] .dev-counts b{color:#e2c6f5}
 .schedule-picker label{margin:0}
 .schedule-picker .schedule-hint{grid-column:1/-1;margin:0;font-size:.82rem}
 @media(max-width:480px){.schedule-picker{grid-template-columns:1fr}}
+
+/* Foto do copo flutuando no topo (fundo transparente, funciona nos temas claro e escuro). */
+.hero-photo{position:relative;height:100%;width:auto;max-width:100%;object-fit:contain;filter:drop-shadow(0 22px 26px rgba(43,10,61,.28));animation:heroFloat 5s ease-in-out infinite}
+@keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@media(prefers-reduced-motion:reduce){.hero-photo{animation:none}}
