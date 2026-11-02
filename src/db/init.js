@@ -203,9 +203,13 @@ export async function initializeDatabase() {
   for (const [key, value] of Object.entries({
     manual_closed: 'false', store_name: 'Açaí da Roça', whatsapp_number: process.env.WHATSAPP_NUMBER || '5521969081157',
     timezone: 'America/Sao_Paulo', opening_days: '2,3,4,5,6,0', opening_time: '13:30', closing_time: '22:00',
-    minimum_schedule_minutes: '30', max_free_toppings: '5', combo_min_items: '2', combo_discount_percent: '5', estimated_minutes_min: '35', estimated_minutes_max: '55'
+    minimum_schedule_minutes: '30', max_free_toppings: '5', combo_min_items: '2', combo_discount_percent: '0', estimated_minutes_min: '35', estimated_minutes_max: '55'
   }))
     await db.query('INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO NOTHING', [key, value]);
+  // A loja não quer o desconto de combo: desliga uma única vez (0%). Se ela quiser religar depois, é só definir no painel: esta regra não roda de novo.
+  const comboOff = await db.query("INSERT INTO settings(key,value) VALUES('combo_disabled_v1','1') ON CONFLICT(key) DO NOTHING RETURNING key");
+  if (comboOff.rowCount)
+    await db.query("UPDATE settings SET value='0' WHERE key='combo_discount_percent'");
   for (const product of products) {
     let productId = (await db.query('SELECT id FROM products WHERE LOWER(TRIM(name))=LOWER(TRIM($1)) ORDER BY id LIMIT 1', [product.name])).rows[0]?.id;
     if (!productId)
