@@ -175,3 +175,11 @@ Considere o teste aprovado somente quando o fluxo terminar sem erro, os valores 
 3. Altere o horário no painel, recarregue o site e confirme que a lista acompanha a mudança.
 4. Hoje, perto do fechamento: os horários que já passaram ou estão a menos da antecedência mínima não aparecem.
 5. Faça um pedido agendado com um dos horários e confira o dia e a hora no painel e no WhatsApp.
+
+## 10. Sessões e CSP
+
+1. Entre em `/admin` com uma conta de teste num navegador. Em `/dev`, redefina a senha dessa conta.
+2. No navegador do `/admin`, em até ~12 s (próxima atualização automática) ou ao clicar em qualquer aba, deve voltar para a tela de login.
+3. Entre de novo com a senha nova: deve funcionar.
+4. Abra a loja, `/admin` e `/dev` com o console do navegador aberto (F12 → Console): não deve aparecer nenhuma mensagem "Refused to ..." / "Content Security Policy". Navegue por todas as abas do painel, abra a foto de uma avaliação e instale/abra o PWA.
+5. Se aparecer algo bloqueado, anote a mensagem e use `CSP_REPORT_ONLY=true` até corrigirmos.

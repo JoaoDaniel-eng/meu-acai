@@ -54,6 +54,10 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 - **Backup:** download, validação e restauração (com confirmação digitada).
 - **Contas da loja:** lista, cria e redefine a senha de quem entra em `/admin`.
 
+## Segurança extra (rodada 4)
+- **Troca de senha encerra as sessões:** ao redefinir a senha de uma conta da loja no `/dev` (ou ao mudar `DEV_PASSWORD`), todos os tokens antigos dessa conta deixam de valer na hora, em qualquer aparelho. Conta excluída também perde o acesso. O servidor confere isso no banco a cada requisição dos painéis.
+- **Content-Security-Policy:** o navegador só executa scripts do próprio site (mais os scripts inline de tema, liberados por hash calculado sozinho a partir dos `.html`). Isso barra scripts injetados e protege os tokens do painel. Fontes do Google Fonts continuam liberadas. Se algo legítimo aparecer bloqueado no console do navegador, use `CSP_REPORT_ONLY=true` para o CSP só avisar enquanto você investiga; se criar um `<script>` inline novo num `.html`, nada a fazer (o hash é recalculado ao iniciar), mas scripts devem ficar em `public/js/`.
+
 ## Atenção: revise antes de operar
 - **Taxas e bairros iniciais são exemplos editáveis**, não uma confirmação das taxas comerciais reais. Revise em `/admin` antes de receber pedidos.
 - O item “1 copo especial” de R$ 35 foi mantido porque o tamanho/capacidade não foi especificado. Renomeie ou desative em “Cardápio e preços” se necessário.

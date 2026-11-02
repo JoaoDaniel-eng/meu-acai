@@ -252,3 +252,17 @@
 - O fechamento manual continua não impedindo agendamentos em horário de funcionamento (como antes).
 - Testes: `src/services/schedule.test.js` (10 testes, passam) e rotas em `tests/routes.test.js` (precisam de `TEST_DATABASE_URL`). Interface testada em navegador headless com o serviço real.
 - O servidor já validava antes; não consegui reproduzir um furo sem o banco real. A causa provável era o campo livre (erro só no envio, e data interpretada no fuso do aparelho).
+
+
+## Rodada 4 — Correção: bairros não voltam ao padrão (02/11/2026)
+- Antes, a cada inicialização o servidor regravava a taxa dos 8 bairros iniciais e os reativava. Agora eles só são criados quando a tabela de bairros está **vazia** (banco novo). Taxas editadas, bairros desativados e bairros excluídos no painel permanecem após reinício/deploy.
+- Teste de rota novo cobre os três casos (precisa de `TEST_DATABASE_URL`).
+- Observação: a linha que desativa os bairros antigos de demonstração (Centro, Alto, Várzea, Agriões, Barra do Imbuí) continua rodando a cada início; só afeta quem usar esses nomes.
+
+
+## Rodada 4 — Segurança: sessões e CSP (02/11/2026)
+- **Sessões:** colunas `password_changed_at` em `admins` e `developers`; o login grava a "versão da sessão" no token (`pwv`) e `requireAdmin`/`requireDev` (agora assíncronos) comparam com o banco a cada requisição. Redefinir senha no `/dev` ou mudar `DEV_PASSWORD` derruba as sessões antigas; conta excluída perde o acesso. Tokens emitidos antes desta versão continuam valendo até a primeira troca de senha ou expirar.
+- **Custo:** 1 consulta simples por requisição dos painéis (a lista de pedidos atualiza a cada 12 s).
+- **CSP** (`src/services/csp.js`): scripts só do site + hashes dos scripts inline de tema; estilos do site e Google Fonts (atributos `style=""` liberados); imagens do site/data:/blob:; `connect-src 'self'`; sem object, frames ou `base` externo. `CSP_REPORT_ONLY=true` liga o modo só-aviso.
+- Verificado em navegador headless: loja, privacidade, /admin (login), /dev (login e todas as abas) sem nenhuma violação, e um script/`onerror` injetado de propósito foi bloqueado. **Não** exercitado: painel da loja logado com dados reais (pedidos, estoque, foto de avaliação), PWA instalado e fontes do Google (sem internet aqui).
+- Testes: `src/services/csp.test.js` (4) e rotas de sessão em `tests/routes.test.js` (precisam de `TEST_DATABASE_URL`); o token de teste do admin agora usa uma conta real.
