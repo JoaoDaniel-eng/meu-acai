@@ -266,3 +266,34 @@
 - **CSP** (`src/services/csp.js`): scripts só do site + hashes dos scripts inline de tema; estilos do site e Google Fonts (atributos `style=""` liberados); imagens do site/data:/blob:; `connect-src 'self'`; sem object, frames ou `base` externo. `CSP_REPORT_ONLY=true` liga o modo só-aviso.
 - Verificado em navegador headless: loja, privacidade, /admin (login), /dev (login e todas as abas) sem nenhuma violação, e um script/`onerror` injetado de propósito foi bloqueado. **Não** exercitado: painel da loja logado com dados reais (pedidos, estoque, foto de avaliação), PWA instalado e fontes do Google (sem internet aqui).
 - Testes: `src/services/csp.test.js` (4) e rotas de sessão em `tests/routes.test.js` (precisam de `TEST_DATABASE_URL`); o token de teste do admin agora usa uma conta real.
+
+## Cupom de primeira compra — Parte 2: uso único (02/11/2026)
+- Regras em `src/services/welcomeCoupon.js` (`couponProblem`, `claimPersonalCoupon`, `releasePersonalCoupon`, `findCouponForEdit`), ligadas a `GET /api/coupons/validate`, `POST /api/orders` e à edição do pedido.
+- Devolução do cupom: cancelamento pelo cliente (`orders.js`), mudança de status para cancelado e exclusão de pedido não entregue (`admin.js`), e edição que remove o cupom do pedido.
+- Testes: `npm test` de serviços 113/113; 11 testes de rota novos em `tests/routes.test.js` (cadastro, "Meus cupons", validação, desconto, uso único, corrida entre dois pedidos, cancelamentos, exclusão, edição). **Não executados**: sem PostgreSQL neste ambiente. Rodar com `TEST_DATABASE_URL` ou pelo CI antes de publicar.
+- Falta (Parte 3): tela "Meus cupons" e visão no painel.
+
+## Cupom de primeira compra — Parte 3, etapa 1: mensagem após o cadastro (02/11/2026)
+- Aviso no site logo após o cadastro com o código do cupom, botões "Copiar código" e "Usar na minha primeira compra", tema claro/escuro e celular. Só aparece quando o cadastro devolve `welcomeCoupon`.
+- Não alterou API nem banco. Testado só com `node --check` e simulação de DOM; teste visual real no navegador continua pendente.
+- Falta (Parte 3): etapa 2 "Meus cupons" e etapa 3 visão no painel.
+
+## Cupom de primeira compra — Parte 3, etapa 2: "Meus cupons" (02/11/2026)
+- Cartão "Meus cupons" na conta do cliente e atalho no menu lateral. Lista o cupom pessoal com status (Disponível / Já usado / Indisponível), copiar código e usar no pedido (preenche o campo de cupom e aplica se houver itens no carrinho).
+- Atualização automática: `loadCustomerCoupons()` roda ao entrar, após pedido, após cancelar no site, no ciclo de 30 s da conta e ao voltar para a aba. Só redesenha se a lista mudou. Nomes de cupom passam por `esc()`.
+- Não alterou API nem banco. Testado com `node --check` e simulação de DOM (vazio, disponível, usado, indisponível, erro de rede, escape de HTML); teste visual real no navegador continua pendente.
+- Falta (Parte 3): etapa 3, visão no painel admin.
+
+## Cupom de primeira compra — Parte 3, etapa 3.3a: servidor da visão do painel (02/11/2026)
+- Rota `GET /api/admin/coupons/welcome` (dono, status, pedido, resumo, filtros `status`/`q`/`limit`) e funções puras `buildWelcomeAdminFilter` e `presentAdminWelcomeCoupon` em `src/services/welcomeCoupon.js`.
+- Cupom de boas-vindas ficou travado no painel: `PATCH`/`DELETE /api/admin/coupons/:id` só valem para cupom manual (403 nos automáticos) e o código `BEMVINDO-…` é reservado na criação de cupom manual. Antes dessa trava, quem soubesse o `id` podia apagar ou desativar o cupom de um cliente pela API.
+- Testes: `npm test` de serviços 118/118 (5 novos: filtro, busca segura, limite, apresentação). 10 testes de rota novos em `tests/routes.test.js` (bloco "cupons de boas-vindas no painel"): **não executados**, sem PostgreSQL neste ambiente. Rodar com `TEST_DATABASE_URL` ou pelo CI.
+- Falta (3.3b): tela do painel, `?v=`/cache do PWA e conferência no navegador.
+
+
+## Cupom de primeira compra — Parte 3, etapa 3.3b: visão no painel (02/11/2026)
+- Aba **Cupons** agora inclui uma área de leitura dos cupons automáticos de primeira compra, separada dos cupons promocionais manuais.
+- Resumo geral (total, disponíveis, usados e indisponíveis), busca por nome/celular/código/pedido, filtro por status, atualização manual e lista com cliente, código, percentual, data e pedido vinculado.
+- A tela não oferece ações de edição/exclusão dos cupons pessoais; a API também já bloqueia essas operações.
+- Atualizados os identificadores estáticos de cache; o servidor continua estampando `?v=` e o cache do service worker com o identificador do deploy.
+- Validação: `node --check` dos JS alterados e 118 testes de serviço passaram. `npm test` completo teve 1 falha ambiental em `tests/health.test.js` porque as dependências (`express`) não estão instaladas; testes de rota PostgreSQL seguem condicionados a `TEST_DATABASE_URL`. Falta conferir a tela no navegador com admin logado e banco real.

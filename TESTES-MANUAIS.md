@@ -183,3 +183,33 @@ Considere o teste aprovado somente quando o fluxo terminar sem erro, os valores 
 3. Entre de novo com a senha nova: deve funcionar.
 4. Abra a loja, `/admin` e `/dev` com o console do navegador aberto (F12 → Console): não deve aparecer nenhuma mensagem "Refused to ..." / "Content Security Policy". Navegue por todas as abas do painel, abra a foto de uma avaliação e instale/abra o PWA.
 5. Se aparecer algo bloqueado, anote a mensagem e use `CSP_REPORT_ONLY=true` até corrigirmos.
+
+## Cupom de primeira compra (uso único)
+1. Cadastre uma conta nova (telefone que nunca pediu): a resposta do cadastro traz `welcomeCoupon` (BEMVINDO-XXXXXX, 5%). Confira também em `GET /api/customers/me/coupons`.
+2. Sem login, tente aplicar o código no carrinho: deve pedir para entrar na conta. Entre com **outra** conta: "Cupom inválido ou indisponível."
+3. Logado na conta dona, aplique o cupom: desconto de 5% sobre o subtotal (sem a entrega). Faça o pedido.
+4. Tente usar o mesmo cupom em outro pedido: "Este cupom já foi usado."
+5. Cancele o pedido (pelo site ou pelo painel): o cupom volta a "available" e pode ser usado de novo.
+6. Faça outro pedido com o cupom, edite as quantidades pelo acompanhamento: o desconto de 5% continua e é recalculado.
+7. Apague no painel um pedido não entregue que usou o cupom: o cupom volta. Marque outro como Entregue e apague: o cupom continua usado.
+8. Abra o site em duas abas logadas na mesma conta e envie o pedido com o cupom nas duas ao mesmo tempo: só uma deve ser aceita.
+
+### Painel: cupons de boas-vindas — servidor (etapa 3.3a)
+A tela chega na 3.3b; por enquanto confira a rota (use o token do painel, que fica em `localStorage.acaiAdminToken` no `/admin`).
+1. `GET /api/admin/coupons/welcome` sem token → 401. Com token → `summary` e `coupons` com o cupom de cada cliente cadastrado (nome, telefone, status).
+2. Cupom disponível: `status: "available"` e `order: null`. Use o cupom num pedido: vira `used`, com `order.code` igual ao código do pedido. Cancele o pedido: volta a `available`.
+3. Marque o pedido como Entregue e apague-o: o cupom segue `used` com `orderDeleted: true`.
+4. `?status=used`, `?status=available` e `?q=` (parte do nome, telefone, código do cupom ou do pedido) filtram; `?status=abc` → 400.
+5. `PATCH /api/admin/coupons/<id de um cupom BEMVINDO>` com `{"active":false}` e `DELETE` no mesmo id → 403, e o cupom continua valendo para o cliente. O mesmo em um cupom manual da loja continua funcionando.
+6. Criar cupom manual com código `BEMVINDO-TESTE` → 400 (prefixo reservado).
+
+
+### Painel: cupons de boas-vindas — interface (etapa 3.3b)
+1. Entre em `/admin` e abra **Cupons**; a seção "Cupons de primeira compra" deve mostrar os totais gerais.
+2. Confira a lista de clientes, telefone, código BEMVINDO, percentual e data.
+3. Filtre por Disponíveis, Já usados e Indisponíveis; confira que os totais não mudam com os filtros.
+4. Busque por parte do nome, telefone, código do cupom e código do pedido.
+5. Clique em Atualizar e confira que a lista recarrega.
+6. Um cupom usado cujo pedido foi excluído deve indicar "Pedido usado excluído".
+7. Confirme que os cupons automáticos não têm botões de editar/excluir; cupons manuais continuam com as ações normais.
+8. Repita no tema escuro e em celular; não deve haver rolagem horizontal.
