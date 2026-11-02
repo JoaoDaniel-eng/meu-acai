@@ -303,3 +303,9 @@
 - **Trufados:** os cards usavam variáveis de cor inexistentes (`--card-bg`, `--border-color`), então o fundo ficava branco mesmo no tema escuro, com texto claro. Agora usam `--card`/`--line`/`--ink`, com fundos escuros próprios no tema escuro e destaque no sabor escolhido.
 - Cache atualizado para `menu-fix-4` (index.html e service-worker.js).
 - Falta: conferir visualmente no navegador (claro/escuro, celular) e abrir o cardápio com o banco real.
+
+## Seta para abrir/fechar em "Meus favoritos" (02/11/2026)
+- A área "Meus favoritos" da conta agora é um painel recolhível, igual a "Meus cupons" e "Meus pedidos": título com seta, começa fechado, abre e fecha com animação (usa o mesmo código `.accordion-trigger` já existente, sem JS novo).
+- Os elementos internos (`#favorites-list`, `#favorites-message`) mantêm os mesmos IDs; carregar, adicionar ao pedido e remover favoritos continuam iguais.
+- Cache atualizado para `menu-fix-5`.
+- Falta: conferir no navegador (abrir/fechar, tema escuro, celular). O atalho "Meus favoritos" do menu lateral só rola até a seção; com o painel fechado ele não abre sozinho (mesmo comportamento de "Meus cupons").
