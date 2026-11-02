@@ -140,3 +140,21 @@ Considere o teste aprovado somente quando o fluxo terminar sem erro, os valores 
 3. Backup: baixe, restaure em um banco de teste e confira contas de clientes (login com a senha antiga), favoritos e “Meus pedidos”.
 4. Fotos: com `CLOUDINARY_URL`, envie avaliação com foto, aprove, veja na home; exclua e confira que sumiu do Cloudinary. Depois use “Mover fotos para o armazenamento” e confira as antigas.
 5. Instagram: links do cabeçalho e do rodapé abrem `instagram.com/darocacai`.
+
+## Monitoramento e nova versão
+- [ ] `/api/version` responde `{ "build": "..." }`. No código-fonte de `/` e de `/admin`, `<meta name="build">` traz o mesmo valor e os `?v=` dos scripts também.
+- [ ] `/service-worker.js` abre e o nome do cache (`acai-da-roca-v...`) usa esse valor.
+- [ ] Com a loja aberta, no console do navegador digite `setTimeout(()=>{throw new Error('teste')})`; em até alguns segundos o erro aparece em Painel → Erros e o aviso vermelho surge no topo. Use "Limpar lista" depois.
+- [ ] Desligue o banco ou force um erro 500: a falha aparece na aba Erros com origem "Servidor".
+- [ ] Faça um deploy novo com a loja aberta num celular: aparece "Nova versão disponível"; "Atualizar agora" recarrega e o carrinho continua.
+- [ ] Deixe a loja em segundo plano, faça outro deploy e volte: a tela atualiza sozinha uma vez.
+- [ ] Loja aberta, sem pedidos há mais de 3 h (ou defina `ALERT_NO_ORDERS_HOURS=0.01` num teste): o painel mostra o aviso amarelo. Fechada ou pausada: não mostra.
+- [ ] UptimeRobot: crie o monitor em `/api/health/db`, pause o serviço no Render e confirme que chega o aviso.
+
+## Histórico de pedidos
+- [ ] Com mais de 50 pedidos de teste, a aba Pedidos mostra 50 e "Carregar mais" traz os seguintes; a lista segue atualizando sozinha sem voltar ao início.
+- [ ] Buscar pelo código (ex.: AR-123456), por parte do nome, por telefone com e sem parênteses/traço e por bairro.
+- [ ] Filtrar por datas: pedido feito às 23h30 do dia 30 aparece no dia 30 (fuso de São Paulo), não no dia 31.
+- [ ] Combinar status + busca + datas; "Limpar filtros" volta à lista completa.
+- [ ] Baixar planilha: abrir no Excel (acentos corretos, colunas separadas, totais em reais) e conferir que respeita os filtros.
+- [ ] Nome de cliente começando com `=` ou `+` aparece como texto na planilha, sem virar fórmula.
