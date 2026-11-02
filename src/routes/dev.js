@@ -8,6 +8,7 @@ import { createAttemptLimiter } from '../services/rateLimit.js';
 import { BUILD_ID } from '../services/build.js';
 import { getPhotoStorage } from '../services/photoStorage.js';
 import { backupDownload, backupVerify, backupRestore } from '../services/backup.js';
+import { versionOf } from '../services/sessionVersion.js';
 import { validateEmail, validatePassword, normalizeEmail, likePattern, clampLimit } from '../services/devAccounts.js';
 // Painel do desenvolvedor (/dev): login próprio, separado do painel da loja.
 const router = Router();
@@ -24,7 +25,7 @@ router.post('/login', async (req, res, next) => {
       res.set('Retry-After', String(wait));
       return res.status(429).json({ error: `Muitas tentativas de login. Aguarde ${Math.ceil(wait / 60)} minuto(s) e tente novamente.` });
     }
-    const { rows } = await db.query('SELECT id,email,password_hash FROM developers WHERE email=$1', [email]);
+    const { rows } = await db.query('SELECT id,email,password_hash,password_changed_at FROM developers WHERE email=$1', [email]);
     const matches = await bcrypt.compare(password, rows[0] ? rows[0].password_hash : DUMMY_HASH);
     if (!rows[0] || !matches) {
       loginByIp.record(ip);
@@ -35,7 +36,7 @@ router.post('/login', async (req, res, next) => {
     loginByEmail.reset(email);
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)
       return res.status(500).json({ error: 'JWT_SECRET precisa ter pelo menos 32 caracteres.' });
-    const token = jwt.sign({ devId: rows[0].id, email: rows[0].email, type: 'developer' }, process.env.JWT_SECRET, { expiresIn: devTokenTtl(), algorithm: 'HS256' });
+    const token = jwt.sign({ devId: rows[0].id, email: rows[0].email, type: 'developer', pwv: versionOf(rows[0].password_changed_at) }, process.env.JWT_SECRET, { expiresIn: devTokenTtl(), algorithm: 'HS256' });
     await logLogin({ actor: 'dev', email: rows[0].email, ip });
     res.json({ token, email: rows[0].email });
   }
@@ -183,7 +184,7 @@ router.post('/admins/:id/password', async (req, res, next) => {
       return res.status(404).json({ error: 'Conta não encontrada.' });
     if (p.error)
       return res.status(400).json({ error: p.error });
-    const r = await getPool().query('UPDATE admins SET password_hash=$2 WHERE id=$1 RETURNING id', [id, await bcrypt.hash(p.password, 12)]);
+    const r = await getPool().query('UPDATE admins SET password_hash=$2, password_changed_at=NOW() WHERE id=$1 RETURNING id', [id, await bcrypt.hash(p.password, 12)]);
     if (!r.rowCount)
       return res.status(404).json({ error: 'Conta não encontrada.' });
     res.json({ ok: true });

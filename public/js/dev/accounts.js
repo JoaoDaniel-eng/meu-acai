@@ -26,7 +26,7 @@ $('#account-password-form').addEventListener('submit', async (e) => {
   try {
     await api(`/admins/${encodeURIComponent(fd.get('id'))}/password`, { method: 'POST', body: JSON.stringify({ password: fd.get('password') }) });
     f.elements.password.value = '';
-    say('Senha alterada. Avise a pessoa da loja.');
+    say('Senha alterada e sessões antigas encerradas. Avise a pessoa da loja.');
   }
   catch (err) {
     say(err.message);

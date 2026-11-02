@@ -1,38 +1,36 @@
 import jwt from 'jsonwebtoken';
-// Só aceita tokens emitidos pelo login do painel (type 'admin'). Tokens de cliente usam o mesmo
-// JWT_SECRET, então sem essa conferência uma conta de cliente conseguiria entrar na API do painel.
-export function requireAdmin(req, res, next) {
-  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!token)
-    return res.status(401).json({ error: 'Faça login para continuar.' });
-  try {
-    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)
-      throw new Error('JWT_SECRET inválido');
-    const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
-    if (payload.type !== 'admin' || !payload.adminId)
-      throw new Error('Token não é de administrador');
-    req.admin = payload;
-    next();
-  }
-  catch {
-    return res.status(401).json({ error: 'Sessão inválida ou expirada. Entre novamente.' });
-  }
+import { getPool } from '../db/pool.js';
+import { versionOf, tokenVersion } from '../services/sessionVersion.js';
+// Confere assinatura, tipo do token e, em seguida, se a conta ainda existe e se a senha não mudou depois do login.
+// Tokens de cliente usam o mesmo JWT_SECRET, então a conferência do tipo impede que uma conta de cliente entre nos painéis.
+function guard({ type, idField, table, reqKey, expiredMessage }) {
+  return async (req, res, next) => {
+    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (!token)
+      return res.status(401).json({ error: 'Faça login para continuar.' });
+    let payload;
+    try {
+      if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)
+        throw new Error('JWT_SECRET inválido');
+      payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+      if (payload.type !== type || !payload[idField])
+        throw new Error('Tipo de token incorreto');
+    }
+    catch {
+      return res.status(401).json({ error: 'Sessão inválida ou expirada. Entre novamente.' });
+    }
+    try {
+      const { rows } = await getPool().query(`SELECT password_changed_at FROM ${table} WHERE id=$1`, [payload[idField]]);
+      if (!rows.length || versionOf(rows[0].password_changed_at) !== tokenVersion(payload))
+        return res.status(401).json({ error: expiredMessage });
+      req[reqKey] = payload;
+      next();
+    }
+    catch (e) {
+      next(e);
+    }
+  };
 }
-// Painel do desenvolvedor: token próprio (type 'developer'). Tokens de administrador e de cliente não entram aqui.
-export function requireDev(req, res, next) {
-  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!token)
-    return res.status(401).json({ error: 'Faça login para continuar.' });
-  try {
-    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)
-      throw new Error('JWT_SECRET inválido');
-    const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
-    if (payload.type !== 'developer' || !payload.devId)
-      throw new Error('Token não é de desenvolvedor');
-    req.dev = payload;
-    next();
-  }
-  catch {
-    return res.status(401).json({ error: 'Sessão inválida ou expirada. Entre novamente.' });
-  }
-}
+export const requireAdmin = guard({ type: 'admin', idField: 'adminId', table: 'admins', reqKey: 'admin', expiredMessage: 'Sua senha foi alterada ou a conta não existe mais. Entre novamente.' });
+// Painel do desenvolvedor: token próprio (type 'developer').
+export const requireDev = guard({ type: 'developer', idField: 'devId', table: 'developers', reqKey: 'dev', expiredMessage: 'Sua senha foi alterada ou a conta não existe mais. Entre novamente.' });

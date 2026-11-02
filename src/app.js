@@ -11,6 +11,7 @@ import { PricingError } from './services/pricing.js';
 import { getPool } from './db/pool.js';
 import { BUILD_ID, stampVersions, stampServiceWorker } from './services/build.js';
 import { saveError } from './services/errorLog.js';
+import { cspMiddleware } from './services/csp.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Monta o app Express sem abrir porta nem conectar ao banco. O server.js liga tudo; os testes de rota usam direto.
@@ -18,6 +19,7 @@ export function createApp() {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
+  app.use(cspMiddleware(path.join(__dirname, '..', 'public')));
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -110,6 +112,8 @@ export function createApp() {
     }
   });
   app.use((req, res) => req.path.startsWith('/api/') ? res.status(404).json({ error: 'Rota não encontrada.' }) : res.status(404).sendFile(path.join(__dirname, '..', 'public', '404.html')));
+  // O Express só reconhece um tratador de erros com 4 parâmetros, mesmo que o último não seja usado.
+  // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, _next) => {
     if (err instanceof PricingError)
       return res.status(err.status).json({ error: err.message });

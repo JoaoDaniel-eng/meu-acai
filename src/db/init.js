@@ -125,6 +125,9 @@ export async function initializeDatabase() {
   const db = getPool();
   await db.query(schema);
   await db.query('DROP TABLE IF EXISTS admin_login_attempts');
+  // Momento da última troca de senha: tokens emitidos antes dela deixam de valer (ver services/sessionVersion.js).
+  await db.query('ALTER TABLE admins ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ');
+  await db.query('ALTER TABLE developers ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ');
   // Auditoria compartilhada: 'admin' (painel da loja) ou 'dev' (painel do desenvolvedor). Linhas antigas viram 'admin'.
   await db.query("ALTER TABLE admin_audit_logs ADD COLUMN IF NOT EXISTS actor VARCHAR(10) NOT NULL DEFAULT 'admin'");
   await db.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo TEXT');
@@ -203,8 +206,11 @@ export async function initializeDatabase() {
     await db.query('INSERT INTO options(name,category,price_cents,sort_order) VALUES($1,$2,$3,$4) ON CONFLICT(name,category) DO NOTHING', [item.name, item.category, item.price, item.sort]);
   // Desativa zonas antigas de demonstração que não pertencem à área de entrega solicitada.
   await db.query("UPDATE delivery_zones SET active=FALSE WHERE name = ANY($1::text[])", [['Centro', 'Alto', 'Várzea', 'Agriões', 'Barra do Imbuí']]);
-  for (const [name, fee] of zones)
-    await db.query('INSERT INTO delivery_zones(name,fee_cents) VALUES($1,$2) ON CONFLICT(name) DO UPDATE SET fee_cents=EXCLUDED.fee_cents, active=TRUE', [name, fee]);
+  // Bairros iniciais só entram em banco novo (tabela vazia). Depois disso o painel manda: taxas editadas,
+  // bairros desativados e bairros excluídos não voltam ao padrão a cada reinício ou deploy.
+  if (!(await db.query('SELECT 1 FROM delivery_zones LIMIT 1')).rowCount)
+    for (const [name, fee] of zones)
+      await db.query('INSERT INTO delivery_zones(name,fee_cents) VALUES($1,$2) ON CONFLICT(name) DO NOTHING', [name, fee]);
   if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);
     await db.query('INSERT INTO admins(email,password_hash) VALUES($1,$2) ON CONFLICT(email) DO NOTHING', [process.env.ADMIN_EMAIL.toLowerCase(), hash]);
@@ -219,7 +225,7 @@ export async function initializeDatabase() {
       if (!current)
         await db.query('INSERT INTO developers(email,password_hash) VALUES($1,$2)', [devEmail, await bcrypt.hash(process.env.DEV_PASSWORD, 12)]);
       else if (!(await bcrypt.compare(process.env.DEV_PASSWORD, current.password_hash)))
-        await db.query('UPDATE developers SET password_hash=$2 WHERE email=$1', [devEmail, await bcrypt.hash(process.env.DEV_PASSWORD, 12)]);
+        await db.query('UPDATE developers SET password_hash=$2, password_changed_at=NOW() WHERE email=$1', [devEmail, await bcrypt.hash(process.env.DEV_PASSWORD, 12)]);
     }
   }
   console.log('Banco de dados inicializado.');

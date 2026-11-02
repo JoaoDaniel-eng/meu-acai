@@ -5,7 +5,7 @@ function restoreSavedDetails() {
     const saved = JSON.parse(localStorage.getItem('acaiCustomerDetails') || 'null');
     if (saved) {
       for (const [key, value] of Object.entries({ customerName: saved.customerName, phone: saved.phone, address: saved.address })) {
-        const field = document.querySelector(`#checkout-form [name=\"${key}\"]`);
+        const field = document.querySelector(`#checkout-form [name="${key}"]`);
         if (field && value)
           field.value = value;
       }

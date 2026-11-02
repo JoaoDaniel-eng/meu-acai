@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { getPool } from '../db/pool.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { auditMutations, logLogin } from '../services/audit.js';
+import { versionOf } from '../services/sessionVersion.js';
 import { getSettings } from '../services/store.js';
 import { calculateLoyaltyPoints } from '../services/promotions.js';
 import { photoBufferFromDataUrl } from '../services/reviews.js';
@@ -29,7 +30,7 @@ router.post('/login', async (req, res, next) => {
       res.set('Retry-After', String(wait));
       return res.status(429).json({ error: `Muitas tentativas de login. Aguarde ${Math.ceil(wait / 60)} minuto(s) e tente novamente.` });
     }
-    const { rows } = await db.query('SELECT id,email,password_hash FROM admins WHERE email=$1', [email]);
+    const { rows } = await db.query('SELECT id,email,password_hash,password_changed_at FROM admins WHERE email=$1', [email]);
     // Compara sempre com algum hash para que e-mail inexistente e senha errada demorem o mesmo.
     const matches = await bcrypt.compare(password, rows[0] ? rows[0].password_hash : DUMMY_HASH);
     const valid = !!rows[0] && matches;
@@ -42,7 +43,7 @@ router.post('/login', async (req, res, next) => {
     loginByEmail.reset(email);
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)
       return res.status(500).json({ error: 'JWT_SECRET precisa ter pelo menos 32 caracteres.' });
-    const token = jwt.sign({ adminId: rows[0].id, email: rows[0].email, type: 'admin' }, process.env.JWT_SECRET, { expiresIn: adminTokenTtl(), algorithm: 'HS256' });
+    const token = jwt.sign({ adminId: rows[0].id, email: rows[0].email, type: 'admin', pwv: versionOf(rows[0].password_changed_at) }, process.env.JWT_SECRET, { expiresIn: adminTokenTtl(), algorithm: 'HS256' });
     await logLogin({ actor: 'admin', adminId: rows[0].id, email: rows[0].email, ip });
     res.json({ token, email: rows[0].email });
   }
@@ -793,7 +794,7 @@ router.delete('/inventory/items/:id', async (req, res, next) => {
     client.release();
   }
 });
-router.post('/inventory/movements', async (req, res, next) => {
+router.post('/inventory/movements', async (req, res) => {
   const client = await getPool().connect();
   try {
     const id = Number(req.body.itemId), qty = Number(req.body.quantity), type = String(req.body.type || ''), totalPaid = Number(String(req.body.totalPaid ?? 0).replace(',', '.'));

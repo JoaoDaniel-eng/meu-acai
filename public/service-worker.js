@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acai-da-roca-v20261101-rodada3-13';
+const CACHE_NAME = 'acai-da-roca-v20261102-galeria-1';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -21,8 +21,10 @@ const APP_SHELL = [
   '/js/site/store-banner.js?v=20261101-rodada3-13',
   '/js/site/main.js?v=20261101-rodada3-13',
   '/manifest.webmanifest',
-  '/images/acai-ninho-brigadeiro.webp',
-  '/images/acai-ninho-morango.webp',
+  '/images/acai-morango-proibido.webp',
+  '/images/acai-pecado-de-amendoim.webp',
+  '/images/acai-doce-tentacao.webp',
+  '/images/acai-ninho-tropical.webp',
   '/images/icon-192.png',
   '/images/icon-512.png',
   '/images/icon-maskable-512.png',
