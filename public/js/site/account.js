@@ -34,6 +34,7 @@ async function loadCustomerAccount() {
     return;
   }
   loadCustomerOrders();
+  loadCustomerCoupons();
   loadFavorites();
 }
 async function loadCustomerOrders() {
@@ -84,13 +85,14 @@ $('#customer-register-form').addEventListener('submit', async (e) => {
     form.reset();
     customerMessage('#customer-register-message', '');
     await loadCustomerAccount();
+    showWelcomeCoupon(data.welcomeCoupon);
     $('#minha-conta').scrollIntoView({ behavior: 'smooth' });
   }
   catch (err) {
     customerMessage('#customer-register-message', err.message, true);
   }
 });
-function doLogout() { localStorage.removeItem('acaiCustomerToken'); localStorage.removeItem('acaiOrderStatuses'); setAccountView(false); applyAuthUI(null); customerMessage('#customer-login-message', 'Você saiu da sua conta.'); }
+function doLogout() { hideWelcomeCoupon(); resetCustomerCoupons(); localStorage.removeItem('acaiCustomerToken'); localStorage.removeItem('acaiOrderStatuses'); setAccountView(false); applyAuthUI(null); customerMessage('#customer-login-message', 'Você saiu da sua conta.'); }
 $('#customer-logout').addEventListener('click', doLogout);
 $('#customer-profile-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -131,4 +133,108 @@ document.addEventListener('click', e => {
   $('#tracking-form [name=phone]').value = b.dataset.orderPhone;
   $('#tracking-form').requestSubmit();
   $('#acompanhar').scrollIntoView({ behavior: 'smooth' });
+});
+
+// Cupom de boas-vindas: aviso mostrado logo após o cadastro (o cupom em si fica em "Meus cupons").
+var welcomeCouponCode = '';
+function showWelcomeCoupon(coupon) {
+  if (!coupon || !coupon.code)
+    return;
+  welcomeCouponCode = String(coupon.code);
+  $('#welcome-coupon-text').textContent = `Sua conta foi criada e você ganhou ${Number(coupon.percent) || 5}% de desconto na primeira compra. O cupom é só seu e vale uma vez.`;
+  $('#welcome-coupon-code').textContent = welcomeCouponCode;
+  customerMessage('#welcome-coupon-message', '');
+  $('#welcome-coupon-banner').classList.remove('hidden');
+}
+function hideWelcomeCoupon() {
+  welcomeCouponCode = '';
+  $('#welcome-coupon-banner').classList.add('hidden');
+  customerMessage('#welcome-coupon-message', '');
+}
+// Coloca o código no campo de cupom do pedido e, se já há itens no carrinho, aplica na hora.
+function useCouponInOrder(code, messageSelector) {
+  const field = $('#coupon-code');
+  field.value = String(code || '').toUpperCase();
+  field.dispatchEvent(new Event('input'));
+  if (cart.length) {
+    $('#apply-coupon').click();
+    customerMessage(messageSelector, 'Cupom colocado no seu pedido.');
+  }
+  else {
+    customerMessage(messageSelector, 'Cupom guardado no campo do pedido. Escolha seu açaí e toque em "Aplicar cupom".');
+  }
+  $('#cardapio').scrollIntoView({ behavior: 'smooth' });
+}
+async function copyCouponCode(code, messageSelector) {
+  try {
+    await navigator.clipboard.writeText(code);
+    customerMessage(messageSelector, 'Código copiado.');
+  }
+  catch {
+    customerMessage(messageSelector, `Não consegui copiar sozinho. Seu código é ${code}.`, true);
+  }
+}
+$('#welcome-coupon-close').addEventListener('click', hideWelcomeCoupon);
+$('#welcome-coupon-copy').addEventListener('click', () => copyCouponCode(welcomeCouponCode, '#welcome-coupon-message'));
+$('#welcome-coupon-use').addEventListener('click', () => useCouponInOrder(welcomeCouponCode, '#welcome-coupon-message'));
+
+// ===== Meus cupons =====
+var couponsSnapshot = '';
+const couponStatusInfo = {
+  available: { label: 'Disponível', cls: 'coupon-available' },
+  used: { label: 'Já usado', cls: 'coupon-used' },
+  inactive: { label: 'Indisponível', cls: 'coupon-inactive' }
+};
+function resetCustomerCoupons() {
+  couponsSnapshot = '';
+  const list = $('#coupons-list');
+  if (list)
+    list.innerHTML = '<p class="muted">Carregando cupons…</p>';
+  customerMessage('#coupons-message', '');
+}
+function renderCustomerCoupons(coupons) {
+  const list = $('#coupons-list');
+  if (!coupons.length) {
+    list.innerHTML = '<p class="muted">Você não tem cupons no momento. O cupom de boas-vindas (5% na primeira compra) é entregue a quem cria a conta antes de fazer o primeiro pedido.</p>';
+    return;
+  }
+  list.innerHTML = coupons.map(c => {
+    const info = couponStatusInfo[c.status] || couponStatusInfo.inactive;
+    const percent = Number(c.percent) || 0;
+    const usedOn = c.status === 'used' && c.usedAt ? ` em ${new Date(c.usedAt).toLocaleDateString('pt-BR')}` : '';
+    const note = c.status === 'available'
+      ? `${percent}% de desconto na sua primeira compra (uso único, não vale sobre a entrega).`
+      : c.status === 'used'
+        ? `Cupom usado${usedOn}. Se o pedido for cancelado, o cupom volta para você automaticamente.`
+        : 'Este cupom não está disponível no momento. Fale com a loja se tiver dúvidas.';
+    const actions = c.status === 'available'
+      ? `<div class="coupon-actions"><button type="button" class="button button-outline button-small" data-coupon-copy="${esc(c.code)}">Copiar código</button><button type="button" class="button button-green button-small" data-coupon-use="${esc(c.code)}">Usar no pedido</button></div>`
+      : '';
+    return `<article class="coupon-card ${info.cls}"><div class="coupon-card-top"><code>${esc(c.code)}</code><span class="coupon-badge">${info.label}</span></div><p class="muted">${note}</p>${actions}</article>`;
+  }).join('');
+}
+async function loadCustomerCoupons() {
+  const list = $('#coupons-list');
+  if (!list)
+    return;
+  try {
+    const r = await api('/customers/me/coupons');
+    const coupons = r.coupons || [];
+    const snap = JSON.stringify(coupons);
+    if (snap === couponsSnapshot)
+      return;
+    couponsSnapshot = snap;
+    renderCustomerCoupons(coupons);
+  }
+  catch {
+    if (!couponsSnapshot)
+      list.innerHTML = '<p class="muted">Não foi possível carregar seus cupons agora.</p>';
+  }
+}
+document.addEventListener('click', e => {
+  const copy = e.target.closest('[data-coupon-copy]'), use = e.target.closest('[data-coupon-use]');
+  if (copy)
+    copyCouponCode(copy.dataset.couponCopy, '#coupons-message');
+  else if (use)
+    useCouponInOrder(use.dataset.couponUse, '#coupons-message');
 });

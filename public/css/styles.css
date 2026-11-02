@@ -705,3 +705,52 @@ html[data-theme="dark"] .dev-counts b{color:#e2c6f5}
 .hero-photo{position:relative;height:100%;width:auto;max-width:100%;object-fit:contain;filter:drop-shadow(0 22px 26px rgba(43,10,61,.28));animation:heroFloat 5s ease-in-out infinite}
 @keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 @media(prefers-reduced-motion:reduce){.hero-photo{animation:none}}
+
+/* Celular: o ícone do Instagram fica no começo da barra de atalhos, sem precisar rolar. */
+@media(max-width:620px){.site-header nav>a.header-instagram{order:-2;padding:7px 11px}}
+
+/* Cupom de boas-vindas (aviso após o cadastro) */
+.welcome-coupon-banner{position:relative;display:flex;gap:1rem;align-items:flex-start;margin-bottom:1rem;padding:1.25rem 2.5rem 1.25rem 1.25rem;border-radius:18px;border:1px solid #cfe9b8;background:linear-gradient(115deg,#f1fae7,#fff4dc);box-shadow:0 8px 28px rgba(40,15,50,.06)}
+.welcome-coupon-emoji{font-size:2.2rem;line-height:1}
+.welcome-coupon-body{min-width:0;flex:1}
+.welcome-coupon-body h3{margin:0 0 .35rem;color:var(--purple)}
+.welcome-coupon-body p{margin:0 0 .75rem;color:#4b3f52;font-size:.92rem}
+.welcome-coupon-code{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin-bottom:.75rem}
+.welcome-coupon-code code{padding:.5rem .85rem;border-radius:10px;border:2px dashed var(--purple2);background:#fff;color:var(--purple);font-weight:800;letter-spacing:1px;font-size:1.05rem;overflow-wrap:anywhere}
+.welcome-coupon-close{position:absolute;top:.4rem;right:.6rem;border:0;background:transparent;font-size:1.5rem;line-height:1;color:var(--muted);padding:.2rem .45rem;border-radius:8px}
+html[data-theme="dark"] .welcome-coupon-banner{background:linear-gradient(115deg,#22331a,#2a2236);border-color:#3f6130}
+html[data-theme="dark"] .welcome-coupon-body p{color:#e3d6ea}
+html[data-theme="dark"] .welcome-coupon-code code{background:#1f1229;color:#ead9f7;border-color:#a67cc0}
+html[data-theme="dark"] .welcome-coupon-close{color:#cdbdd6}
+@media(max-width:700px){.welcome-coupon-banner{padding-right:2.2rem}.welcome-coupon-actions .button{width:100%}}
+
+/* Meus cupons */
+.coupon-card{border:1px solid rgba(80,40,100,.15);border-radius:14px;padding:1rem;margin:.8rem 0}
+.coupon-card-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.4rem}
+.coupon-card code{padding:.35rem .7rem;border-radius:9px;border:2px dashed var(--purple2);background:#fff;color:var(--purple);font-weight:800;letter-spacing:1px;overflow-wrap:anywhere}
+.coupon-badge{padding:.25rem .65rem;border-radius:999px;font-size:.75rem;font-weight:800;background:#eee;color:#555}
+.coupon-available .coupon-badge{background:#e7f5dc;color:#356f1a}
+.coupon-used .coupon-badge{background:#f1e6f6;color:var(--purple2)}
+.coupon-used code,.coupon-inactive code{opacity:.6;border-style:solid}
+.coupon-card p{margin:.2rem 0 0}
+.coupon-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
+html[data-theme="dark"] .coupon-card{border-color:#3a2650}
+html[data-theme="dark"] .coupon-card code{background:#1f1229;color:#ead9f7;border-color:#a67cc0}
+html[data-theme="dark"] .coupon-badge{background:#2d2236;color:#d8c9e0}
+html[data-theme="dark"] .coupon-available .coupon-badge{background:#22331a;color:#a8e27a}
+html[data-theme="dark"] .coupon-used .coupon-badge{background:#33204a;color:#ead9f7}
+@media(max-width:700px){.coupon-actions .button{flex:1}}
+
+
+/* Painel: visão dos cupons automáticos de primeira compra */
+.welcome-admin{margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--line)}
+.welcome-coupon-tools{display:grid;grid-template-columns:minmax(0,2fr) minmax(180px,1fr);gap:10px;margin:1rem 0}
+.welcome-admin-row{display:grid;grid-template-columns:1.2fr 1fr auto 1fr auto;gap:12px;align-items:center;padding:13px 12px;border:1px solid var(--line);border-radius:12px;margin:.6rem 0;min-width:0}
+.welcome-admin-row>div{display:grid;gap:4px;min-width:0}
+.welcome-admin-row small{font-size:.78rem;color:var(--muted);overflow-wrap:anywhere}
+.welcome-admin-row code{font-weight:800;color:var(--purple);overflow-wrap:anywhere}
+.welcome-admin-order{font-size:.85rem}
+.welcome-admin-date{text-align:right}
+html[data-theme="dark"] .welcome-admin-row{border-color:#3a2650}
+html[data-theme="dark"] .welcome-admin-row code{color:#e2c6f5}
+@media(max-width:760px){.welcome-coupon-tools{grid-template-columns:1fr}.welcome-admin-row{grid-template-columns:1fr 1fr;gap:8px}.welcome-admin-row .coupon-badge{justify-self:start}.welcome-admin-date{text-align:left}}

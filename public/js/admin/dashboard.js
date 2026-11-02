@@ -58,8 +58,10 @@ async function loadTab(tab) {
       await loadSettings();
     if (tab === 'reports')
       await loadReports();
-    if (tab === 'coupons')
+    if (tab === 'coupons') {
       await loadCoupons();
+      await loadWelcomeCoupons();
+    }
     if (tab === 'customers')
       await loadCustomers();
   }

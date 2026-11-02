@@ -58,8 +58,10 @@ async function refreshTracked() {
 $('#tracking-result').addEventListener('input', () => { trackDirty = true; });
 $('#tracking-result').addEventListener('change', () => { trackDirty = true; });
 function loadCustomerOrdersIfSignedIn() {
-  if (localStorage.getItem('acaiCustomerToken'))
+  if (localStorage.getItem('acaiCustomerToken')) {
     loadCustomerOrders();
+    loadCustomerCoupons();
+  }
 }
 function startAccountLive() {
   stopAccountLive();
@@ -67,6 +69,7 @@ function startAccountLive() {
     if (document.hidden || !localStorage.getItem('acaiCustomerToken'))
       return;
     loadCustomerOrders();
+    loadCustomerCoupons();
     try {
       const d = await api('/customers/me');
       setPoints(d.loyaltyBalance);

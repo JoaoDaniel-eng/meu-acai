@@ -52,6 +52,8 @@ sideMenu.addEventListener('click', e => {
     goTo('#minha-conta');
   else if (a === 'orders')
     goTo('#meus-pedidos');
+  else if (a === 'coupons')
+    goTo('#meus-cupons');
   else if (a === 'favorites')
     goTo('#meus-favoritos');
   else if (a === 'settings')

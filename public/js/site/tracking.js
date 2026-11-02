@@ -150,6 +150,7 @@ document.addEventListener('click', async (e) => {
     renderTracking(trackedOrder);
     whatsapp(`Olá! Solicito o CANCELAMENTO do pedido ${r.order_code} no Açaí da Roça. O pedido foi cancelado pelo site.`, r.whatsappNumber);
     $('#tracking-action-message').textContent = 'Pedido cancelado no site. Envie a mensagem no WhatsApp para avisar a loja.';
+    loadCustomerOrdersIfSignedIn();
   }
   catch (err) {
     msg.textContent = err.message;
