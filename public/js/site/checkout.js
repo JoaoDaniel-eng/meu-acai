@@ -186,7 +186,7 @@ $('#checkout-form').addEventListener('submit', async (e) => {
     const lines = order.items.map(i => `• ${i.quantity}x ${i.product} (${i.size})\n  ${i.options.map(o => o.name).join(', ') || 'Sem adicionais'} — ${brl(i.lineTotalCents)}`).join('\n');
     const scheduled = order.scheduledFor ? `\nAgendamento: ${new Date(order.scheduledFor).toLocaleString('pt-BR')}` : '\nEntrega: assim que possível';
     const text = `Olá! Quero confirmar o pedido ${order.orderCode} no Açaí da Roça.\n\n${lines}\n\nSubtotal: ${brl(order.subtotalCents)}${order.comboDiscountCents ? `\nDesconto combo: -${brl(order.comboDiscountCents)}` : ''}${order.discountCents ? `\nCupom ${order.couponCode}: -${brl(order.discountCents)}` : ''}\nEntrega (${order.neighborhood}): ${brl(order.deliveryFeeCents)}\nTOTAL: ${brl(order.totalCents)}\nPrevisão estimada: ${order.estimatedMinutesMin} a ${order.estimatedMinutesMax} minutos\n\nNome: ${order.customerName}\nTelefone: ${order.phone}\nEndereço: ${order.address}
-Forma de pagamento: ${order.paymentMethod}${order.pix ? ' (envio o comprovante por aqui)\n' + PIX_NOTICE + '\nValor do Pix: ' + brl(order.pix.amountCents) : ''}${order.changeFor ? `\nTroco para: R$ ${order.changeFor}` : ''}${scheduled}${order.notes ? '\nObservações: ' + order.notes : ''}\n\nO pedido foi registrado pelo site.${order.pix ? '\n\n💜 Pix copia e cola (copie só o código abaixo e cole no app do banco):\n\n' + String(order.pix.payload || '').trim() : ''}`;
+Forma de pagamento: ${order.paymentMethod}${order.pix ? '\nValor do Pix: ' + brl(order.pix.amountCents) + '\n' + PIX_NOTICE : ''}${order.changeFor ? `\nTroco para: R$ ${order.changeFor}` : ''}${scheduled}${order.notes ? '\nObservações: ' + order.notes : ''}\n\nO pedido foi registrado pelo site.${order.pix ? '\nO código Pix está disponível no site, na tela do pedido. Após pagar, envie o comprovante nesta conversa.\n' + PIX_NOTICE : ''}`;
     msg.textContent = `Pedido ${order.orderCode} registrado! Agora envie no WhatsApp para a loja confirmar (botão abaixo). Guarde esse código para acompanhar, editar ou cancelar seu pedido na seção “Acompanhe seu pedido”.`;
     $('#tracking-form [name=code]').value = order.orderCode;
     $('#tracking-form [name=phone]').value = order.phone;
@@ -229,7 +229,7 @@ function showWhatsappStep(anchor, order, url) {
   const t = document.createElement('strong');
   t.textContent = `Falta só um passo: envie o pedido ${order.orderCode} no WhatsApp`;
   const p = document.createElement('p');
-  p.textContent = order.pix ? 'Envie a mensagem no WhatsApp: o código Pix copia e cola vai dentro dela. Copie o código, pague no app do seu banco e mande o comprovante na mesma conversa. ' + PIX_NOTICE : 'O pedido só é confirmado pela loja depois que você enviar a mensagem. Se o WhatsApp não abriu sozinho, toque no botão abaixo.';
+  p.textContent = order.pix ? 'O código Pix copia e cola está nesta página, logo abaixo. Use o botão para copiar, pague pelo app do seu banco e envie o comprovante nesta conversa do WhatsApp. ' + PIX_NOTICE : 'O pedido só é confirmado pela loja depois que você enviar a mensagem. Se o WhatsApp não abriu sozinho, toque no botão abaixo.';
   const a = document.createElement('a');
   a.className = 'button button-primary button-full';
   a.href = url;
@@ -237,6 +237,7 @@ function showWhatsappStep(anchor, order, url) {
   a.rel = 'noopener noreferrer';
   a.textContent = 'Enviar pedido no WhatsApp';
   box.append(t, p);
+  if (order.pix) box.append(pixBlock(order.pix));
   box.append(a);
   anchor.insertAdjacentElement('afterend', box);
   box.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -259,18 +260,21 @@ function pixBlock(pix) {
   btn.className = 'button button-outline button-full';
   btn.textContent = 'Copiar código Pix';
   btn.addEventListener('click', async () => {
+    const payload = String(pix.payload || '').trim();
+    let copied = false;
     try {
-      await navigator.clipboard.writeText(pix.payload);
-    }
-    catch {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(payload);
+        copied = true;
+      }
+    } catch { /* tenta alternativa compatível */ }
+    if (!copied) {
       code.focus();
       code.select();
-      try {
-        document.execCommand('copy');
-      }
-      catch { }
+      code.setSelectionRange(0, code.value.length);
+      try { copied = document.execCommand('copy'); } catch { copied = false; }
     }
-    btn.textContent = 'Código copiado! Cole no app do seu banco';
+    btn.textContent = copied ? '✓ Código copiado! Cole no app do banco' : 'Selecione e copie o código acima';
     setTimeout(() => { btn.textContent = 'Copiar código Pix'; }, 4000);
   });
   wrap.append(h, hint, code, btn);
