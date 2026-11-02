@@ -8,12 +8,30 @@ async function load() {
     $('#combo-promo-text').textContent = `Adicione ${store.comboMinItems} ou mais açaís ao carrinho e ganhe ${store.comboDiscountPercent}% de desconto automaticamente.`;
     if (!menu.products.length)
       throw new Error('O cardápio está indisponível.');
-    selectedSize = traditionalProduct()?.sizes[0] || null;
+    const traditional = traditionalProduct();
+    const truffled = menu.products.filter(p => p.type === 'truffled');
+    const hasTraditional = Boolean(traditional && Array.isArray(traditional.sizes) && traditional.sizes.length);
+    const hasTruffled = truffled.some(p => Array.isArray(p.sizes) && p.sizes.length);
+    if (!hasTraditional && !hasTruffled)
+      throw new Error('Nenhum produto com tamanho disponível foi encontrado.');
+    selectedSize = hasTraditional ? traditional.sizes.find(size => !size.soldOut) || traditional.sizes[0] : null;
     $('#menu-status').classList.add('hidden');
     $('#builder').classList.remove('hidden');
     renderBuilder();
     renderTruffledMenu();
-    $('#menu-category-tabs').classList.remove('hidden');
+    const traditionalTab = $('[data-menu-category="traditional"]');
+    const truffledTab = $('[data-menu-category="truffled"]');
+    traditionalTab.classList.toggle('hidden', !hasTraditional);
+    truffledTab.classList.toggle('hidden', !hasTruffled);
+    $('#menu-category-tabs').classList.toggle('hidden', !(hasTraditional && hasTruffled));
+    $('.builder-main').classList.toggle('hidden', !hasTraditional);
+    $('#truffled-menu').classList.toggle('hidden', hasTraditional || !hasTruffled);
+    if (!hasTraditional && hasTruffled) {
+      truffledTab.classList.add('button-primary');
+      truffledTab.classList.remove('button-outline');
+      truffledTab.setAttribute('aria-selected', 'true');
+      traditionalTab.setAttribute('aria-selected', 'false');
+    }
     updateZones();
     restoreSavedDetails();
     restoreCart();
@@ -27,13 +45,13 @@ async function load() {
   await loadReviews();
 }
 function renderTruffledMenu() {
-  const products = menu.products.filter(p => p.type === 'truffled');
+  const products = menu.products.filter(p => p.type === 'truffled' && Array.isArray(p.sizes) && p.sizes.length);
   $('#truffled-flavors').innerHTML = products.map(p => `<button type="button" class="truffled-flavor-card ${selectedTruffleProduct?.id === p.id ? 'chosen' : ''}" data-truffle-flavor="${p.id}">${p.image_url ? `<img src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}<strong>${esc(p.name)}</strong><span>Escolher tamanho →</span></button>`).join('');
   if (!products.length) $('#truffled-flavors').innerHTML = '<p class="muted">Nenhum sabor trufado disponível no momento.</p>';
 }
 function renderTruffledSizes() {
   const panel = $('#truffled-sizes');
-  if (!selectedTruffleProduct) { panel.classList.add('hidden'); return; }
+  if (!selectedTruffleProduct || !Array.isArray(selectedTruffleProduct.sizes) || !selectedTruffleProduct.sizes.length) { panel.classList.add('hidden'); return; }
   panel.classList.remove('hidden');
   panel.innerHTML = `<h3>${esc(selectedTruffleProduct.name)}</h3><p class="muted">Agora escolha o tamanho:</p><div class="size-grid">${selectedTruffleProduct.sizes.map(size => `<button type="button" class="size-card ${size.soldOut ? 'sold-out' : ''}" data-truffle-size="${size.id}" ${size.soldOut ? 'disabled' : ''}><span>${esc(size.name)}</span><strong>${size.soldOut ? 'Esgotado' : brl(size.price)}</strong></button>`).join('')}</div>`;
 }

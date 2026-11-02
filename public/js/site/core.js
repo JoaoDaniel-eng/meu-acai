@@ -31,9 +31,18 @@ function renderOptions(category, target) { const opts = menu.options.filter(o =>
 function traditionalProduct() { return menu.products.find(p => p.type !== 'truffled'); }
 function renderBuilder() {
   const product = traditionalProduct();
-  if (selectedSize && product.sizes.find(x => x.id === selectedSize.id)?.soldOut)
+  if (!product) {
     selectedSize = null;
-  $('#sizes').innerHTML = product.sizes.map((s, i) => `<label class="size-card ${selectedSize?.id === s.id ? 'chosen' : ''}${s.soldOut ? ' sold-out' : ''}"><input type="radio" name="size" data-size="${s.id}" ${selectedSize?.id === s.id ? 'checked' : ''}${s.soldOut ? ' disabled' : ''}><span>${esc(s.name)}</span><strong>${s.soldOut ? 'Esgotado' : brl(s.price)}</strong></label>`).join('');
+    $('#sizes').innerHTML = '<p class="muted">A categoria de açaís tradicionais não está disponível no momento.</p>';
+    ['#toppings', '#syrups', '#extras', '#mousses'].forEach(target => { $(target).innerHTML = '<p class="muted">Opção indisponível.</p>'; });
+    $('#topping-counter').textContent = `0/${store.maxFreeToppings}`;
+    $('#unit-price').textContent = brl(0);
+    return;
+  }
+  const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  if (selectedSize && sizes.find(x => x.id === selectedSize.id)?.soldOut)
+    selectedSize = null;
+  $('#sizes').innerHTML = sizes.length ? sizes.map(s => `<label class="size-card ${selectedSize?.id === s.id ? 'chosen' : ''}${s.soldOut ? ' sold-out' : ''}"><input type="radio" name="size" data-size="${s.id}" ${selectedSize?.id === s.id ? 'checked' : ''}${s.soldOut ? ' disabled' : ''}><span>${esc(s.name)}</span><strong>${s.soldOut ? 'Esgotado' : brl(s.price)}</strong></label>`).join('') : '<p class="muted">Nenhum tamanho tradicional disponível no momento.</p>';
   renderOptions('topping', '#toppings');
   renderOptions('syrup', '#syrups');
   renderOptions('extra', '#extras');
