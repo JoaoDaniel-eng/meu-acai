@@ -52,7 +52,7 @@ router.get('/menu', async (_req, res, next) => {
     const db = getPool();
     const [p, s, o, z, stock] = await Promise.all([
       db.query('SELECT id,name,description,product_type AS type,image_url,active FROM products WHERE active=true ORDER BY sort_order,id'),
-      db.query('SELECT s.id,s.product_id,s.name,s.price_cents AS price,p.name AS product_name FROM product_sizes s JOIN products p ON p.id=s.product_id WHERE s.active=true ORDER BY s.sort_order,s.id'),
+      db.query('SELECT s.id,s.product_id,s.name,s.price_cents AS price,p.name AS product_name FROM product_sizes s JOIN products p ON p.id=s.product_id WHERE s.active=true ORDER BY sort_order,id'),
       db.query('SELECT id,name,category,price_cents AS price FROM options WHERE active=true ORDER BY sort_order,id'),
       db.query('SELECT id,name,fee_cents AS fee FROM delivery_zones WHERE active=true ORDER BY name'),
       // Receitas por tamanho x saldo: tamanho cujo ingrediente não cobre nem um copo aparece como esgotado.
