@@ -297,3 +297,9 @@
 - A tela não oferece ações de edição/exclusão dos cupons pessoais; a API também já bloqueia essas operações.
 - Atualizados os identificadores estáticos de cache; o servidor continua estampando `?v=` e o cache do service worker com o identificador do deploy.
 - Validação: `node --check` dos JS alterados e 118 testes de serviço passaram. `npm test` completo teve 1 falha ambiental em `tests/health.test.js` porque as dependências (`express`) não estão instaladas; testes de rota PostgreSQL seguem condicionados a `TEST_DATABASE_URL`. Falta conferir a tela no navegador com admin logado e banco real.
+
+## Correção do cardápio e cores dos trufados (02/11/2026)
+- **Erro no cardápio:** a consulta de tamanhos em `GET /api/menu` (`src/routes/public.js`) usava `ORDER BY sort_order,id` com duas tabelas que têm `sort_order` (`product_sizes` e `products`), o que o PostgreSQL recusa por ambiguidade. Agora é `ORDER BY s.sort_order,s.id`. Não pude executar contra um PostgreSQL real aqui: confirme abrindo o site após o deploy.
+- **Trufados:** os cards usavam variáveis de cor inexistentes (`--card-bg`, `--border-color`), então o fundo ficava branco mesmo no tema escuro, com texto claro. Agora usam `--card`/`--line`/`--ink`, com fundos escuros próprios no tema escuro e destaque no sabor escolhido.
+- Cache atualizado para `menu-fix-4` (index.html e service-worker.js).
+- Falta: conferir visualmente no navegador (claro/escuro, celular) e abrir o cardápio com o banco real.
