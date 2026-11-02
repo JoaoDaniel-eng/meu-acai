@@ -72,6 +72,8 @@ function setPoints(n) { const has = typeof n === 'number'; const txt = has ? `�
 function applyAuthUI(customer, points) {
   const signedIn = !!customer;
   document.body.dataset.auth = signedIn ? 'in' : 'out';
+  const welcomePromo = document.getElementById('welcome-promo');
+  if (welcomePromo) welcomePromo.classList.toggle('hidden', signedIn);
   const first = signedIn ? String(customer.name || '').trim().split(/\s+/)[0] : '';
   $('#header-greeting').textContent = signedIn ? `Olá, ${first}! 👋` : '';
   $('#header-greeting').classList.toggle('hidden', !signedIn);
