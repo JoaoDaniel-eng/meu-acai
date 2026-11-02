@@ -2,10 +2,16 @@
 async function loadReviews() {
   try {
     const reviews = await api('/reviews');
-    $('#reviews-list').innerHTML = reviews.length ? reviews.map(r => `<article class="review-card"><div class="stars" aria-label="Nota ${r.rating} de 5">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div><strong>${esc(r.name)}</strong><p>${esc(r.comment)}</p>${r.has_photo ? `<button type="button" class="review-photo-thumb" data-review-photo="/api/reviews/${Number(r.id)}/photo" aria-label="Ver foto enviada por ${esc(r.name)}"><img src="/api/reviews/${Number(r.id)}/photo" alt="Foto enviada por ${esc(r.name)}" loading="lazy"></button>` : ''}</article>`).join('') : '<p class="muted">Ainda não há avaliações publicadas. Seja a primeira pessoa a avaliar!</p>';
+    const card = r => `<article class="review-card"><div class="stars" aria-label="Nota ${r.rating} de 5">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div><strong>${esc(r.name)}</strong><p>${esc(r.comment)}</p>${r.has_photo ? `<button type="button" class="review-photo-thumb" data-review-photo="/api/reviews/${Number(r.id)}/photo" aria-label="Ver foto enviada por ${esc(r.name)}"><img src="/api/reviews/${Number(r.id)}/photo" alt="Foto enviada por ${esc(r.name)}" loading="lazy"></button>` : ''}</article>`;
+    $('#reviews-list').innerHTML = reviews.length ? reviews.map(card).join('') : '<p class="muted">Ainda não há avaliações publicadas. Seja a primeira pessoa a avaliar!</p>';
+    const preview = $('#reviews-preview');
+    if (preview)
+      preview.innerHTML = reviews.length ? reviews.slice(0, 3).map(card).join('') : '<p class="muted">Ainda não há avaliações publicadas. Seja a primeira pessoa a avaliar!</p>';
   }
   catch {
     $('#reviews-list').innerHTML = '<p class="muted">Avaliações indisponíveis no momento.</p>';
+    if ($('#reviews-preview'))
+      $('#reviews-preview').innerHTML = '<p class="muted">Avaliações indisponíveis no momento.</p>';
   }
 }
 $('#review-form').addEventListener('submit', async (e) => {

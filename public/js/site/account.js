@@ -161,7 +161,7 @@ function useCouponInOrder(code, messageSelector) {
     customerMessage(messageSelector, 'Cupom colocado no seu pedido.');
   }
   else {
-    customerMessage(messageSelector, 'Cupom guardado no campo do pedido. Escolha seu açaí e toque em "Aplicar cupom".');
+    customerMessage(messageSelector, 'Cupom guardado no campo do pedido. Escolha seu açaí e aplique o cupom na tela "Finalizar pedido".');
   }
   $('#cardapio').scrollIntoView({ behavior: 'smooth' });
 }

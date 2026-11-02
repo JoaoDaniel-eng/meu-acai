@@ -39,7 +39,10 @@ async function load() {
     renderFavorites();
   }
   catch (e) {
-    $('#menu-status').textContent = e.message + ' Confira a configuração do banco de dados e tente novamente.';
+    const offline = e instanceof TypeError || e.message === 'Não foi possível concluir.';
+    $('#menu-status').textContent = offline
+      ? 'Não foi possível falar com o servidor do site. Abra o site pelo endereço do servidor (ex.: http://localhost:3000), e não pelo arquivo index.html, e confira se o servidor está rodando e conectado ao banco.'
+      : e.message + ' Confira a configuração do banco de dados e tente novamente.';
     $('#menu-status').classList.add('error-message');
   }
   await loadReviews();
@@ -82,7 +85,7 @@ document.addEventListener('click', e => {
     const quantity = Number($('#builder-quantity')?.value || 1);
     cart.push({ sizeId: size.id, product: selectedTruffleProduct.name, size: size.name, quantity, optionIds: [], options: [], unitPriceCents: Number(size.price), lineTotalCents: Number(size.price) * quantity });
     appliedCoupon = null; $('#coupon-message').textContent = ''; renderCart();
-    $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showCartToast(`${selectedTruffleProduct.name} adicionado ao pedido`);
   }
 });
 document.addEventListener('change', e => {
@@ -130,9 +133,10 @@ $('#add-cart').addEventListener('click', () => {
   appliedCoupon = null;
   $('#coupon-message').textContent = '';
   selected.clear();
+  builderAfterAdd();
   renderBuilder();
   renderCart();
-  $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showCartToast(`${quantity}× ${traditionalProduct().name} adicionado ao pedido`);
 });
 $('#zone-select').addEventListener('change', renderCart);
 $('#payment-method').addEventListener('change', e => {
