@@ -1,14 +1,31 @@
-const CACHE_NAME = 'acai-da-roca-v20261101-menu-config-5';
+const CACHE_NAME = 'acai-da-roca-v20261101-rodada3-12';
 const APP_SHELL = [
   '/',
   '/index.html',
-  '/css/styles.css?v=20261101-menu-config-5',
-  '/js/app.js?v=20261101-menu-config-5',
+  '/css/styles.css?v=20261101-rodada3-12',
+  '/js/site/core.js?v=20261101-rodada3-12',
+  '/js/site/checkout.js?v=20261101-rodada3-12',
+  '/js/site/reviews.js?v=20261101-rodada3-12',
+  '/js/site/account.js?v=20261101-rodada3-12',
+  '/js/site/tracking.js?v=20261101-rodada3-12',
+  '/js/site/saved-details.js?v=20261101-rodada3-12',
+  '/js/site/pwa.js?v=20261101-rodada3-12',
+  '/js/site/theme.js?v=20261101-rodada3-12',
+  '/js/site/sidemenu.js?v=20261101-rodada3-12',
+  '/js/site/settings.js?v=20261101-rodada3-12',
+  '/js/site/cart-storage.js?v=20261101-rodada3-12',
+  '/js/site/favorites.js?v=20261101-rodada3-12',
+  '/js/site/forgot-password.js?v=20261101-rodada3-12',
+  '/js/site/live.js?v=20261101-rodada3-12',
+  '/js/site/store-banner.js?v=20261101-rodada3-12',
+  '/js/site/main.js?v=20261101-rodada3-12',
   '/manifest.webmanifest',
-  '/images/acai-ninho-brigadeiro.png',
-  '/images/acai-ninho-morango.png',
+  '/images/acai-ninho-brigadeiro.webp',
+  '/images/acai-ninho-morango.webp',
   '/images/icon-192.png',
-  '/images/icon-512.png'
+  '/images/icon-512.png',
+  '/images/icon-maskable-512.png',
+  '/images/apple-touch-icon.png'
 ];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));

@@ -8,19 +8,19 @@ Execute primeiro em ambiente de teste ou com pedidos de teste. Antes de qualquer
 2. Atualize os arquivos do projeto sem substituir seu `.env`.
 3. Execute `npm install` e depois `npm start`.
 4. Confira no terminal se a inicialização do banco terminou sem erro.
-5. Abra `/api/health` e confirme a resposta `status: ok`.
+5. Abra `/api/health` e confirme a resposta `status: ok`. Abra também `/api/health/db`: deve responder `status: ok` e `database: ok` (se o banco estiver fora do ar, responde 503).
 
 ## 2. Login e segurança
 
 1. Entre no painel `/admin` com as credenciais válidas.
 2. Confira a aba **Auditoria** e localize o login.
-3. Digite uma senha incorreta várias vezes e confirme que o sistema não bloqueia o acesso por quantidade de tentativas (a mensagem deve apenas informar que e-mail ou senha estão incorretos).
+3. Digite uma senha incorreta 5 vezes seguidas e confirme que as primeiras mensagens apenas informam que e-mail ou senha estão incorretos e que, depois do limite, o painel pede para aguardar alguns minutos (resposta 429). Aguarde o tempo informado, ou teste de outro IP, antes de continuar.
 4. Entre com a senha correta e atualize a página; confirme que continua conectado.
 5. Feche completamente o navegador, abra-o novamente e acesse `/admin`; confirme que a sessão continua ativa.
-6. Reinicie o computador ou teste em outro momento no mesmo navegador e confirme que a sessão permanece.
+6. Reinicie o computador ou teste em outro momento no mesmo navegador e confirme que a sessão permanece (dentro do prazo de 7 dias).
 7. Clique em **Sair** e confirme que o painel volta a pedir login.
 
-> A sessão não expira automaticamente. O token fica salvo no armazenamento local do navegador até o usuário sair ou o segredo JWT do servidor ser trocado. Use uma senha forte, mantenha o dispositivo protegido e não compartilhe o acesso administrativo.
+> A sessão expira em 7 dias (`ADMIN_TOKEN_TTL` muda o prazo). O token fica salvo no armazenamento local do navegador até expirar, até o usuário sair ou até o segredo JWT do servidor ser trocado. Use uma senha forte, mantenha o dispositivo protegido e não compartilhe o acesso administrativo.
 
 ## 3. Pedidos e validação de valores
 
@@ -122,3 +122,21 @@ Considere o teste aprovado somente quando o fluxo terminar sem erro, os valores 
 - [ ] Admin → Relatórios: horários de pico, dias da semana e complementos mais pedidos.
 - [ ] Admin: botão de tema (automático/claro/escuro) e leitura de tabelas, abas e formulários no modo escuro.
 - [ ] Celulares pequenos (320–360 px): cabeçalho, menu ☰, configurações, faixa da loja e checkout sem rolagem lateral.
+
+
+## Estoque (revisão 01/11/2026)
+- [ ] Tema escuro: abrir cada diálogo (compra, corrigir saldo, retirar, consumo, editar, excluir) e conferir que tudo é legível.
+- [ ] Compra com valor quebrado (ex.: 2 kg por R$ 45,50): saldo soma, gasto em compras sobe, histórico mostra "+2 kg".
+- [ ] Corrigir saldo para menos e para mais: histórico mostra "de X para Y".
+- [ ] Retirar mais que o saldo: erro dentro do diálogo, nada muda.
+- [ ] Editar: trocar kg para g converte o saldo; trocar para un. é recusado.
+- [ ] Excluir produto ligado a um acompanhamento: o acompanhamento volta a aparecer no site. Reiniciar o servidor e confirmar que o produto não reaparece.
+- [ ] Celular (390 px): botões de cada produto visíveis sem rolar para o lado.
+- [ ] Backup → restaurar em banco separado: produtos de estoque mantêm consumo/medidor e o histórico de movimentações volta.
+
+## Rodada 2
+1. Pedido com Pix: a mensagem do WhatsApp traz o aviso do comprovante; edite o pedido e confira o aviso na mensagem de edição. Pedido em dinheiro não traz o aviso.
+2. Abra `/robots.txt` e `/sitemap.xml` (endereços corretos?). Veja o código-fonte da home: canonical e og:url com o endereço certo (defina `SITE_URL`). Teste o link no “Rich Results Test” do Google.
+3. Backup: baixe, restaure em um banco de teste e confira contas de clientes (login com a senha antiga), favoritos e “Meus pedidos”.
+4. Fotos: com `CLOUDINARY_URL`, envie avaliação com foto, aprove, veja na home; exclua e confira que sumiu do Cloudinary. Depois use “Mover fotos para o armazenamento” e confira as antigas.
+5. Instagram: links do cabeçalho e do rodapé abrem `instagram.com/darocacai`.

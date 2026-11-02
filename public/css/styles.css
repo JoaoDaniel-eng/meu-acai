@@ -407,3 +407,242 @@ html[data-theme="dark"] .temp-password-box{background:#241432;border-color:#c9a0
 html[data-theme="dark"] .peak-badge{background:#4a3410;color:#ffd98a}
 html[data-theme="dark"] .tab.active{background:#7b36a8}
 html[data-theme="dark"] .admin-title h1,html[data-theme="dark"] .admin-panel h2,html[data-theme="dark"] .admin-panel h3{color:var(--purple)}
+
+/* ===== Estoque (admin) =====
+   Variáveis usadas pelo painel de estoque. Antes elas não existiam no :root, então os diálogos
+   caíam em cores fixas (texto escuro sobre fundo escuro no tema escuro). */
+:root{--card:#fff;--border:#eadff0;--text:#24162b;--input-bg:#fff;--ok:#17744a;--warn:#8a5a00;--bad:#b3261e}
+html[data-theme="dark"]{--card:#1f1229;--border:#3a2650;--text:#f1e8f6;--input-bg:#150b1d;--ok:#6fdca4;--warn:#ffd98a;--bad:#ff9b9b}
+
+.inventory-panel{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.inventory-intro{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0 8px}
+.inventory-intro h2{margin:4px 0}
+.inventory-main-card{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:16px;padding:18px;margin-top:0}
+.inventory-main-card h3{margin:0 0 6px}
+.inventory-main-card>.muted{margin:0 0 14px}
+.inventory-summary{margin:0 0 2px}
+.inventory-simple-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:end}
+.inventory-simple-form button{min-height:46px}
+.inventory-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.inventory-toolbar input,.inventory-toolbar select{min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--input-bg);color:var(--text);font:inherit}
+.inventory-toolbar input{flex:1 1 220px;min-width:0}
+.inventory-toolbar select{flex:0 1 auto;width:auto;min-width:150px}
+
+/* Lista de produtos em cartões: não depende de rolagem horizontal, então os botões ficam sempre visíveis */
+.stock-list{display:grid;gap:12px}
+.stock-card{display:grid;gap:12px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--text)}
+.stock-card.is-low{border-color:var(--warn)}.stock-card.is-empty{border-color:var(--bad)}
+.stock-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.stock-card-head h4{margin:0;font-size:1.05rem;color:var(--text)}
+.stock-card-head small{display:block;color:var(--muted);margin-top:2px}
+.stock-badge{flex:0 0 auto;padding:4px 10px;border-radius:999px;font-size:.78rem;font-weight:700;border:1px solid currentColor;white-space:nowrap}
+.stock-badge.good{color:var(--ok)}.stock-badge.low{color:var(--warn)}.stock-badge.empty{color:var(--bad)}
+.stock-qty{font-size:1.7rem;font-weight:800;line-height:1.1;color:var(--text)}
+.stock-qty span{font-size:1rem;font-weight:600;color:var(--muted);margin-left:4px}
+.stock-meter{display:grid;gap:5px}
+.stock-meter-track{height:10px;background:var(--border);border-radius:999px;overflow:hidden}
+.stock-meter-track i{display:block;height:100%;border-radius:999px;transition:width .2s ease}
+.stock-meter-track i.good{background:#24a36a}.stock-meter-track i.low{background:#e3a323}.stock-meter-track i.empty{background:#d94a55}
+.stock-meter small{font-size:.8rem;color:var(--muted)}
+.stock-facts{display:flex;gap:6px 18px;flex-wrap:wrap;margin:0;padding:0;list-style:none;font-size:.88rem;color:var(--muted)}
+.stock-facts strong{color:var(--text)}
+.stock-facts .stock-size-facts{flex-basis:100%;line-height:1.5}
+.stock-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.stock-actions .button{width:100%;min-height:42px;justify-content:center}
+.stock-empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--border);border-radius:14px}
+
+/* Diálogos do estoque (um só componente para compra, correção, retirada, consumo, edição e exclusão) */
+.stock-dialog{width:min(480px,calc(100% - 28px));max-height:calc(100dvh - 28px);overflow:auto;padding:0;border:1px solid var(--border);border-radius:18px;background:var(--card);color:var(--text);box-shadow:0 24px 80px #0006}
+.stock-dialog::backdrop{background:#12091bcc;backdrop-filter:blur(3px)}
+.stock-dialog-form{display:grid;gap:14px;padding:22px}
+.stock-dialog-form h3{margin:2px 0 0;font-size:1.25rem;color:var(--text)}
+.stock-dialog-form .eyebrow{color:var(--purple2)}
+.stock-dialog-desc{margin:0;color:var(--muted);line-height:1.5}
+.stock-field{display:grid;gap:6px;font-weight:700;color:var(--text)}
+.stock-field small{font-weight:400;color:var(--muted);line-height:1.4}
+.stock-field-row{display:flex;align-items:center;gap:10px}
+.stock-field input,.stock-field select{width:100%;min-width:0;min-height:48px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--input-bg);color:var(--text);font:inherit;font-weight:500}
+.stock-field input::placeholder{color:var(--muted)}
+.stock-unit-tag{min-width:42px;font-weight:700;color:var(--text)}
+.stock-dialog-error{margin:0;color:var(--bad);font-weight:600}.stock-dialog-error:empty{display:none}
+.stock-dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.stock-dialog-actions .button-danger{color:#fff}
+.stock-dialog{color-scheme:light}
+html[data-theme="dark"] .stock-dialog{color-scheme:dark}
+
+/* Aviso fixo na tela: o antigo ficava no topo da página, fora de vista ao rolar a lista */
+.stock-toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:9999;max-width:min(560px,calc(100% - 28px));padding:12px 18px;border-radius:12px;font-weight:600;box-shadow:0 12px 40px #0006;background:#1f6f46;color:#fff}
+.stock-toast.error{background:#a72e43}
+.stock-toast[hidden]{display:none}
+
+@media(max-width:700px){
+ .inventory-intro{align-items:flex-start;flex-direction:column}
+ .inventory-main-card{padding:14px}
+ .inventory-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .inventory-toolbar select{flex:1 1 100%}
+ .inventory-simple-form{grid-template-columns:1fr}
+ .stock-actions{grid-template-columns:1fr 1fr}
+ .stock-dialog-actions{flex-direction:column-reverse}.stock-dialog-actions .button{width:100%}
+}
+
+
+/* =====================================================================
+   Correções de cor, contraste e adaptação ao celular (v6)
+   ===================================================================== */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{overflow-x:clip}
+img{max-width:100%}
+:root{--muted:#6b6071}
+.muted,.section-heading p{color:var(--muted)}
+.stars{color:#c77d0a}
+html[data-theme="dark"] .stars{color:#f2b53a}
+
+/* Mensagens de sucesso não devem aparecer em vermelho */
+.form-message.is-success{color:#2c7a1f!important}
+html[data-theme="dark"] .form-message.is-success{color:#a8e27a!important}
+
+/* "Vantagem da casa": centralizada na horizontal e com o mesmo respiro acima e abaixo */
+.promo-ribbon{width:min(1180px,calc(100% - 2*max(5vw,22px)));max-width:none;margin:40px auto 0}
+.promo-ribbon+.gallery-section{padding-top:40px}
+.promo-ribbon>div{min-width:0}
+.promo-ribbon p{overflow-wrap:anywhere}
+.loyalty-promo{width:min(1180px,calc(100% - 2*max(5vw,22px)));max-width:none;margin-left:auto;margin-right:auto}
+@media(min-width:621px){.promo-ribbon{margin-left:auto;margin-right:auto}}
+
+/* Seção "Nossos Açaís": fundo acompanha o tema (antes ficava branco no modo escuro e o título sumia) */
+.gallery-section{background:linear-gradient(180deg,var(--bg) 0%,#f6eefa 100%)}
+html[data-theme="dark"] .gallery-section{background:linear-gradient(180deg,var(--bg) 0%,#1a0e25 100%)}
+html[data-theme="dark"] .gallery-section .section-heading h2,html[data-theme="dark"] .gallery-section .section-heading p{color:var(--ink)}
+html[data-theme="dark"] .gallery-section .section-heading p{color:var(--muted)}
+html[data-theme="dark"] .acai-gallery-caption h3{color:#f1e8f6}
+html[data-theme="dark"] .acai-gallery-caption p{color:#c9bad3}
+
+/* Fotos da galeria sempre com a mesma proporção, centralizadas */
+.acai-gallery-photo{height:auto;aspect-ratio:4/5}
+.acai-gallery-photo img{object-position:center 50%}
+@media(max-width:620px){.acai-gallery-photo{height:auto;aspect-ratio:1/1}}
+
+/* Tema escuro: componentes que ainda tinham fundo claro com texto claro */
+html[data-theme="dark"] .gallery-tag{background:#33204a;color:#ead9f7}
+html[data-theme="dark"] .hero h1{color:#f6ecfb}
+html[data-theme="dark"] .section-heading h2,html[data-theme="dark"] .loyalty-promo h2{color:#f1e8f6}
+html[data-theme="dark"] .section-heading p,html[data-theme="dark"] .loyalty-promo p{color:#c9bad3}
+html[data-theme="dark"] .checkout-note,html[data-theme="dark"] .size-card small,html[data-theme="dark"] .option-pill small{color:#c9bad3}
+html[data-theme="dark"] .cart-item p{color:#c9bad3}
+html[data-theme="dark"] .tracking-item p,html[data-theme="dark"] .customer-order-card p{color:#d9cbe3}
+html[data-theme="dark"] .customer-order-card strong,html[data-theme="dark"] .tracking-item strong{color:#f1e8f6}
+html[data-theme="dark"] .store-banner-btn{color:#fff}
+html[data-theme="dark"] .link-button{color:#d9b8f2}
+
+/* ===== Cabeçalho no celular: botões e atalhos legíveis nos dois temas ===== */
+@media(max-width:620px){
+  .site-header nav>a.header-cta{order:-1;background:var(--purple);color:#fff}
+  .site-header nav>a:not(.header-cta):not(.header-account-btn){background:#f1e6f6;color:var(--purple)}
+  .site-header nav>a.header-account-btn{background:#fff;color:var(--purple);border:1px solid #d9c6e4}
+  .site-header nav>a.header-register-btn{background:var(--purple2);color:#fff;border-color:var(--purple2)}
+  html[data-theme="dark"] .site-header nav>a.header-cta{background:#5b1f80;color:#fff}
+  html[data-theme="dark"] .site-header nav>a:not(.header-cta):not(.header-account-btn){background:#2e1a40;color:#ead9f7}
+  html[data-theme="dark"] .site-header nav>a.header-account-btn{background:#241432;color:#ead9f7;border-color:#4a3262}
+  html[data-theme="dark"] .site-header nav>a.header-register-btn{background:#7b36a8;border-color:#7b36a8;color:#fff}
+  .site-header nav .install-app{flex:0 0 auto;white-space:nowrap}
+}
+
+/* ===== Hero: em telas menores vira uma coluna, com a ilustração centralizada ===== */
+@media(max-width:820px){
+  .hero{grid-template-columns:minmax(0,1fr);justify-items:center;gap:6px;min-height:0;padding:40px max(6vw,20px) 24px}
+  .hero-copy{max-width:560px;width:100%}
+  .hero-art{transform:none!important;margin:0 auto;width:min(100%,340px);height:290px;flex:none}
+  .sun{width:min(270px,78vw);height:min(270px,78vw)}
+  .acai-cup{width:150px;height:205px;font-size:1.05rem}
+  .fruit{font-size:2.6rem}
+  .fruit-one{left:12%}.fruit-two{right:10%}.sparkle{right:12%}
+}
+@media(max-width:620px){
+  .hero{padding:30px 18px 18px}
+  .hero h1{letter-spacing:-1px;font-size:clamp(2.3rem,11.5vw,3rem)}
+  .hero h1 span{display:inline-block;padding-bottom:.08em}
+  .hero-art{height:260px}
+}
+
+/* ===== Tipografia e espaçamentos consistentes no celular ===== */
+@media(max-width:620px){
+  .eyebrow{letter-spacing:1.1px;font-size:.72rem}
+  .section-heading h2{font-size:clamp(1.55rem,7.4vw,1.85rem);line-height:1.2}
+  .section-heading p{font-size:.9rem}
+  .button{font-size:.93rem}
+  .form-card h3,.cart-card h3{font-size:1rem}
+  .promo-ribbon{width:calc(100% - 28px);margin:22px auto 0;padding:20px 18px;text-align:left}
+  .promo-ribbon+.gallery-section{padding-top:26px}
+  .promo-ribbon h2{font-size:clamp(1.15rem,5.6vw,1.35rem);line-height:1.25}
+  .promo-ribbon p{font-size:.88rem;line-height:1.5}
+  .loyalty-promo{width:calc(100% - 28px);margin-bottom:36px}
+  .delivery-strip{margin-left:14px;margin-right:14px}
+  .option-pill small{font-size:.74rem}
+  .cart-item p,.checkout-note,.estimate-note,.loyalty-note{overflow-wrap:anywhere}
+  .review-card{padding:16px}
+  .mobile-cart-bar{font-size:.82rem}
+}
+
+/* ===== Foto nas avaliações ===== */
+.reviews-list{align-items:start}
+.review-photo-thumb{display:block;width:100%;margin:12px 0 0;padding:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#efe6f3;cursor:zoom-in;aspect-ratio:4/3}
+.review-photo-thumb img{display:block;width:100%;height:100%;object-fit:cover}
+.review-photo-thumb:focus-visible{outline:3px solid var(--purple2);outline-offset:2px}
+.review-photo-field{margin:2px 0 16px;display:grid;gap:8px;justify-items:start}
+.review-photo-title{font-size:.83rem;font-weight:600}.review-photo-title em{font-style:normal;font-weight:400;color:var(--muted)}
+.review-photo-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.review-photo-actions .link-button{margin:0}
+.review-photo-preview{width:min(100%,260px);aspect-ratio:4/3;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#efe6f3}
+.review-photo-preview img{display:block;width:100%;height:100%;object-fit:cover}
+.review-photo-help{color:var(--muted);font-size:.78rem;line-height:1.45}
+.review-photo-field .form-message{margin:0}
+.photo-viewer{position:fixed;inset:0;z-index:100;background:rgba(15,5,22,.88);display:flex;align-items:center;justify-content:center;padding:max(18px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom));cursor:zoom-out}
+.photo-viewer img{max-width:100%;max-height:100%;object-fit:contain;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.photo-viewer-close{position:absolute;top:max(12px,env(safe-area-inset-top));right:14px;width:46px;height:46px;border-radius:50%;border:0;background:#fff;color:#321047;font-size:1.7rem;line-height:1}
+body.viewer-open{overflow:hidden}
+html[data-theme="dark"] .review-photo-thumb,html[data-theme="dark"] .review-photo-preview{background:#2a1838;border-color:#3a2650}
+.admin-review>div:first-child{min-width:0}
+.admin-review-photo{display:block;width:160px;max-width:100%;aspect-ratio:4/3;margin:8px 0;padding:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#efe6f3;cursor:zoom-in;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.75rem}
+.admin-review-photo img{width:100%;height:100%;object-fit:cover;display:block}
+html[data-theme="dark"] .admin-review-photo{background:#2a1838;border-color:#3a2650}
+@media(max-width:620px){.review-photo-actions .button{width:100%}.review-photo-preview{width:100%}.admin-review-photo{width:100%;max-width:280px}}
+
+/* Em uma coluna, o círculo decorativo do fundo do hero fica fora de lugar: some no celular */
+@media(max-width:820px){
+  .hero{background:linear-gradient(115deg,#fff5df 0%,#fbf0fb 54%,#f0e3f8 100%)}
+  html[data-theme="dark"] .hero{background:linear-gradient(115deg,#1e1029 0%,#25122f 54%,#2d1640 100%)}
+}
+
+/* Passo final do pedido no site: enviar a mensagem no WhatsApp */
+.order-whatsapp-box{display:grid;gap:10px;margin-top:14px;padding:16px;border:2px solid var(--purple2);border-radius:14px;background:rgba(100,37,138,.08)}
+.order-whatsapp-box strong{font-size:1.05rem}.order-whatsapp-box p{margin:0;line-height:1.5}
+.order-whatsapp-box .button{text-align:center;text-decoration:none}
+/* Painel: pedidos novos parados */
+.order-late-banner{margin:0 0 12px;padding:12px 14px;border:1px solid rgba(217,119,6,.55);border-radius:12px;background:rgba(245,158,11,.16);font-weight:600;line-height:1.45}
+.order-late-row{background:rgba(245,158,11,.10)}
+.order-late-badge{display:block;margin-top:6px;font-weight:700}
+.order-late-badge a{color:inherit;text-decoration:underline}
+
+/* Tamanho esgotado no cardápio */
+.size-card.sold-out{opacity:.55;cursor:not-allowed}.size-card.sold-out strong{color:#b45309}
+/* Pix na caixa final do pedido */
+.pix-block{display:grid;gap:8px;padding:12px;border:1px dashed var(--purple2);border-radius:12px}
+.pix-block small{color:var(--muted);word-break:break-all}
+.pix-block textarea{width:100%;font:inherit;font-size:.78rem;word-break:break-all;resize:none;padding:8px;border-radius:8px;border:1px solid var(--line);background:transparent;color:inherit}
+.size-card.sold-out{opacity:.8}
+html[data-theme="dark"] .size-card.sold-out strong{color:#fbbf24}
+
+/* Aviso quando o pedido já está em preparo (edição/cancelamento só pelo WhatsApp) */
+.order-locked-note{display:grid;gap:10px;margin:14px 0;padding:14px 16px;border:2px solid var(--purple2);border-radius:14px;background:rgba(100,37,138,.08)}
+.order-locked-note p{margin:0;line-height:1.5}
+.order-locked-note .button{text-align:center;text-decoration:none}
+/* Mensagem de erro junto do montador do açaí */
+.builder-message{margin:10px 0 0;min-height:1.2em}
+
+/* Rodada 2: Instagram */
+.header-instagram{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.header-instagram svg{flex:none}
+.instagram-strip{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px 20px;padding:28px 20px;text-align:center}
+.instagram-strip p{margin:0;font-weight:600}
+.instagram-btn{display:inline-flex;align-items:center;gap:8px}
+@media(max-width:620px){.header-instagram span{display:none}}

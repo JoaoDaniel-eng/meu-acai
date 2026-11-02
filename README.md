@@ -1,6 +1,6 @@
 # Açaí da Roça — pedidos online e painel administrativo
 
-Aplicação full-stack para uma loja de açaí, com frontend em HTML/CSS/JavaScript puro, backend Node.js + Express 5 e banco PostgreSQL. O cliente monta o açaí, informa a entrega, registra o pedido no banco e recebe um resumo pré-preenchido no WhatsApp para enviar manualmente. Não há pagamento online.
+Aplicação full-stack para uma loja de açaí, com frontend em HTML/CSS/JavaScript puro, backend Node.js + Express 5 e banco PostgreSQL. O cliente monta o açaí, informa a entrega, registra o pedido no banco e recebe um resumo pré-preenchido no WhatsApp para enviar manualmente. Não há pagamento online com provedor; para Pix, a loja pode cadastrar a chave no painel (Funcionamento) e o cliente recebe o valor e o código “Pix copia e cola” depois do pedido. Pedidos têm limite anti-spam (20 por IP e 6 por telefone a cada hora).
 
 ## Requisitos
 - Node.js 20 ou superior
@@ -9,7 +9,7 @@ Aplicação full-stack para uma loja de açaí, com frontend em HTML/CSS/JavaScr
 
 ## Executar localmente
 1. Instale Node.js 20+ e tenha um banco PostgreSQL criado.
-2. Crie um arquivo local chamado `.env` na pasta principal e preencha `NODE_ENV`, `PORT`, `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `WHATSAPP_NUMBER`. Não é gerado `.env.example`; mantenha o `.env` fora do ZIP e do repositório.
+2. Crie um arquivo local chamado `.env` na pasta principal e preencha `NODE_ENV`, `PORT`, `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `WHATSAPP_NUMBER`. Copie o `.env.example` (só nomes de variáveis, sem valores) para `.env` e preencha; mantenha o `.env` fora do ZIP e do repositório.
 3. Na pasta do projeto, execute `npm install`.
 4. Execute `npm start` (ou `npm run dev` durante o desenvolvimento).
 5. Abra `http://localhost:3000`. O painel fica em `http://localhost:3000/admin`.
@@ -22,7 +22,7 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 2. Publique esta pasta em um repositório Git, ou use o método de deploy aceito pelo seu serviço de hospedagem.
 3. No Render, crie um Web Service com ambiente Node. Build command: `npm install`. Start command: `npm start`.
 4. Cadastre as variáveis `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `WHATSAPP_NUMBER` no painel do Render. Não envie `.env` ao repositório.
-5. Faça o deploy e confira `/api/health`.
+5. Faça o deploy e confira `/api/health`. Para monitorar também o banco (ex.: UptimeRobot), use `/api/health/db`; não o configure como health check do Render, porque o Neon suspende o banco quando ocioso e a primeira consulta pode demorar.
 6. Configure o domínio personalizado nas configurações do serviço e siga as instruções de DNS fornecidas pelo Render. Para domínio `.com.br`, o registro e a renovação são feitos pelo registrador escolhido.
 
 ## Funcionalidades
@@ -33,7 +33,7 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 - Pedido imediato quando a loja está aberta ou agendamento com antecedência mínima dentro do horário de funcionamento.
 - Registro do pedido no banco com código único `AR-XXXXXX` e abertura do WhatsApp com texto pré-preenchido.
 - Avaliações públicas somente após moderação.
-- Painel administrativo com autenticação JWT persistente no navegador (sem expiração automática e sem bloqueio por tentativas inválidas), atualização automática de pedidos, preços e disponibilidade de produtos/tamanhos/opções, bairros/taxas, avaliações, cupons, configurações, auditoria e backup/restauração.
+- Painel administrativo com autenticação JWT que expira (7 dias por padrão; ajuste com `ADMIN_TOKEN_TTL`, ex.: `12h`) e bloqueio temporário após 5 senhas erradas por IP (ou 20 por e-mail) em 15 minutos, atualização automática de pedidos, preços e disponibilidade de produtos/tamanhos/opções, bairros/taxas, avaliações, cupons, configurações, auditoria e backup/restauração.
 - Relatórios de vendas com resumo de hoje, semana atual e mês atual, além de períodos de 7, 30 e 90 dias, ticket médio, quantidade de pedidos e tamanhos mais vendidos.
 - Cupons públicos com desconto percentual ou fixo, subtotal mínimo e validação de preço no servidor.
 - Cliente pode repetir um pedido anterior pelo acompanhamento, adicionando novamente ao carrinho apenas itens ainda disponíveis.
@@ -52,14 +52,14 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 - O número inicial do WhatsApp é `5521969081157`; confirme se pertence à loja.
 - A política de privacidade contém campos que precisam ser completados com o responsável legal e o contato real.
 - O fechamento manual bloqueia pedidos imediatos, mas permite agendamento em horário de funcionamento.
-- O cliente pode editar ou cancelar pedidos enquanto ainda estão em etapas permitidas; o WhatsApp abre uma mensagem e o cliente precisa apertar “Enviar”. Não há integração de pagamento online.
+- O cliente só pode editar ou cancelar pelo site enquanto o pedido está **Recebido**. Depois que a loja marca **Preparando**, o site mostra um botão para combinar a mudança pelo WhatsApp. O WhatsApp abre uma mensagem e o cliente precisa apertar “Enviar”. Não há integração de pagamento online.
 
 ## Segurança operacional
-- Use uma senha administrativa forte e um `JWT_SECRET` aleatório com 32+ caracteres. A sessão administrativa não expira automaticamente: o token permanece no armazenamento local do navegador mesmo após fechá-lo ou reiniciar o computador, até o usuário clicar em **Sair** ou o `JWT_SECRET` ser trocado. O login não bloqueia o acesso por quantidade de tentativas inválidas. Como o token é persistente, não use o painel em dispositivos compartilhados e proteja o acesso ao computador e ao navegador.
+- Use uma senha administrativa forte e um `JWT_SECRET` aleatório com 32+ caracteres. A sessão do painel expira em 7 dias por padrão (ajuste com `ADMIN_TOKEN_TTL`, ex.: `12h`) e o login bloqueia temporariamente após 5 senhas erradas por IP (ou 20 por e-mail) em 15 minutos. O token fica no navegador até expirar ou até clicar em **Sair**; não use o painel em dispositivos compartilhados.
 - O painel registra logins e mutações administrativas na aba “Auditoria”, sem gravar o corpo das requisições.
 - Exclusões de produtos e pedidos exigem confirmação no painel. Exclusão de pedido é permanente; faça backup antes.
 - Preços, adicionais, descontos, cupons e frete são recalculados/validados no servidor; os valores enviados pelo navegador não são usados como fonte de verdade.
-- A aba “Backup” exporta JSON com pedidos, clientes derivados dos pedidos, cardápio, bairros, configurações, cupons, avaliações e pontos. Também valida e restaura um arquivo desse formato em transação. A restauração substitui os dados operacionais atuais, preserva administradores e auditoria e deve ser usada com cuidado.
+- A aba “Backup” exporta JSON com pedidos, contas de clientes (com hash de senha), favoritos, clientes derivados dos pedidos, cardápio, bairros, configurações, cupons, avaliações e pontos. Também valida e restaura um arquivo desse formato em transação. A restauração substitui os dados operacionais atuais, preserva administradores e auditoria e deve ser usada com cuidado.
 - O backup JSON é manual e deve ser baixado e guardado fora do servidor. Ele não substitui o backup automático do provedor PostgreSQL; habilite/ confira a política de backup do Neon ou do provedor escolhido.
 - Proteja os arquivos de backup: eles contêm dados pessoais de clientes. Não os envie a repositórios públicos nem os compartilhe sem necessidade.
 - O histórico de auditoria é interno e não é incluído no backup operacional; mantenha também os backups nativos do banco para recuperação completa do ambiente.
@@ -73,10 +73,13 @@ public/
   admin.html
   privacidade.html
   css/styles.css
-  js/app.js
-  js/admin.js
+  js/site/*.js   (site do cliente, dividido por assunto; carregados em ordem, main.js por último)
+  js/admin/*.js            (painel admin, dividido por assunto; main.js por último)
+  js/admin-inventory/*.js  (painel de estoque; events.js por último)
 src/
-  server.js
+  server.js      (liga o app ao banco e abre a porta)
+  app.js         (createApp: monta o Express)
+  services/pricing.js  (preço do pedido: item, combo, cupom, frete, total)
   db/pool.js
   db/init.js
   middleware/auth.js
@@ -87,9 +90,18 @@ src/
   services/store.test.js
   services/promotions.js
   services/promotions.test.js
+tests/routes.test.js   (testes de rota: Express + Postgres de teste)
+.github/workflows/ci.yml
+.env.example  .prettierrc.json  .prettierignore  eslint.config.js
 PROGRESSO.md
 ```
 
+
+## Desenvolvimento: formatação, lint e testes
+- `npm install` instala também as ferramentas de desenvolvimento (Prettier, ESLint, supertest).
+- `npm run format` formata o código (rode uma vez antes do primeiro commit; depois `npm run format:check` só confere). `npm run lint` roda o ESLint.
+- `npm test` roda os testes unitários. Os testes de rota (`tests/routes.test.js`) usam Postgres de verdade e só rodam com `TEST_DATABASE_URL` definida, apontando para um banco **com "test" no nome** (eles recusam qualquer outro). Ex.: `createdb acai_test` e `TEST_DATABASE_URL=postgres://usuario:senha@localhost:5432/acai_test npm test`.
+- O GitHub Actions (`.github/workflows/ci.yml`) roda formatação, lint e todos os testes, com um Postgres de teste, a cada push e pull request.
 
 ## Conta do cliente
 
@@ -98,3 +110,23 @@ PROGRESSO.md
 - Pedidos antigos não são vinculados automaticamente, para não expor dados privados só com base no número de telefone.
 - A sessão do cliente usa token JWT persistido no navegador por até 30 dias; sair remove o token local. Alterar senha não revoga automaticamente tokens existentes.
 - Não há confirmação por SMS nem recuperação de senha nesta versão. Antes de divulgar publicamente, planeje uma forma segura de verificar a posse do celular e recuperar contas.
+
+
+## Proteções adicionadas (01/11/2026, rodada 1)
+- Consulta, edição e cancelamento de pedido: após 8 tentativas erradas no mesmo código (ou 30 por IP) em 15 minutos, o site responde 429 e pede para aguardar ou falar com a loja. Só falhas contam; uso normal nunca é bloqueado. Os contadores ficam na memória do servidor (reiniciar o serviço os zera).
+- Códigos de pedido (`AR-XXXXXX`) são sorteados com gerador criptográfico e sem caracteres ambíguos (0/O, 1/I).
+- Conexão com o banco usa SSL **com verificação do certificado**. Se o provedor usar certificado próprio, defina `DATABASE_SSL_INSECURE=true` (não recomendado). Conexões ociosas derrubadas pelo provedor não derrubam mais o servidor.
+- Edição de pedido revalida estoque e horário de agendamento, roda em transação e, para Pix, gera um novo código com o valor atualizado.
+- O carrinho mostra o frete e o total com entrega assim que o bairro é escolhido.
+
+## Variáveis opcionais (Rodada 2)
+- `SITE_URL`: endereço público do site, sem barra no final (ex.: `https://acai-da-roca.onrender.com` ou o domínio próprio). Usado em canonical, prévia de compartilhamento (og:), `sitemap.xml` e `robots.txt`. Se faltar, o servidor usa o endereço da própria requisição.
+- `CLOUDINARY_URL`: `cloudinary://API_KEY:API_SECRET@CLOUD_NAME`. Com ela, as fotos das avaliações vão para o Cloudinary (plano gratuito) e o banco guarda só o endereço. Sem ela, as fotos continuam sendo guardadas no banco. Depois de definir, abra Painel → Avaliações e use “Mover fotos para o armazenamento” para levar as fotos antigas.
+
+## SEO e loja só de entrega
+- A loja não tem endereço público: o JSON-LD da página usa `areaServed` (Teresópolis) e `sameAs` (Instagram). O `/admin` e a `/api` saem do Google (`noindex` e `X-Robots-Tag`). Para aparecer em buscas locais, crie um Perfil da Empresa no Google marcando “só entrega” (sem exibir endereço).
+- Prévia de link (WhatsApp/Instagram) usa `/images/icon-512.png`; troque por uma foto 1200×630 quando houver.
+
+## Backup (o que mudou)
+- A exportação é escrita tabela por tabela. A restauração ainda lê o arquivo inteiro (limite de 10 MB); com as fotos fora do banco, o arquivo fica pequeno.
+- Backups antigos (sem `customer_accounts`) continuam restauráveis: as contas atuais são mantidas, mas os pedidos antigos ficam sem vínculo com elas.
