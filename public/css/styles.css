@@ -754,16 +754,3 @@ html[data-theme="dark"] .coupon-used .coupon-badge{background:#33204a;color:#ead
 html[data-theme="dark"] .welcome-admin-row{border-color:#3a2650}
 html[data-theme="dark"] .welcome-admin-row code{color:#e2c6f5}
 @media(max-width:760px){.welcome-coupon-tools{grid-template-columns:1fr}.welcome-admin-row{grid-template-columns:1fr 1fr;gap:8px}.welcome-admin-row .coupon-badge{justify-self:start}.welcome-admin-date{text-align:left}}
-
-
-/* Chamada pública do cupom de primeira compra */
-.welcome-promo{display:flex;align-items:center;gap:1rem;margin:1rem auto 1.4rem;padding:1.1rem 1.35rem;max-width:1180px;width:calc(100% - 2rem);border:1px solid #e4c9a0;border-radius:18px;background:linear-gradient(110deg,#fff3d9,#f5e9ff);box-shadow:0 8px 24px rgba(48,18,60,.07)}
-.welcome-promo-icon{display:grid;place-items:center;flex:0 0 54px;height:54px;border-radius:16px;background:#fff;font-size:1.8rem}
-.welcome-promo-copy{flex:1;min-width:0}
-.welcome-promo-copy .eyebrow{font-size:.7rem;font-weight:800;letter-spacing:.08em;color:var(--purple2)}
-.welcome-promo-copy h2{margin:.15rem 0 .25rem;font-size:clamp(1rem,2.2vw,1.35rem);color:var(--purple)}
-.welcome-promo-copy p{margin:0;color:#51445a;font-size:.88rem}
-html[data-theme="dark"] .welcome-promo{background:linear-gradient(110deg,#382d1b,#30213b);border-color:#614b6c}
-html[data-theme="dark"] .welcome-promo-copy h2{color:#f0dfff}
-html[data-theme="dark"] .welcome-promo-copy p{color:#e2d8e8}
-@media(max-width:700px){.welcome-promo{width:calc(100% - 1.25rem);margin:.65rem auto 1rem;padding:1rem;display:grid;grid-template-columns:42px 1fr;gap:.7rem}.welcome-promo-icon{width:42px;height:42px;flex-basis:42px;font-size:1.45rem}.welcome-promo-copy{grid-column:2}.welcome-promo>a{grid-column:1/-1;width:100%}}
