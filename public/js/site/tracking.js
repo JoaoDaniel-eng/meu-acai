@@ -10,14 +10,50 @@ function whatsapp(text, number) {
   }
   window.open(`https://wa.me/${n}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
 }
-function orderSummary(o, heading) { const lines = (o.items || []).map(i => `• ${i.quantity}x ${i.product} (${i.size}) — ${brl(i.lineTotalCents)}\n  ${(i.options || []).map(x => x.name).join(', ') || 'Sem adicionais'}`).join('\n'); return `${heading} ${o.orderCode} — Açaí da Roça\n\n${lines}\n\nSubtotal: ${brl(o.subtotalCents)}${o.comboDiscountCents ? `\nDesconto combo: -${brl(o.comboDiscountCents)}` : ''}${o.discountCents ? `\nCupom ${o.couponCode}: -${brl(o.discountCents)}` : ''}\nEntrega (${o.neighborhood}): ${brl(o.deliveryFeeCents)}\nTOTAL: ${brl(o.totalCents)}\n\nNome: ${o.customerName}\nTelefone: ${o.phone}\nEndereço: ${o.address}\nPagamento: ${o.paymentMethod || 'A combinar'}${(o.pix || o.paymentMethod === 'Pix') ? '\nCódigo Pix copia e cola disponível no site, na tela do pedido. Envie o comprovante nesta conversa.\n' + PIX_NOTICE : ''}${o.changeFor ? `\nTroco para: R$ ${o.changeFor}` : ''}\nObservações: ${o.notes || 'Nenhuma'}\n\n${o.scheduledFor ? 'Agendamento: ' + new Date(o.scheduledFor).toLocaleString('pt-BR') : 'Entrega assim que possível'}\nPrevisão estimada: ${o.estimatedMinutesMin || 35} a ${o.estimatedMinutesMax || 55} minutos`; }
 // Depois que a loja começa o preparo o pedido trava no site: mudanças e cancelamento passam a ser combinados pelo WhatsApp.
 function lockedOrderNote(o) {
   if (o.canEdit || ['delivered', 'cancelled'].includes(o.status))
     return '';
   const n = String(store?.whatsappNumber || '').replace(/\D/g, '');
   const text = `Olá! Sobre o pedido ${o.orderCode} no Açaí da Roça: preciso combinar uma alteração.`;
-  return `<div class="order-locked-note"><p><strong>A loja já começou a preparar seu pedido.</strong> Para alterar ou cancelar agora, fale direto com a loja pelo WhatsApp.</p>${n.length >= 10 ? `<a class="button button-green" href="https://wa.me/${n}?text=${encodeURIComponent(text)}" target="_blank" rel="noopener noreferrer">Falar com a loja no WhatsApp</a>` : ''}</div>`;
+  const reason = o.status === 'out_for_delivery' ? 'já saiu para entrega' : 'já está sendo preparado';
+  return `<div class="order-locked-note" role="alert"><p><strong>Não é possível editar um pedido que ${reason}.</strong> Se precisar de algum ajuste agora, fale direto com a loja pelo WhatsApp.</p>${n.length >= 10 ? `<a class="button button-green" href="https://wa.me/${n}?text=${encodeURIComponent(text)}" target="_blank" rel="noopener noreferrer">Falar com a loja no WhatsApp</a>` : ''}</div>`;
+}
+// Mensagem para a loja quando o cliente edita: mostra o que tinha antes, o que ficou e as outras mudanças.
+function itemLines(items) {
+  return (items || []).map(i => `• ${i.quantity}x ${i.product} (${i.size}) — ${brl(i.lineTotalCents)}\n  ${(i.options || []).map(x => x.name).join(', ') || 'Sem adicionais'}`).join('\n');
+}
+function editSummary(before, after) {
+  const changes = [];
+  const diff = (label, a, b) => { if (String(a || '').trim() !== String(b || '').trim()) changes.push(`${label}: ${String(a || '—').trim() || '—'} → ${String(b || '—').trim() || '—'}`); };
+  diff('Nome', before.customerName, after.customerName);
+  diff('Endereço', before.address, after.address);
+  diff('Bairro', before.neighborhood, after.neighborhood);
+  diff('Observações', before.notes, after.notes);
+  const pix = after.paymentMethod === 'Pix' ? `\n\nPagamento: Pix${after.totalCents !== before.totalCents ? ` (o valor mudou, o Pix novo é de ${brl(after.totalCents)})` : ''}\n${PIX_NOTICE}` : `\n\nPagamento: ${after.paymentMethod || 'A combinar'}${after.changeFor ? ` — troco para R$ ${after.changeFor}` : ''}`;
+  return `✏️ EDIÇÃO do pedido ${after.orderCode} — Açaí da Roça\n\nO cliente alterou o pedido pelo site (ele ainda estava como "Recebido").\n\nANTES:\n${itemLines(before.items)}\nTotal: ${brl(before.totalCents)}\n\nDEPOIS:\n${itemLines(after.items)}\nSubtotal: ${brl(after.subtotalCents)}${after.comboDiscountCents ? `\nDesconto combo: -${brl(after.comboDiscountCents)}` : ''}${after.discountCents ? `\nCupom ${after.couponCode}: -${brl(after.discountCents)}` : ''}\nEntrega (${after.neighborhood}): ${brl(after.deliveryFeeCents)}\nTOTAL: ${brl(after.totalCents)}${changes.length ? '\n\nOutras mudanças:\n' + changes.map(c => '• ' + c).join('\n') : ''}\n\nNome: ${after.customerName}\nTelefone: ${after.phone}\nEndereço: ${after.address}${pix}`;
+}
+// Botão fixo para enviar a edição (o navegador pode bloquear a janela do WhatsApp depois de uma espera).
+function showEditWhatsappStep(updated, text) {
+  const n = String(updated.whatsappNumber || '').replace(/\D/g, '');
+  const card = $('#tracking-result .tracking-card');
+  if (!card || n.length < 10)
+    return null;
+  const url = `https://wa.me/${n}?text=${encodeURIComponent(text)}`;
+  const box = document.createElement('div');
+  box.className = 'order-whatsapp-box';
+  box.setAttribute('role', 'status');
+  box.innerHTML = '<strong>Alteração salva! Falta avisar a loja</strong><p>Envie a mensagem no WhatsApp para a loja ver o que mudou no seu pedido.</p>';
+  const a = document.createElement('a');
+  a.className = 'button button-primary button-full';
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.textContent = 'Enviar alteração no WhatsApp';
+  box.append(a);
+  card.prepend(box);
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  return url;
 }
 function renderTracking(o) {
   trackedOrder = o;
@@ -93,6 +129,7 @@ document.addEventListener('submit', async (e) => {
     msg.textContent = 'O pedido precisa ter pelo menos um item.';
     return;
   }
+  const before = trackedOrder;
   try {
     const updated = await api(`/orders/${trackedOrder.orderCode}/customer`, { method: 'PATCH', body: JSON.stringify({ phone: trackedOrder.lookupPhone, customerName: fd.get('customerName'), address: fd.get('address'), zoneId: fd.get('zoneId') ? Number(fd.get('zoneId')) : undefined, notes: fd.get('notes'), items: quantities }) });
     updated.lookupPhone = trackedOrder.lookupPhone;
@@ -104,11 +141,24 @@ document.addEventListener('submit', async (e) => {
       note.textContent = 'O valor do pedido mudou: use o Pix abaixo (o código anterior ficou com o valor antigo).';
       card.append(note, pixBlock(updated.pix));
     }
-    whatsapp(orderSummary(updated, 'Olá! Quero confirmar a EDIÇÃO do pedido'), ' ' + updated.whatsappNumber);
+    const editText = editSummary(before, updated);
+    const waUrl = showEditWhatsappStep(updated, editText);
+    if (waUrl)
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
     $('#tracking-action-message').textContent = 'Alteração registrada! Envie a mensagem no WhatsApp para avisar a loja.';
   }
   catch (err) {
     msg.textContent = err.message;
+    // Se a loja começou o preparo enquanto o cliente editava, a tela passa a mostrar o pedido travado.
+    try {
+      const fresh = await api(`/orders/track?code=${encodeURIComponent(before.orderCode)}&phone=${encodeURIComponent(before.lookupPhone)}`);
+      if (!fresh.canEdit) {
+        fresh.lookupPhone = before.lookupPhone;
+        renderTracking(fresh);
+        $('#tracking-action-message').textContent = err.message;
+      }
+    }
+    catch { }
   }
 });
 document.addEventListener('click', async (e) => {
