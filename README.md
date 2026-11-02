@@ -9,10 +9,10 @@ Aplicação full-stack para uma loja de açaí, com frontend em HTML/CSS/JavaScr
 
 ## Executar localmente
 1. Instale Node.js 20+ e tenha um banco PostgreSQL criado.
-2. Crie um arquivo local chamado `.env` na pasta principal e preencha `NODE_ENV`, `PORT`, `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `WHATSAPP_NUMBER`. Copie o `.env.example` (só nomes de variáveis, sem valores) para `.env` e preencha; mantenha o `.env` fora do ZIP e do repositório.
+2. Crie um arquivo local chamado `.env` na pasta principal e preencha `NODE_ENV`, `PORT`, `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEV_EMAIL`, `DEV_PASSWORD` e `WHATSAPP_NUMBER`. Copie o `.env.example` (só nomes de variáveis, sem valores) para `.env` e preencha; mantenha o `.env` fora do ZIP e do repositório.
 3. Na pasta do projeto, execute `npm install`.
 4. Execute `npm start` (ou `npm run dev` durante o desenvolvimento).
-5. Abra `http://localhost:3000`. O painel fica em `http://localhost:3000/admin`.
+5. Abra `http://localhost:3000`. O painel da loja fica em `http://localhost:3000/admin` e o painel do desenvolvedor em `http://localhost:3000/dev`.
 6. Rode os testes com `npm test`.
 
 O schema e os dados iniciais são criados de forma idempotente quando o servidor inicia e `DATABASE_URL` está configurada. O usuário administrativo inicial é criado se `ADMIN_EMAIL` e `ADMIN_PASSWORD` estiverem definidos antes da primeira inicialização. Se já existir um administrador com o mesmo e-mail, a senha não é sobrescrita automaticamente.
@@ -21,7 +21,7 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 1. Crie um banco PostgreSQL no Neon e copie a connection string (use SSL).
 2. Publique esta pasta em um repositório Git, ou use o método de deploy aceito pelo seu serviço de hospedagem.
 3. No Render, crie um Web Service com ambiente Node. Build command: `npm install`. Start command: `npm start`.
-4. Cadastre as variáveis `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `WHATSAPP_NUMBER` no painel do Render. Não envie `.env` ao repositório.
+4. Cadastre as variáveis `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEV_EMAIL`, `DEV_PASSWORD` e `WHATSAPP_NUMBER` no painel do Render. Não envie `.env` ao repositório.
 5. Faça o deploy e confira `/api/health`. Para monitorar também o banco (ex.: UptimeRobot), use `/api/health/db`; não o configure como health check do Render, porque o Neon suspende o banco quando ocioso e a primeira consulta pode demorar.
 6. Configure o domínio personalizado nas configurações do serviço e siga as instruções de DNS fornecidas pelo Render. Para domínio `.com.br`, o registro e a renovação são feitos pelo registrador escolhido.
 
@@ -30,7 +30,7 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 - Personalização de açaí com até cinco acompanhamentos grátis por item e no máximo uma calda grátis por item.
 - Adicionais pagos, mousses e quantidade de 1 a 20 por item.
 - Cálculo de preço no servidor, inclusive taxa de entrega por bairro.
-- Pedido imediato quando a loja está aberta ou agendamento com antecedência mínima dentro do horário de funcionamento.
+- Pedido imediato quando a loja está aberta ou agendamento com antecedência mínima dentro do horário de funcionamento. No agendamento o cliente escolhe **Dia** e **Horário** entre as opções que o servidor oferece (`GET /api/schedule-slots`: só os dias marcados e o horário da aba Funcionamento, de 15 em 15 min, até 14 dias à frente). O servidor valida de novo com a mesma regra ao criar e ao editar o pedido, então dia ou horário fechado é recusado mesmo que alguém altere a requisição.
 - Registro do pedido no banco com código único `AR-XXXXXX` e abertura do WhatsApp com texto pré-preenchido.
 - Avaliações públicas somente após moderação.
 - Painel administrativo com autenticação JWT que expira (7 dias por padrão; ajuste com `ADMIN_TOKEN_TTL`, ex.: `12h`) e bloqueio temporário após 5 senhas erradas por IP (ou 20 por e-mail) em 15 minutos, atualização automática de pedidos, preços e disponibilidade de produtos/tamanhos/opções, bairros/taxas, avaliações, cupons, configurações, auditoria e backup/restauração.
@@ -45,6 +45,15 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 - Atalho de carrinho fixo em telas pequenas, destaque promocional e identidade visual refinada.
 - Página de privacidade, validação no servidor e headers básicos de segurança.
 
+## Painel do desenvolvedor (`/dev`)
+- Acesso pelo link “Desenvolvedor” no rodapé da loja ou direto em `/dev`. Conta própria, criada por `DEV_EMAIL` e `DEV_PASSWORD` (10+ caracteres); trocar a senha na variável de ambiente e reiniciar atualiza a conta. Sem as duas variáveis, o `/dev` não aceita login.
+- Sessão de 12 h por padrão (`DEV_TOKEN_TTL`, ex.: `2h`) e bloqueio temporário após 5 senhas erradas por IP (ou 10 por e-mail) em 15 minutos. O token do desenvolvedor não abre a API da loja e o da loja não abre a do desenvolvedor.
+- **Visão geral:** saúde do banco (latência, tamanho, conexões), versão publicada, tempo no ar, memória, contagens e quais variáveis de ambiente estão configuradas (nunca os valores secretos).
+- **Erros:** erros da tela dos clientes e do servidor, com filtro, busca, ranking dos mais frequentes, detalhes com rastro (stack) e exclusão individual ou da lista inteira.
+- **Auditoria:** logins e alterações do painel da loja e do próprio `/dev`, com filtro por painel e busca.
+- **Backup:** download, validação e restauração (com confirmação digitada).
+- **Contas da loja:** lista, cria e redefine a senha de quem entra em `/admin`.
+
 ## Atenção: revise antes de operar
 - **Taxas e bairros iniciais são exemplos editáveis**, não uma confirmação das taxas comerciais reais. Revise em `/admin` antes de receber pedidos.
 - O item “1 copo especial” de R$ 35 foi mantido porque o tamanho/capacidade não foi especificado. Renomeie ou desative em “Cardápio e preços” se necessário.
@@ -56,10 +65,10 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 
 ## Segurança operacional
 - Use uma senha administrativa forte e um `JWT_SECRET` aleatório com 32+ caracteres. A sessão do painel expira em 7 dias por padrão (ajuste com `ADMIN_TOKEN_TTL`, ex.: `12h`) e o login bloqueia temporariamente após 5 senhas erradas por IP (ou 20 por e-mail) em 15 minutos. O token fica no navegador até expirar ou até clicar em **Sair**; não use o painel em dispositivos compartilhados.
-- O painel registra logins e mutações administrativas na aba “Auditoria”, sem gravar o corpo das requisições.
+- Erros, auditoria e backup ficam só no **painel do desenvolvedor** (`/dev`), com login separado do painel da loja. O painel da loja registra logins e mutações, e o `/dev` mostra tudo na aba “Auditoria”, sem gravar o corpo das requisições.
 - Exclusões de produtos e pedidos exigem confirmação no painel. Exclusão de pedido é permanente; faça backup antes.
 - Preços, adicionais, descontos, cupons e frete são recalculados/validados no servidor; os valores enviados pelo navegador não são usados como fonte de verdade.
-- A aba “Backup” exporta JSON com pedidos, contas de clientes (com hash de senha), favoritos, clientes derivados dos pedidos, cardápio, bairros, configurações, cupons, avaliações e pontos. Também valida e restaura um arquivo desse formato em transação. A restauração substitui os dados operacionais atuais, preserva administradores e auditoria e deve ser usada com cuidado.
+- A aba “Backup” do `/dev` exporta JSON com pedidos, contas de clientes (com hash de senha), favoritos, clientes derivados dos pedidos, cardápio, bairros, configurações, cupons, avaliações e pontos. Também valida e restaura um arquivo desse formato em transação. A restauração substitui os dados operacionais atuais, preserva administradores e auditoria e deve ser usada com cuidado.
 - O backup JSON é manual e deve ser baixado e guardado fora do servidor. Ele não substitui o backup automático do provedor PostgreSQL; habilite/ confira a política de backup do Neon ou do provedor escolhido.
 - Proteja os arquivos de backup: eles contêm dados pessoais de clientes. Não os envie a repositórios públicos nem os compartilhe sem necessidade.
 - O histórico de auditoria é interno e não é incluído no backup operacional; mantenha também os backups nativos do banco para recuperação completa do ambiente.
@@ -71,10 +80,12 @@ public/
   manifest.webmanifest
   service-worker.js
   admin.html
+  dev.html
   privacidade.html
   css/styles.css
   js/site/*.js   (site do cliente, dividido por assunto; carregados em ordem, main.js por último)
   js/admin/*.js            (painel admin, dividido por assunto; main.js por último)
+  js/dev/*.js              (painel do desenvolvedor; main.js por último)
   js/admin-inventory/*.js  (painel de estoque; events.js por último)
 src/
   server.js      (liga o app ao banco e abre a porta)
@@ -86,6 +97,7 @@ src/
   routes/public.js
   routes/orders.js
   routes/admin.js
+  routes/dev.js
   services/store.js
   services/store.test.js
   services/promotions.js

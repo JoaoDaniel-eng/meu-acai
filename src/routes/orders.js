@@ -6,6 +6,7 @@ import { createAttemptLimiter } from '../services/rateLimit.js';
 import { findStockShortage } from '../services/inventory.js';
 import { buildOrderPix } from '../services/pix.js';
 import { makeOrderCode, ORDER_CODE_PATTERN } from '../services/orderCode.js';
+import { validateScheduledAt } from '../services/schedule.js';
 const router = Router();
 // Anti-spam de pedidos: no máximo 20 pedidos por IP e 6 por telefone a cada hora (só pedidos criados contam).
 const ordersByIp = createAttemptLimiter({ max: 20, windowMs: 60 * 60 * 1000 }), ordersByPhone = createAttemptLimiter({ max: 6, windowMs: 60 * 60 * 1000 });
@@ -73,14 +74,11 @@ router.post('/orders', async (req, res, next) => {
     const zone = zoneResult.rows[0];
     let schedule = null;
     if (scheduledFor) {
+      // Mesma regra da lista de horários do site (services/schedule.js): dia aberto, dentro do horário e com antecedência.
+      const problem = validateScheduledAt(scheduledFor, settings);
+      if (problem)
+        return res.status(400).json({ error: problem });
       schedule = new Date(scheduledFor);
-      if (Number.isNaN(schedule.getTime()))
-        return res.status(400).json({ error: 'Data de agendamento inválida.' });
-      const minMinutes = Number(settings.minimum_schedule_minutes || 30);
-      if (schedule.getTime() < Date.now() + minMinutes * 60000)
-        return res.status(400).json({ error: `Agende com pelo menos ${minMinutes} minutos de antecedência.` });
-      if (!isOpenAt(schedule, settings))
-        return res.status(400).json({ error: `O horário agendado precisa estar dentro do funcionamento (${settings.openingTime || '13:30'} às ${settings.closingTime || '22:00'}, de terça a domingo).` });
     }
     else if (settings.manual_closed === 'true' || !isOpenAt(new Date(), settings))
       return res.status(409).json({ error: 'A loja está fechada para pedidos imediatos. Você pode agendar para outro horário.' });
@@ -233,17 +231,13 @@ router.patch('/orders/:code/customer', async (req, res, next) => {
       return res.status(400).json({ error: 'Bairro não disponível. Escolha outro.' });
     const neighborhood = zone?.rows[0]?.name || o.neighborhood, fee = zone?.rows[0]?.fee_cents ?? o.delivery_fee_cents;
     const scheduled = req.body.scheduledFor === undefined ? o.scheduled_for : (req.body.scheduledFor ? new Date(req.body.scheduledFor) : null);
-    if (scheduled && Number.isNaN(new Date(scheduled).getTime()))
-      return res.status(400).json({ error: 'Data de agendamento inválida.' });
     const editSettings = await getSettings();
     // Mudança de horário na edição segue as mesmas regras de um pedido novo.
     if (req.body.scheduledFor !== undefined) {
       if (req.body.scheduledFor) {
-        const minMin = Number(editSettings.minimum_schedule_minutes || 30);
-        if (new Date(scheduled).getTime() < Date.now() + minMin * 60000)
-          return res.status(400).json({ error: `Agende com pelo menos ${minMin} minutos de antecedência.` });
-        if (!isOpenAt(new Date(scheduled), editSettings))
-          return res.status(400).json({ error: 'O horário agendado precisa estar dentro do funcionamento da loja.' });
+        const problem = validateScheduledAt(req.body.scheduledFor, editSettings);
+        if (problem)
+          return res.status(400).json({ error: problem });
       }
       else if (editSettings.manual_closed === 'true' || !isOpenAt(new Date(), editSettings))
         return res.status(409).json({ error: 'A loja está fechada para pedidos imediatos. Escolha um horário agendado.' });

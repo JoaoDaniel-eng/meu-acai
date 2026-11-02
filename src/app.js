@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import publicRoutes from './routes/public.js';
 import orderRoutes from './routes/orders.js';
 import adminRoutes from './routes/admin.js';
+import devRoutes from './routes/dev.js';
 import customerRoutes from './routes/customers.js';
 import { PricingError } from './services/pricing.js';
 import { getPool } from './db/pool.js';
@@ -22,13 +23,13 @@ export function createApp() {
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    if (req.path === '/admin' || req.path.startsWith('/admin/') || req.path.startsWith('/api/'))
+    if (req.path === '/admin' || req.path.startsWith('/admin/') || req.path === '/dev' || req.path.startsWith('/dev/') || req.path.startsWith('/api/'))
       res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     next();
   });
   // Limites de corpo por rota (os parsers específicos vêm antes: o primeiro que lê o corpo vale).
   // Backup/restauração leva o banco inteiro (inclui fotos de avaliações); avaliação com foto chega perto de 1 MB; o resto cabe em 100 KB.
-  app.use('/api/admin/backup', express.json({ limit: '10mb' }));
+  app.use('/api/dev/backup', express.json({ limit: '10mb' }));
   app.use('/api/reviews', express.json({ limit: '1200kb' }));
   app.use(express.json({ limit: '100kb' }));
   app.use(express.urlencoded({ extended: false, limit: '100kb' }));
@@ -42,6 +43,7 @@ export function createApp() {
   app.use('/api', orderRoutes);
   app.use('/api', customerRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/dev', devRoutes);
   // SEO: endereço público do site. Defina SITE_URL no Render (ex.: https://www.seudominio.com.br); sem ela, usa o endereço da própria requisição.
   const siteUrl = req => (process.env.SITE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
   let indexHtml = null;
@@ -58,11 +60,20 @@ export function createApp() {
   app.get('/robots.txt', (req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${siteUrl(req)}/sitemap.xml\n`));
   app.get('/sitemap.xml', (req, res) => res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${siteUrl(req)}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n  <url><loc>${siteUrl(req)}/privacidade.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>\n</urlset>\n`));
   // Painel e service worker também recebem o identificador da versão (cache novo a cada deploy, sem trocar números à mão).
-  let adminHtml = null, swJs = null;
+  let adminHtml = null, devHtml = null, swJs = null;
   app.get('/admin', async (_req, res, next) => {
     try {
       adminHtml ??= stampVersions((await readFile(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8')).replaceAll('__BUILD_ID__', BUILD_ID));
       res.type('html').set('Cache-Control', 'no-cache').send(adminHtml);
+    }
+    catch (err) {
+      next(err);
+    }
+  });
+  app.get('/dev', async (_req, res, next) => {
+    try {
+      devHtml ??= stampVersions((await readFile(path.join(__dirname, '..', 'public', 'dev.html'), 'utf8')).replaceAll('__BUILD_ID__', BUILD_ID));
+      res.type('html').set('Cache-Control', 'no-store').send(devHtml);
     }
     catch (err) {
       next(err);

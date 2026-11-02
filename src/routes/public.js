@@ -9,6 +9,7 @@ import { createAttemptLimiter } from '../services/rateLimit.js';
 import { sanitizeClientError } from '../services/alerts.js';
 import { saveError } from '../services/errorLog.js';
 import { BUILD_ID } from '../services/build.js';
+import { buildScheduleSlots } from '../services/schedule.js';
 const allowReview = createRateLimiter({ max: 5, windowMs: 60 * 60 * 1000 });
 const router = Router();
 const clientErrorLimiter = createAttemptLimiter({ max: 20, windowMs: 10 * 60 * 1000 });
@@ -29,6 +30,16 @@ router.get('/store', async (_req, res, next) => {
     const now = new Date();
     const openNow = isOpenAt(now, settings) && settings.manual_closed !== 'true';
     res.json({ name: settings.store_name || 'Açaí da Roça', whatsappNumber: settings.whatsapp_number || '', timezone: settings.timezone || 'America/Sao_Paulo', openingDays: (settings.opening_days || '2,3,4,5,6,0').split(',').map(Number), openingTime: settings.opening_time || '13:30', closingTime: settings.closing_time || '22:00', minimumScheduleMinutes: Number(settings.minimum_schedule_minutes || 30), maxFreeToppings: Number(settings.max_free_toppings || 5), comboMinItems: Number(settings.combo_min_items || 2), comboDiscountPercent: Number(settings.combo_discount_percent || 5), estimatedMinutesMin: Number(settings.estimated_minutes_min || 35), estimatedMinutesMax: Number(settings.estimated_minutes_max || 55), manualClosed: settings.manual_closed === 'true', openNow });
+  }
+  catch (e) {
+    next(e);
+  }
+});
+// Dias e horários em que o cliente pode agendar (só o que a loja aceita, conforme a aba Funcionamento do painel).
+router.get('/schedule-slots', async (_req, res, next) => {
+  try {
+    const settings = await getSettings();
+    res.set('Cache-Control', 'no-store').json({ days: buildScheduleSlots(settings), openingTime: settings.opening_time || '13:30', closingTime: settings.closing_time || '22:00' });
   }
   catch (e) {
     next(e);

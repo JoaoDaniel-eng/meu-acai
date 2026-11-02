@@ -92,15 +92,48 @@ $('#needs-change').addEventListener('change', e => {
   if (!needs)
     $('#change-for').value = '';
 });
+// Agendamento: o servidor entrega só os dias e horários em que a loja abre (aba Funcionamento do painel).
+let scheduleDays = [];
+function paintScheduleTimes() {
+  const day = scheduleDays.find(d => d.date === $('#schedule-day').value), time = $('#schedule-time');
+  time.innerHTML = (day ? day.slots : []).map(s => `<option value="${esc(s.value)}">${esc(s.time)}</option>`).join('');
+  $('#scheduled-for').value = time.value || '';
+}
+async function loadScheduleSlots() {
+  const dayEl = $('#schedule-day'), timeEl = $('#schedule-time'), hint = $('#schedule-hint');
+  hint.textContent = 'Carregando horários…';
+  dayEl.disabled = timeEl.disabled = true;
+  dayEl.required = timeEl.required = false;
+  $('#scheduled-for').value = '';
+  try {
+    const data = await api('/schedule-slots');
+    scheduleDays = data.days || [];
+    dayEl.innerHTML = scheduleDays.map(d => `<option value="${esc(d.date)}">${esc(d.label)}</option>`).join('');
+    if (!scheduleDays.length) {
+      timeEl.innerHTML = '';
+      hint.textContent = 'Não há horários disponíveis para agendar no momento. Fale com a loja pelo WhatsApp.';
+      return;
+    }
+    hint.textContent = `Horários disponíveis dentro do funcionamento da loja (${data.openingTime} às ${data.closingTime}).`;
+    dayEl.disabled = timeEl.disabled = false;
+    dayEl.required = timeEl.required = true;
+    paintScheduleTimes();
+  }
+  catch (err) {
+    scheduleDays = [];
+    dayEl.innerHTML = timeEl.innerHTML = '';
+    hint.textContent = 'Não foi possível carregar os horários. Verifique a conexão e tente novamente.';
+  }
+}
+$('#schedule-day').addEventListener('change', paintScheduleTimes);
+$('#schedule-time').addEventListener('change', () => { $('#scheduled-for').value = $('#schedule-time').value || ''; });
 $('#order-time').addEventListener('change', e => {
   const scheduled = e.target.value === 'scheduled';
   $('#schedule-label').classList.toggle('hidden', !scheduled);
-  $('#scheduled-for').required = scheduled;
-  if (scheduled) {
-    const min = new Date(Date.now() + Math.max(30, store?.minimumScheduleMinutes || 30) * 60000);
-    min.setMinutes(Math.ceil(min.getMinutes() / 5) * 5, 0, 0);
-    $('#scheduled-for').min = new Date(min.getTime() - min.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  }
+  if (scheduled)
+    loadScheduleSlots();
+  else
+    $('#scheduled-for').value = '';
 });
 $('#apply-coupon').addEventListener('click', async () => {
   const code = $('#coupon-code').value.trim().toUpperCase(), msg = $('#coupon-message'), subtotal = cart.reduce((sum, i) => sum + i.lineTotalCents, 0), itemCount = cart.reduce((sum, i) => sum + i.quantity, 0);
@@ -139,8 +172,12 @@ $('#checkout-form').addEventListener('submit', async (e) => {
     msg.textContent = 'Adicione pelo menos um açaí ao pedido.';
     return;
   }
+  if ($('#order-time').value === 'scheduled' && !$('#scheduled-for').value) {
+    msg.textContent = scheduleDays.length ? 'Escolha o dia e o horário do agendamento.' : 'Não há horários disponíveis para agendar agora. Escolha outra opção ou fale com a loja pelo WhatsApp.';
+    return;
+  }
   const fd = new FormData(form);
-  const payload = { customerName: fd.get('customerName'), phone: fd.get('phone'), address: fd.get('address'), zoneId: Number(fd.get('zoneId')), notes: fd.get('notes'), paymentMethod: fd.get('paymentMethod'), needsChange: fd.get('needsChange') || 'no', changeFor: fd.get('changeFor') || '', scheduledFor: fd.get('orderTime') === 'scheduled' ? new Date(fd.get('scheduledFor')).toISOString() : null, couponCode: appliedCoupon?.code || '', items: cart.map(i => ({ sizeId: i.sizeId, quantity: i.quantity, optionIds: i.optionIds })) };
+  const payload = { customerName: fd.get('customerName'), phone: fd.get('phone'), address: fd.get('address'), zoneId: Number(fd.get('zoneId')), notes: fd.get('notes'), paymentMethod: fd.get('paymentMethod'), needsChange: fd.get('needsChange') || 'no', changeFor: fd.get('changeFor') || '', scheduledFor: fd.get('orderTime') === 'scheduled' ? fd.get('scheduledFor') : null, couponCode: appliedCoupon?.code || '', items: cart.map(i => ({ sizeId: i.sizeId, quantity: i.quantity, optionIds: i.optionIds })) };
   const button = $('#submit-order');
   button.disabled = true;
   button.textContent = 'Registrando pedido…';

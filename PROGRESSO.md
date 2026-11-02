@@ -225,3 +225,30 @@
 - Aba Pedidos: paginação ("Carregar mais", 50 por vez), busca (código, nome, telefone, bairro), filtro por status e datas, "Limpar filtros" e exportação CSV (`GET /api/admin/orders/export.csv`, mesmos filtros). `GET /api/admin/orders` aceita `q`, `from`, `to` e `limit` (até 501; padrão 200, compatível com o anterior). Lógica pura em `services/orderSearch.js` (parâmetros SQL, escape do LIKE, proteção contra fórmulas no CSV).
 - Política de privacidade: responsável e e-mail preenchidos, avisos de "modelo a validar" removidos e frase de retenção por tempo indeterminado.
 - Validação: `npm test` de serviços 76/76; tela testada em Chromium com API simulada (paginação, busca, datas, download, limpar). **Não testado:** as consultas SQL contra PostgreSQL real (busca por telefone, fuso nas datas, CSV com dados reais).
+
+
+## Rodada 4 — Parte 1: painel do desenvolvedor (`/dev`) (01/11/2026)
+- Novo painel `/dev` com login próprio (tabela `developers`, token `type: developer`, `DEV_EMAIL`/`DEV_PASSWORD`, sessão de 12 h, bloqueio por tentativas).
+- Abas do `/dev`: Visão geral (saúde do sistema), Erros (filtro, ranking, detalhes com stack, exclusão), Auditoria (filtro por painel/busca), Backup (download, validação, restauração com confirmação digitada) e Contas da loja (listar, criar, redefinir senha).
+- Erros, Auditoria e Backup foram **removidos do painel da loja** (`/admin`) e das rotas `/api/admin/*`; a lógica de backup virou `src/services/backup.js` (comportamento igual). O aviso de “erros nas últimas 24 h” saiu do topo do painel da loja; o aviso de “sem pedidos” continua.
+- Auditoria compartilhada (`src/services/audit.js`) com coluna nova `actor` (`admin`/`dev`); linhas antigas viram `admin`.
+- Link “Desenvolvedor” ao lado de “Acesso da loja” no rodapé; `/dev` fora do cache do service worker e com `noindex`.
+- Testes: validações em `src/services/devAccounts.test.js` e rotas `/api/dev` em `tests/routes.test.js` (precisam de `TEST_DATABASE_URL`).
+- Interface testada em navegador headless com API simulada (claro, escuro, celular). Integração com o PostgreSQL real **não** foi executada neste ambiente.
+
+## Rodada 4 — Parte 2: erro na aba Relatórios (01/11/2026)
+- Causa: a consulta de **faturamento por dia** (`GET /api/admin/reports`) formatava `created_at` com `TO_CHAR(...)` no SELECT, mas agrupava por `DATE(created_at ...)`. O PostgreSQL recusa isso com “column orders.created_at must appear in the GROUP BY clause”, e como as 6 consultas do relatório rodam juntas, a aba inteira falhava.
+- Correção: agrupar primeiro pela data (dia em Brasília) numa subconsulta e formatar “DD/MM” só na consulta de fora, ordenando pela data real (e não pelo texto, que bagunçaria a virada de ano).
+- As outras 5 consultas do relatório, o resumo por período e os relatórios de estoque foram revisados: usam `GROUP BY` correto, sem o mesmo problema.
+- Teste de rota novo (`tests/routes.test.js`, “relatórios do painel”) abre o relatório de 7, 30 e 90 dias e o resumo por período; ele teria pegado o erro. Precisa de `TEST_DATABASE_URL`.
+- A consulta corrigida **não pôde ser executada contra um PostgreSQL real** neste ambiente (sem banco/internet). Abra Relatórios em /admin depois do deploy para confirmar.
+
+
+## Rodada 4 — Parte 3: agendamento só quando a loja abre (01/11/2026)
+- Nova regra única em `src/services/schedule.js`: a lista de horários do site e a validação do pedido usam as mesmas funções (dia aberto, dentro do horário, antecedência mínima). O fechamento é exclusivo (22:00 fechando = último horário 21:45).
+- Nova rota pública `GET /api/schedule-slots`: dias e horários (de 15 em 15 min, até 14 dias à frente) calculados no fuso de São Paulo, então o fuso/relógio do aparelho do cliente não influencia mais.
+- Checkout: o campo livre de data foi trocado por **Dia** e **Horário**; só aparece o que a loja aceita. Sem horários disponíveis, o site avisa e orienta falar pelo WhatsApp.
+- Servidor: criação e edição de pedido passam por `validateScheduledAt` (também recusa formatos estranhos). A mensagem de erro agora diz os dias e o horário reais da loja.
+- O fechamento manual continua não impedindo agendamentos em horário de funcionamento (como antes).
+- Testes: `src/services/schedule.test.js` (10 testes, passam) e rotas em `tests/routes.test.js` (precisam de `TEST_DATABASE_URL`). Interface testada em navegador headless com o serviço real.
+- O servidor já validava antes; não consegui reproduzir um furo sem o banco real. A causa provável era o campo livre (erro só no envio, e data interpretada no fuso do aparelho).

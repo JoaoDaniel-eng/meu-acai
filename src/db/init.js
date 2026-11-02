@@ -44,6 +44,10 @@ CREATE TABLE IF NOT EXISTS admins (
   id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, password_hash TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS developers (
+  id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 CREATE TABLE IF NOT EXISTS coupons (
   id SERIAL PRIMARY KEY, code VARCHAR(40) NOT NULL UNIQUE,
   discount_type VARCHAR(10) NOT NULL CHECK(discount_type IN ('percent','fixed')),
@@ -121,6 +125,8 @@ export async function initializeDatabase() {
   const db = getPool();
   await db.query(schema);
   await db.query('DROP TABLE IF EXISTS admin_login_attempts');
+  // Auditoria compartilhada: 'admin' (painel da loja) ou 'dev' (painel do desenvolvedor). Linhas antigas viram 'admin'.
+  await db.query("ALTER TABLE admin_audit_logs ADD COLUMN IF NOT EXISTS actor VARCHAR(10) NOT NULL DEFAULT 'admin'");
   await db.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo TEXT');
   // Fotos novas ficam no armazenamento de arquivos (Cloudinary); o banco guarda só o endereço.
   await db.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo_url TEXT');
@@ -202,6 +208,19 @@ export async function initializeDatabase() {
   if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);
     await db.query('INSERT INTO admins(email,password_hash) VALUES($1,$2) ON CONFLICT(email) DO NOTHING', [process.env.ADMIN_EMAIL.toLowerCase(), hash]);
+  }
+  // Conta do desenvolvedor (painel /dev): vem só das variáveis DEV_EMAIL e DEV_PASSWORD. Trocar a senha na variável atualiza a conta.
+  if (process.env.DEV_EMAIL && process.env.DEV_PASSWORD) {
+    const devEmail = process.env.DEV_EMAIL.trim().toLowerCase();
+    if (process.env.DEV_PASSWORD.length < 10)
+      console.warn('DEV_PASSWORD precisa ter pelo menos 10 caracteres: conta do desenvolvedor não criada.');
+    else {
+      const current = (await db.query('SELECT password_hash FROM developers WHERE email=$1', [devEmail])).rows[0];
+      if (!current)
+        await db.query('INSERT INTO developers(email,password_hash) VALUES($1,$2)', [devEmail, await bcrypt.hash(process.env.DEV_PASSWORD, 12)]);
+      else if (!(await bcrypt.compare(process.env.DEV_PASSWORD, current.password_hash)))
+        await db.query('UPDATE developers SET password_hash=$2 WHERE email=$1', [devEmail, await bcrypt.hash(process.env.DEV_PASSWORD, 12)]);
+    }
   }
   console.log('Banco de dados inicializado.');
 }

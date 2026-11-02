@@ -38,7 +38,7 @@ Execute primeiro em ambiente de teste ou com pedidos de teste. Antes de qualquer
 1. Crie um produto de teste e tente excluí-lo; cancele a primeira confirmação e confira que ele continua cadastrado.
 2. Repita e confirme a exclusão do produto de teste.
 3. Faça o mesmo com um pedido de teste.
-4. Confira na aba **Auditoria** os registros das alterações e exclusões.
+4. Entre no painel do desenvolvedor (`/dev`) e confira na aba **Auditoria** os registros das alterações e exclusões.
 
 > Exclusão de pedido é permanente. Não use pedidos reais para esse teste.
 
@@ -51,11 +51,11 @@ Execute primeiro em ambiente de teste ou com pedidos de teste. Antes de qualquer
 
 ## 6. Backup e recuperação
 
-1. Abra **Backup** e baixe o arquivo JSON.
+1. Entre em `/dev`, abra **Backup** e baixe o arquivo JSON.
 2. Confira se o arquivo foi salvo e se contém as tabelas de pedidos, clientes, produtos, opções, bairros, configurações, cupons, avaliações e fidelidade.
 3. Selecione o arquivo no campo de restauração e execute a validação.
 4. **Restaure somente em um banco de teste separado.** A restauração substitui os dados operacionais existentes.
-5. Depois da restauração, confira pedidos, cardápio, bairros, cupons, configurações e pontos.
+5. Depois da restauração (o `/dev` pede que você digite RESTAURAR), confira pedidos, cardápio, bairros, cupons, configurações e pontos.
 6. Confira que os administradores continuam podendo entrar e que a auditoria anterior permanece.
 
 Além do JSON manual, confirme no painel do provedor PostgreSQL se os backups/snapshots automáticos estão habilitados e qual é a retenção disponível no plano contratado.
@@ -158,3 +158,20 @@ Considere o teste aprovado somente quando o fluxo terminar sem erro, os valores 
 - [ ] Combinar status + busca + datas; "Limpar filtros" volta à lista completa.
 - [ ] Baixar planilha: abrir no Excel (acentos corretos, colunas separadas, totais em reais) e conferir que respeita os filtros.
 - [ ] Nome de cliente começando com `=` ou `+` aparece como texto na planilha, sem virar fórmula.
+
+## 8. Painel do desenvolvedor (`/dev`)
+
+1. No rodapé da loja, confira os dois acessos: **Acesso da loja** (abre `/admin`) e **Desenvolvedor** (abre `/dev`).
+2. Em `/dev`, tente entrar com a senha errada (deve recusar) e depois com `DEV_EMAIL`/`DEV_PASSWORD`.
+3. Tente entrar em `/dev` com o e-mail e a senha da loja: deve recusar. Faça o inverso em `/admin`: deve recusar.
+4. Confira que `/admin` não tem mais as abas **Erros**, **Auditoria** e **Backup**, e que elas existem em `/dev`.
+5. Em **Visão geral**, confira banco “Conectado”, versão e a lista de variáveis.
+6. Em **Contas da loja**, crie uma conta de teste, entre com ela em `/admin` e depois redefina a senha dela.
+
+## 9. Agendamento só em dia e horário de funcionamento
+
+1. Em **Funcionamento** (/admin), deixe só alguns dias marcados e um horário de abertura e fechamento (ex.: terça a domingo, 13:30 às 22:00).
+2. No site, escolha **Agendar para depois**: a lista de **Dia** não deve ter os dias desmarcados, e **Horário** deve começar na abertura e terminar 15 min antes do fechamento.
+3. Altere o horário no painel, recarregue o site e confirme que a lista acompanha a mudança.
+4. Hoje, perto do fechamento: os horários que já passaram ou estão a menos da antecedência mínima não aparecem.
+5. Faça um pedido agendado com um dos horários e confira o dia e a hora no painel e no WhatsApp.

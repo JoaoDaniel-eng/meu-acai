@@ -657,3 +657,46 @@ html[data-theme="dark"] .size-card.sold-out strong{color:#fbbf24}
 .orders-tools #order-search{flex:1 1 240px;min-width:0}
 .orders-date{display:flex;gap:6px;align-items:center;font-weight:600}
 .orders-footer{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 0}
+
+/* Painel do desenvolvedor (/dev) */
+.footer-access{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center}
+.dev-heading{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between}
+.dev-pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:.78rem;font-weight:700;background:#eee;color:#333;white-space:nowrap}
+.dev-pill.ok{background:#e5f7dc;color:#2b6416}
+.dev-pill.bad{background:#ffe5e5;color:#a12b2b}
+.dev-pill.warn{background:#fff0ce;color:#875600}
+.dev-pill.dev{background:#e4efff;color:#1b4f92}
+.dev-pill.neutral{background:#f5e8ff;color:#6a218d}
+.dev-ok{color:#2b6416}.dev-warn{color:#875600}.dev-bad,.stat-card strong.dev-bad{color:#a12b2b}
+.dev-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.82rem;overflow-wrap:anywhere}
+.dev-counts{display:flex;flex-wrap:wrap;gap:10px 18px;margin:0 0 18px}
+.dev-counts span{padding:9px 14px;border:1px solid var(--line);border-radius:12px;font-size:.88rem}
+.dev-counts b{color:var(--purple);font-size:1.05rem}
+.dev-detail{padding:6px 2px 10px}
+.dev-detail p{margin:6px 0;font-size:.82rem;overflow-wrap:anywhere}
+.dev-detail pre{margin:6px 0 12px;padding:12px;border-radius:10px;background:#f5eef8;color:#2b0a3d;font-size:.76rem;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto}
+.dev-forms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:24px}
+.dev-form{display:grid;gap:10px;padding:18px;border:1px solid var(--line);border-radius:14px;align-content:start}
+.dev-form h3{margin:0 0 4px}
+.dev-form label{margin:0}
+.dev-form .button{justify-self:start}
+.dev-body .stat-card strong{font-size:1.35rem}
+@media(max-width:760px){.dev-forms{grid-template-columns:1fr}.dev-form .button{justify-self:stretch}}
+html[data-theme="dark"] .dev-pill{background:#33243f;color:#ead9f7}
+html[data-theme="dark"] .dev-pill.ok{background:#1d3a14;color:#b6e993}
+html[data-theme="dark"] .dev-pill.bad{background:#4a1c22;color:#ffb3b3}
+html[data-theme="dark"] .dev-pill.warn{background:#4a3410;color:#ffd98a}
+html[data-theme="dark"] .dev-pill.dev{background:#14304f;color:#a9cdf5}
+html[data-theme="dark"] .dev-pill.neutral{background:#3a1d52;color:#e2c6f5}
+html[data-theme="dark"] .dev-ok{color:#b6e993}
+html[data-theme="dark"] .dev-warn{color:#ffd98a}
+html[data-theme="dark"] .dev-bad,html[data-theme="dark"] .stat-card strong.dev-bad{color:#ffb3b3}
+html[data-theme="dark"] .dev-detail pre{background:#150b1e;color:#ead9f7}
+html[data-theme="dark"] .dev-counts span,html[data-theme="dark"] .dev-form{border-color:#3a2650}
+html[data-theme="dark"] .dev-counts b{color:#e2c6f5}
+
+/* Agendamento: dia e horário (só o que a loja aceita) */
+.schedule-picker{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.schedule-picker label{margin:0}
+.schedule-picker .schedule-hint{grid-column:1/-1;margin:0;font-size:.82rem}
+@media(max-width:480px){.schedule-picker{grid-template-columns:1fr}}

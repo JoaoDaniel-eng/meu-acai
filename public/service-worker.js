@@ -41,7 +41,7 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
   const url = new URL(request.url);
   // Nunca armazenar respostas de API, dados de clientes, pedidos ou conteúdo administrativo.
-  if (url.pathname.startsWith('/api/') || url.pathname === '/admin' || url.pathname.startsWith('/admin/')) return;
+  if (url.pathname.startsWith('/api/') || url.pathname === '/admin' || url.pathname.startsWith('/admin/') || url.pathname === '/dev' || url.pathname.startsWith('/dev/')) return;
   if (request.mode === 'navigate') {
     if (url.pathname !== '/' && url.pathname !== '/index.html') {
       event.respondWith(fetch(request));

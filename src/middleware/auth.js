@@ -18,3 +18,21 @@ export function requireAdmin(req, res, next) {
     return res.status(401).json({ error: 'Sessão inválida ou expirada. Entre novamente.' });
   }
 }
+// Painel do desenvolvedor: token próprio (type 'developer'). Tokens de administrador e de cliente não entram aqui.
+export function requireDev(req, res, next) {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token)
+    return res.status(401).json({ error: 'Faça login para continuar.' });
+  try {
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)
+      throw new Error('JWT_SECRET inválido');
+    const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    if (payload.type !== 'developer' || !payload.devId)
+      throw new Error('Token não é de desenvolvedor');
+    req.dev = payload;
+    next();
+  }
+  catch {
+    return res.status(401).json({ error: 'Sessão inválida ou expirada. Entre novamente.' });
+  }
+}

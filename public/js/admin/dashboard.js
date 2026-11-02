@@ -62,12 +62,6 @@ async function loadTab(tab) {
       await loadCoupons();
     if (tab === 'customers')
       await loadCustomers();
-    if (tab === 'errors')
-      await loadErrors();
-    if (tab === 'audit')
-      await loadAudit();
-    if (tab === 'backup')
-      $('#backup-message').textContent = 'Os backups contêm dados pessoais. Mantenha-os protegidos.';
   }
   catch (e) {
     say(e.message);
