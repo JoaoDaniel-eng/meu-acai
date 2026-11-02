@@ -768,8 +768,11 @@ html[data-theme="dark"] .welcome-admin-row code{color:#e2c6f5}
 #truffled-sizes .size-card{cursor:pointer}
 .account-accordion{padding:0;overflow:hidden}
 .accordion-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;font-weight:700;cursor:pointer}
-.accordion-chevron{font-size:1.35rem;line-height:1;transition:transform .22s ease;color:var(--muted,#777)}
-.accordion-trigger[aria-expanded="true"] .accordion-chevron{transform:rotate(180deg)}
+.accordion-chevron{display:inline-flex;align-items:center;justify-content:center;flex:0 0 28px;width:28px;height:28px;border:1px solid var(--border-color,#76558a);border-radius:50%;color:var(--text-color,currentColor);transition:transform .22s ease,background-color .22s ease;pointer-events:none}
+.accordion-chevron svg{display:block;width:18px;height:18px;overflow:visible}
+.accordion-chevron path{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.accordion-trigger[aria-expanded="true"] .accordion-chevron{transform:rotate(180deg);background:var(--surface-2,rgba(128,90,150,.12))}
+.accordion-trigger:focus-visible{outline:2px solid var(--primary,#8b3db5);outline-offset:2px;border-radius:12px}
 .accordion-content{padding:0 20px 18px;overflow:hidden;max-height:0;transition:max-height .24s ease;animation:accordion-open .22s ease both}.accordion-content[hidden]{display:none}
 @keyframes accordion-open{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:600px){.menu-category-tabs{gap:8px}.menu-category-tabs button{min-width:0;padding-inline:10px;font-size:.9rem}.truffled-flavor-grid{grid-template-columns:1fr 1fr}.accordion-trigger{padding:16px}}
