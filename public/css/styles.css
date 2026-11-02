@@ -754,3 +754,25 @@ html[data-theme="dark"] .coupon-used .coupon-badge{background:#33204a;color:#ead
 html[data-theme="dark"] .welcome-admin-row{border-color:#3a2650}
 html[data-theme="dark"] .welcome-admin-row code{color:#e2c6f5}
 @media(max-width:760px){.welcome-coupon-tools{grid-template-columns:1fr}.welcome-admin-row{grid-template-columns:1fr 1fr;gap:8px}.welcome-admin-row .coupon-badge{justify-self:start}.welcome-admin-date{text-align:left}}
+
+/* Categorias independentes do cardápio */
+.menu-category-tabs{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 22px}
+.menu-category-tabs button{flex:1;min-width:190px}
+.truffled-menu{min-width:0}
+.truffled-flavor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:18px 0}
+.truffled-flavor-card{display:flex;flex-direction:column;align-items:flex-start;gap:9px;text-align:left;padding:18px;border:1px solid var(--border-color,#eadff0);border-radius:16px;background:var(--card-bg,#fff);color:inherit;cursor:pointer;font:inherit;min-height:96px}
+.truffled-flavor-card strong{font-size:1rem}
+.truffled-flavor-card span{font-size:.88rem;color:var(--muted,#777)}
+.truffled-flavor-card.chosen{border-color:var(--primary,#6c3483);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary,#6c3483) 16%,transparent)}
+#truffled-sizes{margin:18px 0}
+#truffled-sizes .size-card{cursor:pointer}
+.account-accordion{padding:0;overflow:hidden}
+.accordion-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;font-weight:700;cursor:pointer}
+.accordion-chevron{font-size:1.35rem;line-height:1;transition:transform .22s ease;color:var(--muted,#777)}
+.accordion-trigger[aria-expanded="true"] .accordion-chevron{transform:rotate(180deg)}
+.accordion-content{padding:0 20px 18px;overflow:hidden;max-height:0;transition:max-height .24s ease;animation:accordion-open .22s ease both}.accordion-content[hidden]{display:none}
+@keyframes accordion-open{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:600px){.menu-category-tabs{gap:8px}.menu-category-tabs button{min-width:0;padding-inline:10px;font-size:.9rem}.truffled-flavor-grid{grid-template-columns:1fr 1fr}.accordion-trigger{padding:16px}}
+
+.truffled-flavor-card img{width:100%;height:130px;object-fit:cover;border-radius:10px}
+.product-active-row input[type=url]{min-width:220px;max-width:100%}

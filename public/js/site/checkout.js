@@ -8,10 +8,12 @@ async function load() {
     $('#combo-promo-text').textContent = `Adicione ${store.comboMinItems} ou mais açaís ao carrinho e ganhe ${store.comboDiscountPercent}% de desconto automaticamente.`;
     if (!menu.products.length)
       throw new Error('O cardápio está indisponível.');
-    selectedSize = menu.products[0].sizes[0] || null;
+    selectedSize = traditionalProduct()?.sizes[0] || null;
     $('#menu-status').classList.add('hidden');
     $('#builder').classList.remove('hidden');
     renderBuilder();
+    renderTruffledMenu();
+    $('#menu-category-tabs').classList.remove('hidden');
     updateZones();
     restoreSavedDetails();
     restoreCart();
@@ -24,9 +26,50 @@ async function load() {
   }
   await loadReviews();
 }
+function renderTruffledMenu() {
+  const products = menu.products.filter(p => p.type === 'truffled');
+  $('#truffled-flavors').innerHTML = products.map(p => `<button type="button" class="truffled-flavor-card ${selectedTruffleProduct?.id === p.id ? 'chosen' : ''}" data-truffle-flavor="${p.id}">${p.image_url ? `<img src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}<strong>${esc(p.name)}</strong><span>Escolher tamanho →</span></button>`).join('');
+  if (!products.length) $('#truffled-flavors').innerHTML = '<p class="muted">Nenhum sabor trufado disponível no momento.</p>';
+}
+function renderTruffledSizes() {
+  const panel = $('#truffled-sizes');
+  if (!selectedTruffleProduct) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  panel.innerHTML = `<h3>${esc(selectedTruffleProduct.name)}</h3><p class="muted">Agora escolha o tamanho:</p><div class="size-grid">${selectedTruffleProduct.sizes.map(size => `<button type="button" class="size-card ${size.soldOut ? 'sold-out' : ''}" data-truffle-size="${size.id}" ${size.soldOut ? 'disabled' : ''}><span>${esc(size.name)}</span><strong>${size.soldOut ? 'Esgotado' : brl(size.price)}</strong></button>`).join('')}</div>`;
+}
+document.addEventListener('click', e => {
+  const category = e.target.closest('[data-menu-category]');
+  if (category) {
+    const traditional = category.dataset.menuCategory === 'traditional';
+    document.querySelectorAll('[data-menu-category]').forEach(b => {
+      const active = b === category;
+      b.classList.toggle('button-primary', active);
+      b.classList.toggle('button-outline', !active);
+      b.setAttribute('aria-selected', String(active));
+    });
+    $('.builder-main').classList.toggle('hidden', !traditional);
+    $('#truffled-menu').classList.toggle('hidden', traditional);
+    if (!traditional) renderTruffledMenu();
+    return;
+  }
+  const flavor = e.target.closest('[data-truffle-flavor]');
+  if (flavor) {
+    selectedTruffleProduct = menu.products.find(p => p.id === Number(flavor.dataset.truffleFlavor));
+    renderTruffledMenu(); renderTruffledSizes(); return;
+  }
+  const truffleSize = e.target.closest('[data-truffle-size]');
+  if (truffleSize && selectedTruffleProduct) {
+    const size = selectedTruffleProduct.sizes.find(x => x.id === Number(truffleSize.dataset.truffleSize));
+    if (!size || size.soldOut) return;
+    const quantity = Number($('#builder-quantity')?.value || 1);
+    cart.push({ sizeId: size.id, product: selectedTruffleProduct.name, size: size.name, quantity, optionIds: [], options: [], unitPriceCents: Number(size.price), lineTotalCents: Number(size.price) * quantity });
+    appliedCoupon = null; $('#coupon-message').textContent = ''; renderCart();
+    $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
 document.addEventListener('change', e => {
   if (e.target.matches('[data-size]')) {
-    selectedSize = menu.products[0].sizes.find(s => s.id === Number(e.target.dataset.size));
+    selectedSize = traditionalProduct().sizes.find(s => s.id === Number(e.target.dataset.size));
     renderBuilder();
   }
   if (e.target.matches('[data-option]')) {
@@ -65,7 +108,7 @@ $('#add-cart').addEventListener('click', () => {
   builderMessage('');
   const opts = [...selected].map(id => menu.options.find(o => o.id === id)).filter(Boolean);
   const unit = priceForBuilder(), quantity = Number($('#builder-quantity').value || 1);
-  cart.push({ sizeId: selectedSize.id, size: selectedSize.name, quantity, optionIds: opts.map(o => o.id), options: opts, unitPriceCents: unit, lineTotalCents: unit * quantity });
+  cart.push({ sizeId: selectedSize.id, product: traditionalProduct().name, size: selectedSize.name, quantity, optionIds: opts.map(o => o.id), options: opts, unitPriceCents: unit, lineTotalCents: unit * quantity });
   appliedCoupon = null;
   $('#coupon-message').textContent = '';
   selected.clear();

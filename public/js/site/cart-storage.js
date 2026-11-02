@@ -6,7 +6,7 @@ function buildCartItem(sizeId, optionIds, qty) {
     return null;
   const options = (optionIds || []).map(id => menu.options.find(o => Number(o.id) === Number(id))).filter(Boolean);
   const unit = Number(size.price) + options.reduce((n, o) => n + Number(o.price || 0), 0);
-  return { sizeId: size.id, size: size.name, quantity: qty, optionIds: options.map(o => o.id), options, unitPriceCents: unit, lineTotalCents: unit * qty };
+  return { sizeId: size.id, product: size.product_name || menu.products.find(p => p.id === size.product_id)?.name || 'Açaí', size: size.name, quantity: qty, optionIds: options.map(o => o.id), options, unitPriceCents: unit, lineTotalCents: unit * qty };
 }
 function saveCart() {
   try {
