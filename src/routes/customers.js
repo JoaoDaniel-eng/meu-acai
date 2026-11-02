@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { getPool } from '../db/pool.js';
 import { createAttemptLimiter } from '../services/rateLimit.js';
+import { issueWelcomeCoupon, presentWelcomeCoupon, WELCOME_KIND } from '../services/welcomeCoupon.js';
 const router = Router();
 // Entrada de cliente: 10 senhas erradas por IP e por celular a cada 15 min.
 const custLoginByIp = createAttemptLimiter({ max: 10, windowMs: 15 * 60 * 1000 }), custLoginByPhone = createAttemptLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
@@ -37,7 +38,16 @@ router.post('/customers/register', async (req, res, next) => {
     const hash = await bcrypt.hash(password, 12);
     const result = await db.query('INSERT INTO customers(name,phone,password_hash) VALUES($1,$2,$3) RETURNING id,name,phone', [name, phone, hash]);
     const c = result.rows[0];
-    res.status(201).json({ token: tokenFor(c), customer: { name: c.name, phone: c.phone } });
+    // O cupom nunca pode impedir o cadastro: se falhar, a conta fica criada e o erro vai para o log.
+    let welcomeCoupon = null;
+    try {
+      const coupon = await issueWelcomeCoupon(db, c.id, c.phone);
+      if (coupon) welcomeCoupon = presentWelcomeCoupon(coupon);
+    }
+    catch (err) {
+      console.error('Falha ao criar cupom de boas-vindas:', err);
+    }
+    res.status(201).json({ token: tokenFor(c), customer: { name: c.name, phone: c.phone }, welcomeCoupon });
   }
   catch (e) {
     if (e.code === '23505')
@@ -79,6 +89,15 @@ router.get('/customers/me', auth, async (req, res, next) => {
     const l = await db.query("SELECT COALESCE(SUM(points),0)::int AS balance FROM loyalty_points WHERE regexp_replace(customer_phone,'[^0-9]','','g')=$1", [r.rows[0].phone]);
     const { must_change_password, ...customer } = r.rows[0];
     res.json({ customer, loyaltyBalance: l.rows[0].balance, mustChangePassword: !!must_change_password });
+  }
+  catch (e) {
+    next(e);
+  }
+});
+router.get('/customers/me/coupons', auth, async (req, res, next) => {
+  try {
+    const r = await getPool().query('SELECT code,discount_value,active,used_at,created_at FROM coupons WHERE customer_id=$1 AND kind=$2 ORDER BY created_at DESC', [req.customerId, WELCOME_KIND]);
+    res.json({ coupons: r.rows.map(presentWelcomeCoupon) });
   }
   catch (e) {
     next(e);

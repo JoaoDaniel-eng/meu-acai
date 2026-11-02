@@ -15,6 +15,15 @@ import { buildNoOrdersAlert } from '../services/alerts.js';
 import { buildOrderFilter, ordersToCsv } from '../services/orderSearch.js';
 import { validatePixSetting } from '../services/pix.js';
 import { convertConsumptionToStockUnit, convertStockQuantity, stockUnitFactor, defaultConsumptionUnit } from '../services/inventory.js';
+import {
+  releasePersonalCoupon,
+  buildWelcomeAdminFilter,
+  presentAdminWelcomeCoupon,
+  WELCOME_KIND,
+  WELCOME_CODE_PREFIX,
+  WELCOME_LOCKED_MESSAGE,
+  WELCOME_RESERVED_PREFIX_MESSAGE
+} from '../services/welcomeCoupon.js';
 const router = Router();
 // Login: 5 senhas erradas por IP e 20 por e-mail a cada 15 min. Depois disso responde 429 até a janela passar.
 const loginByIp = createAttemptLimiter({ max: 5, windowMs: 15 * 60 * 1000 }), loginByEmail = createAttemptLimiter({ max: 20, windowMs: 15 * 60 * 1000 });
@@ -146,10 +155,47 @@ router.post('/customers/:id/reset-password', async (req, res, next) => {
     next(e);
   }
 });
+// O cupom existe e não é manual (é de boas-vindas ou pessoal)? Usado para responder 403 em vez de 404.
+const isWelcomeCoupon = async (db, id) => (await db.query("SELECT 1 FROM coupons WHERE id=$1 AND (kind<>'manual' OR customer_id IS NOT NULL)", [id])).rowCount > 0;
 router.get('/coupons', async (_req, res, next) => {
   try {
-    const { rows } = await getPool().query('SELECT * FROM coupons ORDER BY created_at DESC,id DESC');
+    const { rows } = await getPool().query('SELECT * FROM coupons WHERE customer_id IS NULL ORDER BY created_at DESC,id DESC');
     res.json(rows);
+  }
+  catch (e) {
+    next(e);
+  }
+});
+// Cupons de boas-vindas (automáticos, um por cliente): dono, status e pedido. Só leitura.
+// Filtros: status (available | used | inactive), q (código, nome, telefone ou código do pedido) e limit (até 500; padrão 200).
+router.get('/coupons/welcome', async (req, res, next) => {
+  try {
+    const f = buildWelcomeAdminFilter(req.query);
+    if (f.error)
+      return res.status(400).json({ error: f.error });
+    const db = getPool();
+    const { rows } = await db.query(
+      `SELECT c.id, c.code, c.discount_value, c.active, c.used_at, c.used_order_id, c.created_at,
+              cu.id AS customer_id, cu.name AS customer_name, cu.phone AS customer_phone,
+              o.order_code, o.status AS order_status
+         FROM coupons c
+         JOIN customers cu ON cu.id = c.customer_id
+         LEFT JOIN orders o ON o.id = c.used_order_id
+         ${f.where}
+        ORDER BY c.created_at DESC, c.id DESC
+        LIMIT ${f.limit + 1}`,
+      f.params
+    );
+    // O resumo ignora os filtros: é o retrato de todos os cupons de boas-vindas.
+    const sum = await db.query(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE used_at IS NULL AND active)::int AS available,
+              COUNT(*) FILTER (WHERE used_at IS NOT NULL)::int AS used,
+              COUNT(*) FILTER (WHERE used_at IS NULL AND NOT active)::int AS inactive
+         FROM coupons WHERE kind = $1`,
+      [WELCOME_KIND]
+    );
+    res.json({ summary: sum.rows[0], coupons: rows.slice(0, f.limit).map(presentAdminWelcomeCoupon), truncated: rows.length > f.limit });
   }
   catch (e) {
     next(e);
@@ -163,6 +209,8 @@ router.post('/coupons', async (req, res, next) => {
     const minimum = Number(req.body.minSubtotalCents || 0);
     if (!/^[A-Z0-9_-]{3,40}$/.test(code) || !['percent', 'fixed'].includes(type) || !Number.isInteger(value) || value < 1 || (type === 'percent' && value > 100) || (type === 'fixed' && value > 2000000) || !Number.isInteger(minimum) || minimum < 0 || minimum > 2000000)
       return res.status(400).json({ error: 'Confira código, desconto e pedido mínimo.' });
+    if (code.startsWith(WELCOME_CODE_PREFIX))
+      return res.status(400).json({ error: WELCOME_RESERVED_PREFIX_MESSAGE });
     const { rows } = await getPool().query('INSERT INTO coupons(code,discount_type,discount_value,min_subtotal_cents) VALUES($1,$2,$3,$4) RETURNING *', [code, type, value, minimum]);
     res.status(201).json(rows[0]);
   }
@@ -176,10 +224,17 @@ router.patch('/coupons/:id', async (req, res, next) => {
   try {
     if (typeof req.body.active !== 'boolean')
       return res.status(400).json({ error: 'Estado do cupom inválido.' });
-    const active = req.body.active;
-    const { rows } = await getPool().query('UPDATE coupons SET active=$1 WHERE id=$2 RETURNING *', [active, Number(req.params.id)]);
-    if (!rows.length)
+    const active = req.body.active, id = Number(req.params.id);
+    if (!Number.isInteger(id))
       return res.status(404).json({ error: 'Cupom não encontrado.' });
+    const db = getPool();
+    // Só cupom manual da loja muda aqui. O de boas-vindas é automático e fica travado.
+    const { rows } = await db.query("UPDATE coupons SET active=$1 WHERE id=$2 AND kind='manual' AND customer_id IS NULL RETURNING *", [active, id]);
+    if (!rows.length) {
+      if (await isWelcomeCoupon(db, id))
+        return res.status(403).json({ error: WELCOME_LOCKED_MESSAGE });
+      return res.status(404).json({ error: 'Cupom não encontrado.' });
+    }
     res.json(rows[0]);
   }
   catch (e) {
@@ -188,9 +243,16 @@ router.patch('/coupons/:id', async (req, res, next) => {
 });
 router.delete('/coupons/:id', async (req, res, next) => {
   try {
-    const r = await getPool().query('DELETE FROM coupons WHERE id=$1', [Number(req.params.id)]);
-    if (!r.rowCount)
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id))
       return res.status(404).json({ error: 'Cupom não encontrado.' });
+    const db = getPool();
+    const r = await db.query("DELETE FROM coupons WHERE id=$1 AND kind='manual' AND customer_id IS NULL", [id]);
+    if (!r.rowCount) {
+      if (await isWelcomeCoupon(db, id))
+        return res.status(403).json({ error: WELCOME_LOCKED_MESSAGE });
+      return res.status(404).json({ error: 'Cupom não encontrado.' });
+    }
     res.json({ ok: true });
   }
   catch (e) {
@@ -293,6 +355,9 @@ router.patch('/orders/:id/status', async (req, res, next) => {
         await client.query(`INSERT INTO inventory_movements(inventory_item_id,movement_type,quantity,unit_cost,reason,order_id,idempotency_key) VALUES($1,'devolucao',$2,$3,'Devolução por cancelamento',$4,$5) ON CONFLICT(idempotency_key) DO NOTHING`, [m.inventory_item_id, m.quantity, m.unit_cost, order.id, `order-${order.id}-return-${m.inventory_item_id}`]);
       }
     }
+    // Cancelou: o cupom pessoal que estava preso a este pedido volta para o cliente.
+    if (status === 'cancelled' && order.status !== 'cancelled')
+      await releasePersonalCoupon(client, order.id);
     const r = await client.query('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,order_code,status,total_cents,delivery_fee_cents,customer_phone', [status, order.id]);
     if (status === 'delivered') {
       const points = calculateLoyaltyPoints(Math.max(0, Number(r.rows[0].total_cents) - Number(r.rows[0].delivery_fee_cents)));
@@ -458,10 +523,27 @@ router.delete('/orders/:id', async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isSafeInteger(id) || id < 1)
       return res.status(400).json({ error: 'Pedido inválido.' });
-    const r = await getPool().query('DELETE FROM orders WHERE id=$1 RETURNING order_code', [id]);
-    if (!r.rowCount)
-      return res.status(404).json({ error: 'Pedido não encontrado.' });
-    res.json({ ok: true, orderCode: r.rows[0].order_code });
+    // Apagar pedido não entregue devolve o cupom pessoal ao cliente; pedido entregue mantém o cupom como usado.
+    const client = await getPool().connect();
+    try {
+      await client.query('BEGIN');
+      const r = await client.query('DELETE FROM orders WHERE id=$1 RETURNING order_code,status', [id]);
+      if (!r.rowCount) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Pedido não encontrado.' });
+      }
+      if (r.rows[0].status !== 'delivered')
+        await releasePersonalCoupon(client, id);
+      await client.query('COMMIT');
+      res.json({ ok: true, orderCode: r.rows[0].order_code });
+    }
+    catch (e) {
+      await client.query('ROLLBACK').catch(() => { });
+      throw e;
+    }
+    finally {
+      client.release();
+    }
   }
   catch (e) {
     next(e);

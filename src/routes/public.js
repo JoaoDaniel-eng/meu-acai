@@ -10,6 +10,8 @@ import { sanitizeClientError } from '../services/alerts.js';
 import { saveError } from '../services/errorLog.js';
 import { BUILD_ID } from '../services/build.js';
 import { buildScheduleSlots } from '../services/schedule.js';
+import { optionalCustomerId } from '../middleware/auth.js';
+import { couponProblem, findCouponByCode } from '../services/welcomeCoupon.js';
 const allowReview = createRateLimiter({ max: 5, windowMs: 60 * 60 * 1000 });
 const router = Router();
 const clientErrorLimiter = createAttemptLimiter({ max: 20, windowMs: 10 * 60 * 1000 });
@@ -68,10 +70,11 @@ router.get('/coupons/validate', async (req, res, next) => {
     const code = String(req.query.code || '').trim().toUpperCase(), subtotal = Number(req.query.subtotalCents);
     if (!code || !Number.isInteger(subtotal) || subtotal < 0)
       return res.status(400).json({ error: 'Informe um cupom e um subtotal válido.' });
-    const { rows } = await getPool().query('SELECT code,discount_type,discount_value,min_subtotal_cents FROM coupons WHERE code=$1 AND active=true', [code]);
-    if (!rows.length)
-      return res.status(404).json({ error: 'Cupom inválido ou indisponível.' });
-    const c = rows[0];
+    // O site manda o token da conta (se logado): cupom pessoal só é aceito para o dono, e só se ainda não foi usado.
+    const c = await findCouponByCode(getPool(), code);
+    const problem = couponProblem(c, optionalCustomerId(req));
+    if (problem)
+      return res.status(problem.reason === 'invalid' ? 404 : 400).json({ error: problem.message });
     const settings = await getSettings();
     const pricing = priceOrder({ subtotalCents: subtotal, itemCount: Number(req.query.itemCount || 0), combo: comboRules(settings), coupon: c });
     if (pricing.couponRejected)

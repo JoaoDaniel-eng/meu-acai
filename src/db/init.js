@@ -189,6 +189,13 @@ export async function initializeDatabase() {
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS combo_discount_cents INTEGER NOT NULL DEFAULT 0");
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_minutes_min INTEGER NOT NULL DEFAULT 35");
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_minutes_max INTEGER NOT NULL DEFAULT 55");
+  // Cupom de boas-vindas (5% na primeira compra, uso único): fica na tabela coupons, ligado a uma conta de cliente.
+  // used_order_id é só um número (sem chave estrangeira) para o backup poder restaurar cupons antes dos pedidos.
+  await db.query("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'manual'");
+  await db.query("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS customer_id BIGINT REFERENCES customers(id) ON DELETE CASCADE");
+  await db.query("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS used_at TIMESTAMPTZ");
+  await db.query("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS used_order_id BIGINT");
+  await db.query("CREATE UNIQUE INDEX IF NOT EXISTS coupons_one_welcome_per_customer_uidx ON coupons(customer_id) WHERE kind='welcome'");
   for (const [key, value] of Object.entries({
     manual_closed: 'false', store_name: 'Açaí da Roça', whatsapp_number: process.env.WHATSAPP_NUMBER || '5521969081157',
     timezone: 'America/Sao_Paulo', opening_days: '2,3,4,5,6,0', opening_time: '13:30', closing_time: '22:00',

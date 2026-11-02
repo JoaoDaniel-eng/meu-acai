@@ -34,3 +34,16 @@ function guard({ type, idField, table, reqKey, expiredMessage }) {
 export const requireAdmin = guard({ type: 'admin', idField: 'adminId', table: 'admins', reqKey: 'admin', expiredMessage: 'Sua senha foi alterada ou a conta não existe mais. Entre novamente.' });
 // Painel do desenvolvedor: token próprio (type 'developer').
 export const requireDev = guard({ type: 'developer', idField: 'devId', table: 'developers', reqKey: 'dev', expiredMessage: 'Sua senha foi alterada ou a conta não existe mais. Entre novamente.' });
+
+// Cliente logado, se houver: devolve o id da conta ou null (token ausente, inválido, expirado ou de outro tipo).
+// Usado onde o login é opcional (fazer pedido como visitante ou conta, validar cupom).
+export function optionalCustomerId(req) {
+  try {
+    const raw = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    const p = jwt.verify(raw, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    return p.type === 'customer' ? Number(p.sub) : null;
+  }
+  catch {
+    return null;
+  }
+}

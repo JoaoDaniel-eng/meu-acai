@@ -16,6 +16,32 @@ export function sanitizePixText(text, max) {
   return String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ]/g, ' ')
     .replace(/\s+/g, ' ').trim().toUpperCase().slice(0, max).trim();
 }
+// Confere os dígitos verificadores. Um celular digitado sem +55 tem 11 números e parecia CPF: o banco recusava o código.
+const allSame = d => /^(\d)\1+$/.test(d);
+export function isValidCpf(d) {
+  if (!/^\d{11}$/.test(d) || allSame(d))
+    return false;
+  for (const n of [9, 10]) {
+    let sum = 0;
+    for (let i = 0; i < n; i++)
+      sum += Number(d[i]) * (n + 1 - i);
+    if (((sum * 10) % 11) % 10 !== Number(d[n]))
+      return false;
+  }
+  return true;
+}
+export function isValidCnpj(d) {
+  if (!/^\d{14}$/.test(d) || allSame(d))
+    return false;
+  for (const n of [12, 13]) {
+    const weights = n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const sum = weights.reduce((acc, w, i) => acc + w * Number(d[i]), 0);
+    const r = sum % 11;
+    if ((r < 2 ? 0 : 11 - r) !== Number(d[n]))
+      return false;
+  }
+  return true;
+}
 // Aceita CPF, CNPJ (só números), celular com +55, e-mail e chave aleatória. Celular precisa do +55 para não
 // ser confundido com CPF (os dois têm 11 dígitos).
 export function normalizePixKey(input) {
@@ -33,8 +59,10 @@ export function normalizePixKey(input) {
     return { key: phone };
   if (/^[\d.\-/]+$/.test(raw)) {
     const digits = raw.replace(/\D/g, '');
-    if (digits.length === 11 || digits.length === 14)
+    if (isValidCpf(digits) || isValidCnpj(digits))
       return { key: digits };
+    if (digits.length === 11 || digits.length === 14)
+      return { error: 'Esse CPF/CNPJ não é válido. Se a chave é um celular, escreva com +55 na frente (ex.: +5521999999999).' };
   }
   return { error: 'Chave Pix inválida. Use CPF ou CNPJ (só números), celular com +55 (ex.: +5521999999999), e-mail ou chave aleatória.' };
 }

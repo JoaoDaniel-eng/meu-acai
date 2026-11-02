@@ -56,3 +56,10 @@ test('nome e cidade saem em maiúsculas, sem acento e com limite', () => {
   assert.equal(validatePixSetting('pix_name', 'Açaí da Roça').value, 'ACAI DA ROCA');
   assert.ok(validatePixSetting('pix_city', '!!!').error);
 });
+
+test('celular sem +55 não é aceito como CPF e CPF/CNPJ conferem os dígitos', () => {
+  assert.ok(normalizePixKey('21969081157').error);
+  assert.ok(normalizePixKey('123.456.789-10').error);
+  assert.ok(normalizePixKey('12345678000100').error);
+  assert.equal(normalizePixKey('+5521969081157').key, '+5521969081157');
+});

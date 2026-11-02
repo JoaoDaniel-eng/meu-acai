@@ -7,20 +7,11 @@ import { findStockShortage } from '../services/inventory.js';
 import { buildOrderPix } from '../services/pix.js';
 import { makeOrderCode, ORDER_CODE_PATTERN } from '../services/orderCode.js';
 import { validateScheduledAt } from '../services/schedule.js';
+import { optionalCustomerId } from '../middleware/auth.js';
+import { claimPersonalCoupon, couponProblem, findCouponByCode, findCouponForEdit, isPersonalCoupon, releasePersonalCoupon, USED_COUPON_MESSAGE } from '../services/welcomeCoupon.js';
 const router = Router();
 // Anti-spam de pedidos: no máximo 20 pedidos por IP e 6 por telefone a cada hora (só pedidos criados contam).
 const ordersByIp = createAttemptLimiter({ max: 20, windowMs: 60 * 60 * 1000 }), ordersByPhone = createAttemptLimiter({ max: 6, windowMs: 60 * 60 * 1000 });
-import jwt from 'jsonwebtoken';
-function optionalCustomerId(req) {
-  try {
-    const raw = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    const p = jwt.verify(raw, process.env.JWT_SECRET, { algorithms: ['HS256'] });
-    return p.type === 'customer' ? Number(p.sub) : null;
-  }
-  catch {
-    return null;
-  }
-}
 // Só o pedido ainda "Recebido" (new) pode ser editado/cancelado pelo cliente. Depois que a loja começa o preparo,
 // o estoque já foi baixado e o açaí está sendo feito: mudanças passam a ser combinadas pelo WhatsApp.
 const EDITABLE_STATUSES = ['new'];
@@ -115,10 +106,12 @@ router.post('/orders', async (req, res, next) => {
     const normalizedCoupon = String(couponCode || '').trim().toUpperCase();
     let couponRow = null;
     if (normalizedCoupon) {
-      const c = await db.query('SELECT code,discount_type,discount_value,min_subtotal_cents FROM coupons WHERE code=$1 AND active=true', [normalizedCoupon]);
-      if (!c.rowCount)
-        return res.status(400).json({ error: 'Cupom inválido ou indisponível.' });
-      couponRow = c.rows[0];
+      // Cupom manual (da loja) vale para todos; cupom pessoal só para a conta dona e uma única vez (services/welcomeCoupon.js).
+      const found = await findCouponByCode(db, normalizedCoupon);
+      const problem = couponProblem(found, accountId);
+      if (problem)
+        return res.status(400).json({ error: problem.message });
+      couponRow = found;
     }
     const pricing = priceOrder({ subtotalCents: subtotal, itemCount, deliveryFeeCents: zone.fee_cents, combo: comboRules(settings), coupon: couponRow });
     if (pricing.couponRejected)
@@ -132,8 +125,27 @@ router.post('/orders', async (req, res, next) => {
       if (!exists.rowCount)
         break;
     }
-    const result = await db.query(`INSERT INTO orders(customer_id,order_code,customer_name,customer_phone,address,neighborhood,notes,scheduled_for,payment_method,change_for,coupon_code,discount_cents,combo_discount_cents,estimated_minutes_min,estimated_minutes_max,items,subtotal_cents,delivery_fee_cents,total_cents)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id,order_code,created_at`, [accountId, orderCode, name, customerPhone, addr, zone.name, String(notes).trim().slice(0, 1000), schedule, paymentMethod, cashChangeFor, pricing.couponCode, discount, comboDiscount, estimatedMin, estimatedMax, JSON.stringify(normalized), subtotal, fee, total]);
+    // O pedido e a marcação do cupom pessoal como usado ficam na mesma transação: se o cupom já foi levado por outra compra
+    // (duas abas, duplo clique), o UPDATE condicional não acha o cupom livre e o pedido inteiro é desfeito.
+    let result;
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      result = await client.query(`INSERT INTO orders(customer_id,order_code,customer_name,customer_phone,address,neighborhood,notes,scheduled_for,payment_method,change_for,coupon_code,discount_cents,combo_discount_cents,estimated_minutes_min,estimated_minutes_max,items,subtotal_cents,delivery_fee_cents,total_cents)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id,order_code,created_at`, [accountId, orderCode, name, customerPhone, addr, zone.name, String(notes).trim().slice(0, 1000), schedule, paymentMethod, cashChangeFor, pricing.couponCode, discount, comboDiscount, estimatedMin, estimatedMax, JSON.stringify(normalized), subtotal, fee, total]);
+      if (isPersonalCoupon(couponRow) && !(await claimPersonalCoupon(client, { couponId: couponRow.id, customerId: accountId, orderId: result.rows[0].id }))) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: USED_COUPON_MESSAGE });
+      }
+      await client.query('COMMIT');
+    }
+    catch (e) {
+      await client.query('ROLLBACK').catch(() => { });
+      throw e;
+    }
+    finally {
+      client.release();
+    }
     ordersByIp.record(ipKey);
     if (phoneKey)
       ordersByPhone.record(phoneKey);
@@ -245,13 +257,15 @@ router.patch('/orders/:code/customer', async (req, res, next) => {
     // Cupom do pedido: se foi desativado ou o subtotal editado ficou abaixo do mínimo, ele é removido (sem erro).
     let couponRow = null;
     if (o.coupon_code) {
-      const c = await db.query('SELECT code,discount_type,discount_value,min_subtotal_cents FROM coupons WHERE code=$1 AND active=true', [o.coupon_code]);
-      if (c.rowCount)
-        couponRow = c.rows[0];
+      // Vale o cupom manual ainda ativo OU o cupom pessoal que já está preso a este pedido (services/welcomeCoupon.js).
+      couponRow = await findCouponForEdit(db, o.coupon_code, o.id);
     }
     const pricing = priceOrder({ subtotalCents: subtotal, itemCount: editedCount, deliveryFeeCents: fee, combo: comboRules(editSettings), coupon: couponRow });
     const { comboDiscountCents: comboDiscount, couponDiscountCents: discount, couponCode, totalCents: total } = pricing;
     const updated = await db.query(`UPDATE orders SET customer_name=$1,address=$2,neighborhood=$3,notes=$4,scheduled_for=$5,items=$6,subtotal_cents=$7,delivery_fee_cents=$8,discount_cents=$9,coupon_code=$10,combo_discount_cents=$11,total_cents=$12,updated_at=NOW() WHERE id=$13 RETURNING order_code,status`, [name, address, neighborhood, notes, scheduled, JSON.stringify(normalized), subtotal, fee, discount, couponCode, comboDiscount, total, o.id]);
+    // Se a edição deixou o pedido sem o cupom (ex.: subtotal abaixo do mínimo), o cupom pessoal volta para o cliente.
+    if (o.coupon_code && !couponCode)
+      await releasePersonalCoupon(client, o.id);
     await client.query('COMMIT');
     const settings = await getSettings();
     const loyalty = await db.query("SELECT COALESCE(SUM(points),0)::int AS balance FROM loyalty_points WHERE regexp_replace(customer_phone,'[^0-9]','','g')=$1", [phone]);
@@ -295,6 +309,8 @@ router.post('/orders/:code/cancel', async (req, res, next) => {
       await client.query("INSERT INTO inventory_movements(inventory_item_id,movement_type,quantity,unit_cost,reason,order_id,idempotency_key) VALUES($1,'devolucao',$2,$3,'Devolução por cancelamento do cliente',$4,$5) ON CONFLICT(idempotency_key) DO NOTHING", [movement.inventory_item_id, movement.quantity, movement.unit_cost, order.id, key]);
     }
     const updated = await client.query("UPDATE orders SET status='cancelled',updated_at=NOW() WHERE id=$1 RETURNING order_code,customer_name,customer_phone,total_cents", [order.id]);
+    // Cupom pessoal preso a este pedido volta a ficar disponível (sem efeito se o pedido não usou cupom pessoal).
+    await releasePersonalCoupon(client, order.id);
     await client.query('COMMIT');
     const settings = await getSettings();
     res.json({ ok: true, ...updated.rows[0], whatsappNumber: String(settings.whatsapp_number || '').replace(/\D/g, '') });
