@@ -646,3 +646,14 @@ html[data-theme="dark"] .size-card.sold-out strong{color:#fbbf24}
 .instagram-strip p{margin:0;font-weight:600}
 .instagram-btn{display:inline-flex;align-items:center;gap:8px}
 @media(max-width:620px){.header-instagram span{display:none}}
+
+/* Avisos do topo do painel */
+.alert-item{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 10px;padding:12px 14px;border-radius:12px;font-weight:600}
+.alert-error{background:#fde8e8;color:#5c0a0a;border:1px solid #f1b0b0}
+.alert-warn{background:#fff3cd;color:#3d2e00;border:1px solid #f0d27a}
+
+/* Histórico de pedidos: busca, datas e rodapé da lista */
+.orders-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.orders-tools #order-search{flex:1 1 240px;min-width:0}
+.orders-date{display:flex;gap:6px;align-items:center;font-weight:600}
+.orders-footer{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 0}

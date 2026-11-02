@@ -130,3 +130,12 @@ PROGRESSO.md
 ## Backup (o que mudou)
 - A exportação é escrita tabela por tabela. A restauração ainda lê o arquivo inteiro (limite de 10 MB); com as fotos fora do banco, o arquivo fica pequeno.
 - Backups antigos (sem `customer_accounts`) continuam restauráveis: as contas atuais são mantidas, mas os pedidos antigos ficam sem vínculo com elas.
+
+## Monitoramento e atualizações (rodada 3)
+- **Monitor externo (UptimeRobot, grátis):** crie um monitor "HTTP(s)" em `https://SEU-SITE/api/health/db`, intervalo de 5 minutos, com aviso por e-mail e/ou app. Se o banco ou o servidor cair, você é avisado. Atenção: checar o banco a cada 5 minutos mantém o Neon acordado e pode gastar horas do plano gratuito; se isso for problema, monitore `/api/health` (só o servidor).
+- **Erros da tela e do servidor:** erros de JavaScript no aparelho do cliente (e erros 500 do servidor) são gravados na tabela `client_errors` (30 dias) e aparecem no painel, na aba **Erros**. O topo do painel mostra um aviso quando houve erro nas últimas 24 h.
+- **Aviso de "sem pedidos":** com a loja aberta há mais de 3 h e nenhum pedido (não cancelado) nesse tempo, o painel mostra um aviso. Mude o prazo com `ALERT_NO_ORDERS_HOURS`.
+- **Nova versão:** cada deploy gera um identificador (`RENDER_GIT_COMMIT`, definido pelo próprio Render). O servidor troca os `?v=` dos arquivos e o nome do cache do PWA por esse identificador, então **não é mais preciso mudar números de versão à mão**. Quem está com o site aberto recebe o aviso "Nova versão disponível" (botão **Atualizar agora**); na loja, se a tela estava em segundo plano, ela atualiza sozinha quando o cliente volta. Sem `RENDER_GIT_COMMIT` (computador local), o identificador muda a cada reinício do servidor.
+
+## Histórico de pedidos
+Pedidos nunca são apagados automaticamente: ficam no banco por tempo indeterminado (só somem se alguém usar "Excluir" no painel). Na aba **Pedidos** a lista mostra 50 por vez, com **Carregar mais**, busca por código, nome, telefone ou bairro, filtro por status e por período (datas no fuso de São Paulo) e o botão **Baixar planilha (CSV)**, que exporta tudo o que corresponde aos filtros atuais (até 20 mil linhas; separador `;`, abre direto no Excel).

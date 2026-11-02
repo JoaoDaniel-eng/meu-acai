@@ -3,6 +3,7 @@ const APP_SHELL = [
   '/',
   '/index.html',
   '/css/styles.css?v=20261101-rodada3-13',
+  '/js/diagnostics.js?v=20261101-rodada3-13',
   '/js/site/core.js?v=20261101-rodada3-13',
   '/js/site/checkout.js?v=20261101-rodada3-13',
   '/js/site/reviews.js?v=20261101-rodada3-13',

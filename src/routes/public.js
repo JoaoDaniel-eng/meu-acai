@@ -5,8 +5,24 @@ import { comboRules, priceOrder } from '../services/pricing.js';
 import { soldOutSizeIds } from '../services/inventory.js';
 import { parseReviewPhoto, photoBufferFromDataUrl, createRateLimiter } from '../services/reviews.js';
 import { getPhotoStorage, uploadPhoto, downloadPhoto } from '../services/photoStorage.js';
+import { createAttemptLimiter } from '../services/rateLimit.js';
+import { sanitizeClientError } from '../services/alerts.js';
+import { saveError } from '../services/errorLog.js';
+import { BUILD_ID } from '../services/build.js';
 const allowReview = createRateLimiter({ max: 5, windowMs: 60 * 60 * 1000 });
 const router = Router();
+const clientErrorLimiter = createAttemptLimiter({ max: 20, windowMs: 10 * 60 * 1000 });
+// Versão publicada: a tela compara com a que carregou e avisa quando há deploy novo.
+router.get('/version', (_req, res) => res.set('Cache-Control', 'no-store').json({ build: BUILD_ID }));
+// Erros de JavaScript ocorridos no aparelho do cliente. Responde sempre 204 e limita 20 por IP a cada 10 min.
+router.post('/client-errors', (req, res) => {
+  const ip = String(req.ip || '').slice(0, 120), row = sanitizeClientError(req.body);
+  if (row && !clientErrorLimiter.isBlocked(ip)) {
+    clientErrorLimiter.record(ip);
+    saveError({ ...row, kind: 'tela', userAgent: String(req.get('user-agent') || '').slice(0, 300), ip });
+  }
+  res.status(204).end();
+});
 router.get('/store', async (_req, res, next) => {
   try {
     const settings = await getSettings();

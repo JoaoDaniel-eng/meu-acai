@@ -3,6 +3,7 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
 async function showDashboard() {
   try {
     await loadStats();
+    loadAlerts();
     $('#login-view').classList.add('hidden');
     $('#dashboard').classList.remove('hidden');
     await loadPauseState();
@@ -14,6 +15,7 @@ async function showDashboard() {
         return;
       try {
         await loadStats();
+        await loadAlerts();
         if (!document.hidden && currentTab === 'orders')
           await loadOrders(true);
       }
@@ -60,6 +62,8 @@ async function loadTab(tab) {
       await loadCoupons();
     if (tab === 'customers')
       await loadCustomers();
+    if (tab === 'errors')
+      await loadErrors();
     if (tab === 'audit')
       await loadAudit();
     if (tab === 'backup')

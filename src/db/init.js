@@ -62,6 +62,11 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
   ip_address VARCHAR(120), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS admin_audit_created_idx ON admin_audit_logs(created_at DESC);
+CREATE TABLE IF NOT EXISTS client_errors (
+  id BIGSERIAL PRIMARY KEY, kind VARCHAR(10) NOT NULL DEFAULT 'tela', message TEXT NOT NULL, source TEXT, line INTEGER, col INTEGER,
+  stack TEXT, page TEXT, build VARCHAR(20), user_agent TEXT, ip_address VARCHAR(120), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS client_errors_created_idx ON client_errors(created_at DESC);
 CREATE TABLE IF NOT EXISTS customer_favorites (
   id BIGSERIAL PRIMARY KEY, customer_id BIGINT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   name VARCHAR(60) NOT NULL, size_id INTEGER NOT NULL, option_ids JSONB NOT NULL DEFAULT '[]'::jsonb,

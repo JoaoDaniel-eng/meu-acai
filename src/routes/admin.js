@@ -9,6 +9,8 @@ import { calculateLoyaltyPoints } from '../services/promotions.js';
 import { photoBufferFromDataUrl } from '../services/reviews.js';
 import { getPhotoStorage, uploadPhoto, downloadPhoto, deletePhoto } from '../services/photoStorage.js';
 import { createAttemptLimiter } from '../services/rateLimit.js';
+import { buildNoOrdersAlert } from '../services/alerts.js';
+import { buildOrderFilter, ordersToCsv } from '../services/orderSearch.js';
 import { validatePixSetting } from '../services/pix.js';
 import { convertConsumptionToStockUnit, convertStockQuantity, stockUnitFactor, defaultConsumptionUnit } from '../services/inventory.js';
 const router = Router();
@@ -110,6 +112,37 @@ router.get('/audit-logs', async (req, res, next) => {
     const limit = Math.min(300, Math.max(1, Number(req.query.limit) || 100));
     const { rows } = await getPool().query('SELECT id,admin_email,action,route,status_code,ip_address,created_at FROM admin_audit_logs ORDER BY created_at DESC LIMIT $1', [limit]);
     res.json(rows);
+  }
+  catch (e) {
+    next(e);
+  }
+});
+router.get('/client-errors', async (req, res, next) => {
+  try {
+    const limit = Math.min(300, Math.max(1, Number(req.query.limit) || 150));
+    const { rows } = await getPool().query('SELECT id,kind,message,source,line,col,page,build,user_agent,created_at FROM client_errors ORDER BY created_at DESC LIMIT $1', [limit]);
+    res.json(rows);
+  }
+  catch (e) {
+    next(e);
+  }
+});
+router.delete('/client-errors', async (_req, res, next) => {
+  try {
+    await getPool().query('DELETE FROM client_errors');
+    res.json({ ok: true });
+  }
+  catch (e) {
+    next(e);
+  }
+});
+// Avisos do topo do painel: erros nas últimas 24 h e loja aberta sem pedidos (ALERT_NO_ORDERS_HOURS, padrão 3 h).
+router.get('/alerts', async (_req, res, next) => {
+  try {
+    const db = getPool(), settings = await getSettings();
+    const [errors, last] = await Promise.all([db.query("SELECT COUNT(*)::int AS n FROM client_errors WHERE created_at > NOW() - INTERVAL '24 hours'"), db.query("SELECT MAX(created_at) AS last FROM orders WHERE status <> 'cancelled'")]);
+    const hours = Number(process.env.ALERT_NO_ORDERS_HOURS) > 0 ? Number(process.env.ALERT_NO_ORDERS_HOURS) : 3;
+    res.json({ errors24h: errors.rows[0].n, noOrders: buildNoOrdersAlert({ settings, lastOrderAt: last.rows[0].last, now: new Date(), hours }) });
   }
   catch (e) {
     next(e);
@@ -303,14 +336,28 @@ router.delete('/coupons/:id', async (req, res, next) => {
     next(e);
   }
 });
+// Histórico: filtros status, q (código, nome, telefone ou bairro), from/to (AAAA-MM-DD) e limit (até 501; padrão 200).
 router.get('/orders', async (req, res, next) => {
   try {
-    const status = String(req.query.status || 'all');
-    const allowed = ['all', 'new', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'];
-    if (!allowed.includes(status))
-      return res.status(400).json({ error: 'Filtro de status inválido.' });
-    const q = status === 'all' ? await getPool().query('SELECT * FROM orders ORDER BY created_at DESC LIMIT 200') : await getPool().query('SELECT * FROM orders WHERE status=$1 ORDER BY created_at DESC LIMIT 200', [status]);
+    const f = buildOrderFilter(req.query);
+    if (f.error)
+      return res.status(400).json({ error: f.error });
+    const limit = Math.min(501, Math.max(1, Math.trunc(Number(req.query.limit)) || 200));
+    const q = await getPool().query(`SELECT * FROM orders ${f.where} ORDER BY created_at DESC, id DESC LIMIT $${f.params.length + 1}`, [...f.params, limit]);
     res.json(q.rows.map(r => ({ ...r, orderCode: r.order_code, customerName: r.customer_name, customerPhone: r.customer_phone, deliveryFeeCents: r.delivery_fee_cents, subtotalCents: r.subtotal_cents, totalCents: r.total_cents, scheduledFor: r.scheduled_for, createdAt: r.created_at })));
+  }
+  catch (e) {
+    next(e);
+  }
+});
+// Planilha (CSV) com os pedidos do filtro atual, até 20 mil linhas.
+router.get('/orders/export.csv', async (req, res, next) => {
+  try {
+    const f = buildOrderFilter(req.query);
+    if (f.error)
+      return res.status(400).json({ error: f.error });
+    const { rows } = await getPool().query(`SELECT * FROM orders ${f.where} ORDER BY created_at DESC, id DESC LIMIT 20000`, f.params);
+    res.set('Content-Type', 'text/csv; charset=utf-8').set('Content-Disposition', 'attachment; filename="pedidos.csv"').send(ordersToCsv(rows));
   }
   catch (e) {
     next(e);

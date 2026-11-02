@@ -8,6 +8,8 @@ import adminRoutes from './routes/admin.js';
 import customerRoutes from './routes/customers.js';
 import { PricingError } from './services/pricing.js';
 import { getPool } from './db/pool.js';
+import { BUILD_ID, stampVersions, stampServiceWorker } from './services/build.js';
+import { saveError } from './services/errorLog.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Monta o app Express sem abrir porta nem conectar ao banco. O server.js liga tudo; os testes de rota usam direto.
@@ -46,7 +48,7 @@ export function createApp() {
   const sendIndex = async (req, res, next) => {
     try {
       indexHtml ??= await readFile(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-      res.type('html').set('Cache-Control', 'no-cache').send(indexHtml.replaceAll('__SITE_URL__', siteUrl(req)));
+      res.type('html').set('Cache-Control', 'no-cache').send(stampVersions(indexHtml.replaceAll('__SITE_URL__', siteUrl(req)).replaceAll('__BUILD_ID__', BUILD_ID)));
     }
     catch (err) {
       next(err);
@@ -55,7 +57,26 @@ export function createApp() {
   app.get(['/', '/index.html'], sendIndex);
   app.get('/robots.txt', (req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${siteUrl(req)}/sitemap.xml\n`));
   app.get('/sitemap.xml', (req, res) => res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${siteUrl(req)}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n  <url><loc>${siteUrl(req)}/privacidade.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>\n</urlset>\n`));
-  app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
+  // Painel e service worker também recebem o identificador da versão (cache novo a cada deploy, sem trocar números à mão).
+  let adminHtml = null, swJs = null;
+  app.get('/admin', async (_req, res, next) => {
+    try {
+      adminHtml ??= stampVersions((await readFile(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8')).replaceAll('__BUILD_ID__', BUILD_ID));
+      res.type('html').set('Cache-Control', 'no-cache').send(adminHtml);
+    }
+    catch (err) {
+      next(err);
+    }
+  });
+  app.get('/service-worker.js', async (_req, res, next) => {
+    try {
+      swJs ??= stampServiceWorker(await readFile(path.join(__dirname, '..', 'public', 'service-worker.js'), 'utf8'));
+      res.type('application/javascript').set('Cache-Control', 'no-cache').send(swJs);
+    }
+    catch (err) {
+      next(err);
+    }
+  });
   app.use(express.static(path.join(__dirname, '..', 'public')));
   app.get('/api/health', (_req, res) => res.json({ status: 'ok', app: 'Açaí da Roça' }));
   // Checa o banco com um SELECT 1 e limite de 5 s. Fica separado do /api/health de propósito: o Neon suspende o banco
@@ -78,7 +99,7 @@ export function createApp() {
     }
   });
   app.use((req, res) => req.path.startsWith('/api/') ? res.status(404).json({ error: 'Rota não encontrada.' }) : res.status(404).sendFile(path.join(__dirname, '..', 'public', '404.html')));
-  app.use((err, _req, res, _next) => {
+  app.use((err, req, res, _next) => {
     if (err instanceof PricingError)
       return res.status(err.status).json({ error: err.message });
     if (err.type === 'entity.too.large')
@@ -86,6 +107,7 @@ export function createApp() {
     if (err.type === 'entity.parse.failed')
       return res.status(400).json({ error: 'Dados inválidos.' });
     console.error(err);
+    saveError({ kind: 'servidor', message: String(err.message || err), stack: err.stack, page: `${req.method} ${req.path}`.slice(0, 200), build: BUILD_ID, userAgent: String(req.get('user-agent') || '').slice(0, 300), ip: String(req.ip || '').slice(0, 120) });
     if (err.code === '23503')
       return res.status(400).json({ error: 'Não foi possível concluir por causa de uma referência inválida.' });
     res.status(500).json({ error: 'Ocorreu um erro interno. Tente novamente.' });
