@@ -29,6 +29,21 @@ function priceForBuilder() {
 }
 function renderOptions(category, target) { const opts = menu.options.filter(o => o.category === category); $(target).innerHTML = opts.map(o => `<label class="option-pill ${selected.has(o.id) ? 'chosen' : ''}"><input type="checkbox" data-option="${o.id}" ${selected.has(o.id) ? 'checked' : ''}><span>${esc(o.name)}</span>${Number(o.price) > 0 ? `<small>+ ${brl(o.price)}</small>` : '<small>Grátis</small>'}</label>`).join('') || '<p class="muted">Nenhuma opção disponível.</p>'; }
 function traditionalProduct() { return menu.products.find(p => p.type !== 'truffled'); }
+// Preço "a partir de" dos cards da galeria: menor tamanho disponível do açaí tradicional (acompanha o painel da loja).
+function renderGalleryPrices() {
+  const product = typeof traditionalProduct === 'function' && menu?.products ? traditionalProduct() : null;
+  const sizes = (product?.sizes || []).filter(s => !s.soldOut && Number(s.price) > 0);
+  const cheapest = sizes.reduce((best, s) => (!best || Number(s.price) < Number(best.price) ? s : best), null);
+  document.querySelectorAll('[data-gallery-price]').forEach(box => {
+    if (!cheapest) {
+      box.hidden = true;
+      return;
+    }
+    box.querySelector('strong').textContent = brl(cheapest.price);
+    box.querySelector('span').textContent = `· ${cheapest.name}`;
+    box.hidden = false;
+  });
+}
 function renderBuilder() {
   const product = traditionalProduct();
   if (!product) {

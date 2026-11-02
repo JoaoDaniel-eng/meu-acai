@@ -70,7 +70,7 @@ function renderTracking(o) {
   });
   const items = o.items.map((i, index) => {
     const sizeOptions = allSizes.map(sz => `<option value="${sz.id}" ${Number(sz.id) === Number(i.sizeId) ? 'selected' : ''}>${esc(sz.name)} — ${brl(sz.price)}</option>`).join('');
-    const optionGroups = [['topping', 'Acompanhamentos'], ['syrup', 'Calda'], ['extra', 'Adicionais'], ['mousse', 'Mousses']].map(([category, label]) => {
+    const optionGroups = [['topping', 'Acompanhamentos'], ['syrup', 'Calda (escolha só 1)'], ['extra', 'Adicionais'], ['mousse', 'Mousses']].map(([category, label]) => {
       const opts = (menu?.options || []).filter(x => x.category === category);
       if (!opts.length)
         return '';
@@ -102,6 +102,14 @@ document.addEventListener('change', e => {
   if (!e.target.matches('[data-edit-option]'))
     return;
   const checkbox = e.target;
+  // Calda: só uma por açaí. Escolher outra desmarca a anterior (igual ao pedido novo).
+  if (checkbox.dataset.editCategory === 'syrup' && checkbox.checked) {
+    document.querySelectorAll(`[data-edit-index="${checkbox.dataset.editIndex}"][data-edit-category="syrup"]`).forEach(other => {
+      if (other !== checkbox)
+        other.checked = false;
+    });
+    return;
+  }
   if (checkbox.dataset.editCategory !== 'topping' || !checkbox.checked)
     return;
   const index = checkbox.dataset.editIndex;

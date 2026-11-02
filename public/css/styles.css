@@ -787,3 +787,11 @@ html[data-theme="dark"] .welcome-admin-row code{color:#e2c6f5}
 html[data-theme="dark"] .truffled-flavor-card{background:#2b1a3b;border-color:#4a3363}
 html[data-theme="dark"] .truffled-flavor-card.chosen{background:#3d2556;border-color:var(--purple2)}
 html[data-theme="dark"] #truffled-sizes .size-card{background:#2b1a3b;color:var(--ink)}
+
+/* Galeria: preço "a partir de" e botão para o cardápio */
+.gallery-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px;margin:14px 0 12px;color:var(--muted)}
+.gallery-price[hidden]{display:none}
+.gallery-price small{font-size:.8rem}
+.gallery-price strong{color:var(--purple);font-size:1.25rem}
+.gallery-price span{font-size:.82rem}
+.gallery-order{margin-top:2px}
