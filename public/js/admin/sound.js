@@ -51,6 +51,8 @@ function detectNewOrder(s) {
   if (typeof s.latestOrderId !== 'number')
     return;
   if (lastOrderId !== null && s.latestOrderId > lastOrderId) {
+    if (typeof autoPrintNewOrders === 'function')
+      autoPrintNewOrders(lastOrderId).catch(() => { });
     const played = soundOn ? playAlert() : true;
     say(soundOn && !played ? '🔔 Novo pedido recebido! Clique em qualquer lugar da página para liberar o som.' : '🔔 Novo pedido recebido!');
     if (document.hidden)
