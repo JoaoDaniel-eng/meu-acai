@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acai-da-roca-v20261102-menu-fix-5';
+const CACHE_NAME = 'acai-da-roca-v20261103-nomes-trufados-1';
 const APP_SHELL = [
   '/',
   '/index.html',
