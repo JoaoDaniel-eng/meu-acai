@@ -40,6 +40,7 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 - Promoção automática de combo: desconto configurável quando o carrinho atinge a quantidade mínima de açaís.
 - Previsão de preparo/entrega configurável no painel e exibida no checkout, acompanhamento e resumo do WhatsApp (é uma estimativa, não rastreamento GPS).
 - Programa de fidelidade: 1 ponto por real em produtos, creditado uma única vez quando o pedido é marcado como entregue; o cliente consulta o saldo com código do pedido e telefone.
+- Ponto por avaliação: quando um cliente conectado envia uma avaliação e a loja a aprova no painel, ele ganha 1 ponto (o mesmo saldo dos pontos de pedido). Vale 1 ponto por cliente (a partir da segunda avaliação não há novo ponto); visitantes avaliam normalmente, sem pontos.
 - Opção de salvar nome, telefone, endereço e bairro apenas no armazenamento local do próprio aparelho, mediante consentimento.
 - PWA instalável, com ícone próprio e cache da estrutura visual para abertura básica offline; pedidos e APIs ainda exigem internet.
 - Atalho de carrinho fixo em telas pequenas, destaque promocional e identidade visual refinada.

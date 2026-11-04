@@ -83,6 +83,10 @@ function applyAuthUI(customer, points) {
   $('#side-menu-hello').textContent = signedIn ? `Olá, ${first}! 👋` : 'Olá! 👋';
   $('#side-menu-sub').textContent = signedIn ? customer.phone : 'Entre para ver seus pedidos';
   setPoints(signedIn && typeof points === 'number' ? points : null);
+  if (!signedIn)
+    reviewPointEarned = false;
+  if (typeof updateReviewHint === 'function')
+    updateReviewHint();
   if (signedIn) {
     restartOrderWatcher();
     startAccountLive();

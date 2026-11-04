@@ -833,3 +833,10 @@ html[data-theme="dark"] .layers-total{color:#c9a0ee}
   .option-row.has-layers .layers-field input{width:4rem;min-height:44px}
   .option-row.has-layers .layers-total{grid-column:2;justify-self:end;align-self:center;font-size:1.05rem}
 }
+
+/* ponto por avaliação */
+.review-points-hint{margin:4px 0 14px;padding:10px 12px;border-radius:10px;background:#f8effc;color:var(--purple2);font-size:.84rem}
+.review-points-hint:empty{display:none}
+.review-points-badge{display:inline-block;margin-top:8px;padding:4px 9px;border-radius:999px;background:#f1e6f6;color:var(--purple2);font-size:.74rem;font-weight:600}
+.review-points-badge.is-given{background:#e5f7dc;color:#356f1a}
+.review-points-badge.is-none{background:#eee;color:#666}

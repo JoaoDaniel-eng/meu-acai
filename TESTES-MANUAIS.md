@@ -225,3 +225,12 @@ A tela chega na 3.3b; por enquanto confira a rota (use o token do painel, que fi
 7. Em **Acompanhe seu pedido**: aparece "Colher: 2 colheres (R$ 0,20)". Em "Editar dados da entrega" dá para mudar a quantidade; o total é recalculado e as colheres continuam no pedido ao editar os itens.
 8. Baixe a planilha (CSV): a última coluna é **Colheres** (quantidade).
 9. Em bancos já existentes, as colunas são criadas sozinhas na próxima inicialização (pedidos antigos feitos com "Sim" viram 1 colher; os demais ficam em 0).
+
+## Ponto por avaliação aprovada
+1. **Visitante:** sem entrar na conta, vá em Avaliações: o aviso pede para entrar na conta para ganhar 1 ponto. Envie uma avaliação; no painel aparece “Visitante: sem ponto”. Aprove: a mensagem diz “visitante: sem ponto”.
+2. **Cliente conectado:** entre na conta (que ainda não avaliou). O aviso diz que ganha 1 ponto na aprovação. Envie a avaliação: a mensagem diz “Se a loja aprovar, você ganha 1 ponto”. O saldo ainda não muda.
+3. No painel, a avaliação mostra “🎁 Ganha 1 ponto ao aprovar”. Clique em **Aprovar**: “O cliente ganhou 1 ponto”; a etiqueta vira “💜 Ponto dado (+1)”.
+4. No site, o saldo do cliente sobe 1 (menu lateral e Minha conta; recarregue se preciso).
+5. **Limite:** o mesmo cliente envia outra avaliação: o aviso diz que já ganhou o ponto. Aprove: “Este cliente já ganhou o ponto de avaliação” e o saldo não muda.
+6. Desaprove e aprove a primeira de novo, ou exclua: o saldo continua com o 1 ponto, sem somar outro.
+7. Confira nos temas claro e escuro e no celular (aviso e etiquetas legíveis).

@@ -1,11 +1,21 @@
 // O painel de estoque fica em /js/admin-inventory/ (loadInventory, diálogos e cadastro).
+// Etiqueta do ponto por avaliação (1 por cliente, dado quando a loja aprova uma avaliação feita com conta).
+function pointsBadge(r) {
+  if (r.points_given)
+    return '<span class="review-points-badge is-given">💜 Ponto dado (+1)</span>';
+  if (!r.has_account)
+    return '<span class="review-points-badge is-none">Visitante: sem ponto</span>';
+  if (r.can_earn)
+    return `<span class="review-points-badge">${r.approved ? '🎁 Cliente ainda sem o ponto' : '🎁 Ganha 1 ponto ao aprovar'}</span>`;
+  return '<span class="review-points-badge is-none">Cliente já ganhou o ponto de avaliação</span>';
+}
 async function loadReviews() {
   const rows = await api('/reviews');
-  $('#reviews-admin').innerHTML = rows.length ? rows.map(r => `<article class="admin-review"><div><strong>${esc(r.customer_name)}</strong> <span class="stars">${'★'.repeat(r.rating)}</span><p>${esc(r.comment)}</p>${r.has_photo ? `<button type="button" class="admin-review-photo" data-photo-id="${r.id}" aria-label="Ampliar foto de ${esc(r.customer_name)}"><span class="muted">Carregando foto…</span></button>` : ''}<small>${new Date(r.created_at).toLocaleString('pt-BR')} · ${r.approved ? 'Publicada' : 'Pendente'}${r.has_photo ? ' · com foto' : ''}</small></div><div class="review-actions">${r.approved ? '' : `<button class="button button-small button-primary" data-approve="${r.id}">Aprovar</button>`}<button class="button button-small button-danger" data-delete-review="${r.id}">Excluir</button></div></article>`).join('') : '<p class="muted">Nenhuma avaliação recebida.</p>';
+  $('#reviews-admin').innerHTML = rows.length ? rows.map(r => `<article class="admin-review"><div><strong>${esc(r.customer_name)}</strong> <span class="stars">${'★'.repeat(r.rating)}</span><p>${esc(r.comment)}</p>${r.has_photo ? `<button type="button" class="admin-review-photo" data-photo-id="${r.id}" aria-label="Ampliar foto de ${esc(r.customer_name)}"><span class="muted">Carregando foto…</span></button>` : ''}<small>${new Date(r.created_at).toLocaleString('pt-BR')} · ${r.approved ? 'Publicada' : 'Pendente'}${r.has_photo ? ' · com foto' : ''}</small>${pointsBadge(r)}</div><div class="review-actions">${r.approved ? '' : `<button class="button button-small button-primary" data-approve="${r.id}">Aprovar</button>`}<button class="button button-small button-danger" data-delete-review="${r.id}">Excluir</button></div></article>`).join('') : '<p class="muted">Nenhuma avaliação recebida.</p>';
   document.querySelectorAll('[data-approve]').forEach(b => b.addEventListener('click', async () => {
     try {
-      await api('/reviews/' + b.dataset.approve, { method: 'PATCH', body: JSON.stringify({ approved: true }) });
-      say('Avaliação aprovada.');
+      const res = await api('/reviews/' + b.dataset.approve, { method: 'PATCH', body: JSON.stringify({ approved: true }) });
+      say(res.pointsAwarded ? 'Avaliação aprovada. O cliente ganhou 1 ponto.' : res.alreadyRewarded ? 'Avaliação aprovada. Este cliente já ganhou o ponto de avaliação.' : res.hasAccount ? 'Avaliação aprovada.' : 'Avaliação aprovada (visitante: sem ponto).');
       loadReviews();
       loadStats();
     }

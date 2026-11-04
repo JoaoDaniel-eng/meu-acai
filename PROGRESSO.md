@@ -309,3 +309,19 @@
 - Os elementos internos (`#favorites-list`, `#favorites-message`) mantêm os mesmos IDs; carregar, adicionar ao pedido e remover favoritos continuam iguais.
 - Cache atualizado para `menu-fix-5`.
 - Falta: conferir no navegador (abrir/fechar, tema escuro, celular). O atalho "Meus favoritos" do menu lateral só rola até a seção; com o painel fechado ele não abre sozinho (mesmo comportamento de "Meus cupons").
+
+## Ponto por avaliação aprovada — Parte 1: servidor (04/11/2026)
+- **Regra:** cliente conectado envia avaliação; quando a loja aprova no painel, ganha 1 ponto (`REVIEW_POINTS` em `src/services/promotions.js`), no mesmo saldo dos pontos de pedido. Visitante avalia sem ganhar pontos.
+- **Banco (migração automática no `initializeDatabase`):** `reviews.customer_id` (dono, nulo para visitante/antigas); `loyalty_points.order_id` deixa de ser obrigatório; novas colunas `review_id` (único: 1 crédito por avaliação) e `source` (`order`/`review`).
+- **API:** `POST /api/reviews` guarda o dono quando há login e responde `willEarnPoints`; `PATCH /api/admin/reviews/:id` credita o ponto na aprovação, em transação, e responde `pointsAwarded` (1 ou 0).
+- **Decisões:** desaprovar ou excluir depois não tira o ponto já dado; aprovar de novo não dá ponto em dobro; avaliações antigas não ganham pontos retroativos.
+- **Limite (definido pela loja):** 1 ponto de avaliação por cliente, para sempre. A partir da segunda avaliação aprovada não há novo ponto. A checagem é feita por telefone (só dígitos) com trava por cliente no banco (`pg_advisory_xact_lock`), então duas aprovações simultâneas não pontuam duas vezes. Helper em `src/services/reviewPoints.js`.
+- **Backup/restauração:** incluem `customer_id` da avaliação e `review_id`/`source` dos pontos; backups antigos continuam restaurando.
+- **Testes:** unitário de `REVIEW_POINTS` passa; 5 testes de rota novos em `tests/routes.test.js` (exigem `TEST_DATABASE_URL`, **ainda não rodaram contra PostgreSQL real**).
+- **Falta (Parte 2):** site (aviso no formulário para quem está conectado/visitante e mensagem ao enviar), painel (mostrar “ganha 1 ponto” e confirmar o ponto ao aprovar), `?v=` e cache do PWA, `TESTES-MANUAIS.md`.
+
+## Ponto por avaliação aprovada — Parte 2: site e painel (04/11/2026)
+- **Site:** o formulário de avaliação mostra um aviso conforme a situação (visitante: entre na conta para ganhar; conectado: ganha 1 ponto na aprovação; já ganhou: o ponto vale uma vez por cliente). Ao enviar, a mensagem avisa se a avaliação pode render ponto (`willEarnPoints`). O texto do Clube da Roça também cita o ponto por avaliação. `GET /api/customers/me` agora devolve `reviewPointEarned`.
+- **Painel (Avaliações):** etiqueta em cada avaliação (“Ganha 1 ponto ao aprovar”, “Ponto dado (+1)”, “Visitante: sem ponto”, “Cliente já ganhou o ponto de avaliação”) e mensagem ao aprovar dizendo se o cliente ganhou o ponto. `GET /api/admin/reviews` devolve `has_account`, `points_given` e `can_earn`.
+- **Cache:** `?v=` e `CACHE_NAME` do PWA atualizados para `20261104-pontos-1`.
+- **Testes:** 3 testes de rota novos (limite de 1 por cliente, aprovação simultânea, etiquetas do painel) — exigem `TEST_DATABASE_URL`; **nenhum teste de rota deste recurso rodou contra PostgreSQL real**. Falta testar no navegador real (claro/escuro, celular).
