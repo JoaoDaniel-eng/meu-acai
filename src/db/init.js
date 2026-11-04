@@ -184,6 +184,13 @@ export async function initializeDatabase() {
   await db.query('CREATE UNIQUE INDEX IF NOT EXISTS products_name_normalized_uidx ON products (LOWER(TRIM(name)))');
   // Compatibilidade com bancos já existentes: adiciona a forma de pagamento sem apagar pedidos.
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_id BIGINT REFERENCES customers(id) ON DELETE SET NULL");
+  // Avaliação feita com a conta conectada guarda o dono; avaliações antigas e de visitantes ficam sem dono (customer_id nulo).
+  await db.query("ALTER TABLE reviews ADD COLUMN IF NOT EXISTS customer_id BIGINT REFERENCES customers(id) ON DELETE SET NULL");
+  // Pontos também podem vir de uma avaliação aprovada: order_id deixa de ser obrigatório e review_id é único (1 crédito por avaliação).
+  await db.query("ALTER TABLE loyalty_points ALTER COLUMN order_id DROP NOT NULL");
+  await db.query("ALTER TABLE loyalty_points ADD COLUMN IF NOT EXISTS review_id BIGINT REFERENCES reviews(id) ON DELETE SET NULL");
+  await db.query("ALTER TABLE loyalty_points ADD COLUMN IF NOT EXISTS source VARCHAR(10) NOT NULL DEFAULT 'order'");
+  await db.query("CREATE UNIQUE INDEX IF NOT EXISTS loyalty_review_uidx ON loyalty_points(review_id)");
   await db.query("ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
   await db.query("ALTER TABLE customers ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE");
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(40) NOT NULL DEFAULT 'A combinar'");

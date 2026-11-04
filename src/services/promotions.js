@@ -9,6 +9,8 @@ export function calculateComboDiscount(subtotalCents, itemCount, minimumItems = 
     return 0;
   return Math.floor(subtotal * rate / 100);
 }
+// Pontos por avaliação aprovada pela loja (1 ponto, igual ao valor de R$ 1 em produtos).
+export const REVIEW_POINTS = 1;
 export function calculateLoyaltyPoints(productSubtotalCents) {
   const amount = Number(productSubtotalCents);
   if (!Number.isInteger(amount) || amount <= 0)

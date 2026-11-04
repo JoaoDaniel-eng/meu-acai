@@ -3,6 +3,7 @@ import { getPool } from '../db/pool.js';
 import { getSettings, isOpenAt } from '../services/store.js';
 import { comboRules, MAX_SPOONS, priceOrder, SPOON_PRICE_CENTS } from '../services/pricing.js';
 import { soldOutSizeIds } from '../services/inventory.js';
+import { customerHasReviewPoint } from '../services/reviewPoints.js';
 import { parseReviewPhoto, photoBufferFromDataUrl, createRateLimiter } from '../services/reviews.js';
 import { getPhotoStorage, uploadPhoto, downloadPhoto } from '../services/photoStorage.js';
 import { createAttemptLimiter } from '../services/rateLimit.js';
@@ -133,8 +134,10 @@ router.post('/reviews', async (req, res, next) => {
         return res.status(502).json({ error: 'Não foi possível enviar a foto agora. Tente de novo em instantes ou envie a avaliação sem foto.' });
       }
     }
-    await getPool().query('INSERT INTO reviews(customer_name,rating,comment,photo,photo_url,photo_public_id) VALUES($1,$2,$3,$4,$5,$6)', [name, rating, comment, stored ? null : parsed.photo, stored?.url ?? null, stored?.publicId ?? null]);
-    res.status(201).json({ message: parsed.photo ? 'Avaliação e foto enviadas para análise. Obrigado!' : 'Avaliação enviada para análise. Obrigado!' });
+    // Conectado: a avaliação fica ligada à conta e o cliente ganha pontos quando a loja aprovar. Visitante avalia normalmente, sem pontos.
+    const customerId = optionalCustomerId(req);
+    await getPool().query('INSERT INTO reviews(customer_name,rating,comment,photo,photo_url,photo_public_id,customer_id) VALUES($1,$2,$3,$4,$5,$6,$7)', [name, rating, comment, stored ? null : parsed.photo, stored?.url ?? null, stored?.publicId ?? null, customerId]);
+    res.status(201).json({ message: parsed.photo ? 'Avaliação e foto enviadas para análise. Obrigado!' : 'Avaliação enviada para análise. Obrigado!', willEarnPoints: Boolean(customerId) && !(await customerHasReviewPoint(getPool(), customerId)) });
   }
   catch (e) {
     next(e);
