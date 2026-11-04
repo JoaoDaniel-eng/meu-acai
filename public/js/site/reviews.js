@@ -16,10 +16,10 @@ function updateReviewHint() {
     return;
   const signedIn = document.body.dataset.auth === 'in';
   el.textContent = !signedIn
-    ? '💜 Entre na sua conta antes de avaliar e ganhe 1 ponto no Clube da Roça quando a loja aprovar sua avaliação (vale 1 ponto por cliente).'
+    ? '💜 Entre na sua conta antes de avaliar e ganhe 1 ponto na sua primeira avaliação.'
     : reviewPointEarned
-      ? 'Você já ganhou seu ponto de avaliação. Pode avaliar de novo, mas o ponto vale uma vez por cliente.'
-      : '💜 Você ganha 1 ponto no Clube da Roça quando a loja aprovar sua avaliação.';
+      ? 'Você já ganhou seu ponto de avaliação. Pode avaliar de novo, mas o ponto vale só para a primeira avaliação.'
+      : '💜 Você ganha 1 ponto quando fizer sua primeira avaliação.';
 }
 updateReviewHint();
 $('#review-form').addEventListener('submit', async (e) => {
@@ -38,7 +38,7 @@ $('#review-form').addEventListener('submit', async (e) => {
   try {
     const fd = new FormData(form);
     const data = await api('/reviews', { method: 'POST', body: JSON.stringify({ name: fd.get('name'), rating: Number(fd.get('rating')), comment: fd.get('comment'), photo: reviewPhoto || undefined }) });
-    msg.textContent = data.willEarnPoints ? `${data.message} Se a loja aprovar, você ganha 1 ponto.` : data.message;
+    msg.textContent = data.willEarnPoints ? `${data.message} Seu ponto de avaliação será creditado em breve.` : data.message;
     msg.classList.add('is-success');
     form.reset();
     clearReviewPhoto();

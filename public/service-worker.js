@@ -1,18 +1,18 @@
-const CACHE_NAME = 'acai-da-roca-v20261104-pontos-1';
+const CACHE_NAME = 'acai-da-roca-v20261104-pontos-2';
 const APP_SHELL = [
   '/',
   '/index.html',
-  '/css/styles.css?v=20261104-pontos-1',
+  '/css/styles.css?v=20261104-pontos-2',
   '/js/diagnostics.js?v=20261102-camadas-1',
   '/js/site/core.js?v=20261102-camadas-1',
   '/js/site/checkout.js?v=20261102-camadas-1',
-  '/js/site/reviews.js?v=20261104-pontos-1',
-  '/js/site/account.js?v=20261104-pontos-1',
+  '/js/site/reviews.js?v=20261104-pontos-2',
+  '/js/site/account.js?v=20261104-pontos-2',
   '/js/site/tracking.js?v=20261102-camadas-1',
   '/js/site/saved-details.js?v=20261102-camadas-1',
   '/js/site/pwa.js?v=20261102-camadas-1',
   '/js/site/theme.js?v=20261102-camadas-1',
-  '/js/site/sidemenu.js?v=20261104-pontos-1',
+  '/js/site/sidemenu.js?v=20261104-pontos-2',
   '/js/site/settings.js?v=20261102-camadas-1',
   '/js/site/cart-storage.js?v=20261102-camadas-1',
   '/js/site/favorites.js?v=20261102-camadas-1',

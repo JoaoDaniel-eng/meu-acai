@@ -325,3 +325,7 @@
 - **Painel (Avaliações):** etiqueta em cada avaliação (“Ganha 1 ponto ao aprovar”, “Ponto dado (+1)”, “Visitante: sem ponto”, “Cliente já ganhou o ponto de avaliação”) e mensagem ao aprovar dizendo se o cliente ganhou o ponto. `GET /api/admin/reviews` devolve `has_account`, `points_given` e `can_earn`.
 - **Cache:** `?v=` e `CACHE_NAME` do PWA atualizados para `20261104-pontos-1`.
 - **Testes:** 3 testes de rota novos (limite de 1 por cliente, aprovação simultânea, etiquetas do painel) — exigem `TEST_DATABASE_URL`; **nenhum teste de rota deste recurso rodou contra PostgreSQL real**. Falta testar no navegador real (claro/escuro, celular).
+
+## Ajuste de textos do ponto por avaliação (04/11/2026)
+- Os avisos do site não citam mais a aprovação da loja nem o “Clube da Roça”: “Você ganha 1 ponto quando fizer sua primeira avaliação.” (conectado), “Entre na sua conta antes de avaliar e ganhe 1 ponto na sua primeira avaliação.” (visitante). Ao enviar: “Seu ponto de avaliação será creditado em breve.” A regra não mudou: o ponto continua sendo creditado quando a loja aprova no painel.
+- Cache atualizado para `20261104-pontos-2`.
