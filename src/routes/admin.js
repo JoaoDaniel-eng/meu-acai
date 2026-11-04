@@ -299,9 +299,32 @@ router.patch('/orders/:id/status', async (req, res, next) => {
       return res.status(404).json({ error: 'Pedido não encontrado.' });
     }
     const order = found.rows[0], items = Array.isArray(order.items) ? order.items : [];
+    // Pedido cancelado pode voltar: desfaz o que o cancelamento fez (estoque devolvido e cupom pessoal liberado).
     if (order.status === 'cancelled' && status !== 'cancelled') {
-      await client.query('ROLLBACK');
-      return res.status(409).json({ error: 'Pedido cancelado não pode voltar para produção.' });
+      // Estoque: o cancelamento devolveu o que a produção tinha consumido; ao reativar, tira de novo (e apaga a devolução,
+      // para um novo cancelamento devolver outra vez). Assim o saldo fica igual ao de um pedido que nunca foi cancelado.
+      const returned = await client.query("SELECT id,inventory_item_id,quantity FROM inventory_movements WHERE order_id=$1 AND movement_type='devolucao' AND idempotency_key LIKE $2", [order.id, `order-${order.id}-return-%`]);
+      for (const m of returned.rows) {
+        const locked = await client.query('SELECT name,quantity FROM inventory_items WHERE id=$1 FOR UPDATE', [m.inventory_item_id]);
+        if (!locked.rowCount)
+          continue;
+        if (Number(locked.rows[0].quantity) < Number(m.quantity))
+          throw Object.assign(new Error(`Estoque insuficiente de ${locked.rows[0].name} para reativar este pedido. Ajuste o estoque e tente de novo.`), { status: 409 });
+        await client.query('UPDATE inventory_items SET quantity=quantity-$1,updated_at=NOW() WHERE id=$2', [m.quantity, m.inventory_item_id]);
+        await client.query('UPDATE options o SET active=CASE WHEN i.auto_disable THEN i.quantity>0 ELSE o.active END FROM inventory_items i WHERE i.id=$1 AND o.id=i.option_id', [m.inventory_item_id]);
+        await client.query('DELETE FROM inventory_movements WHERE id=$1', [m.id]);
+      }
+      // Cupom pessoal (boas-vindas): o cancelamento liberou o cupom para o cliente; ao reativar, ele volta a ficar preso a este pedido.
+      // Se o cliente já usou o cupom em outro pedido, não dá para reativar sem cobrar o desconto duas vezes.
+      if (order.coupon_code) {
+        const personal = await client.query('SELECT id,used_at,used_order_id FROM coupons WHERE code=$1 AND kind=$2 AND customer_id IS NOT NULL FOR UPDATE', [order.coupon_code, WELCOME_KIND]);
+        if (personal.rowCount) {
+          const c = personal.rows[0];
+          if (c.used_at && Number(c.used_order_id) !== Number(order.id))
+            throw Object.assign(new Error(`O cupom ${order.coupon_code} já foi usado pelo cliente em outro pedido. Para reativar este, ajuste o pedido ou fale com o cliente.`), { status: 409 });
+          await client.query('UPDATE coupons SET used_at=COALESCE(used_at,NOW()),used_order_id=$2 WHERE id=$1', [c.id, order.id]);
+        }
+      }
     }
     if (status === 'preparing' && order.status !== 'preparing') {
       const prior = await client.query("SELECT 1 FROM inventory_movements WHERE order_id=$1 AND movement_type='consumo' LIMIT 1", [order.id]);
@@ -310,9 +333,12 @@ router.patch('/orders/:id/status', async (req, res, next) => {
       for (const item of items) {
         const qty = Number(item.quantity || 1);
         for (const rec of recipes.rows) {
-          const matches = (rec.size_id && Number(rec.size_id) === Number(item.sizeId)) || (rec.option_id && (item.options || []).some(o => Number(o.id) === Number(rec.option_id)));
-          if (matches)
-            needs.set(Number(rec.inventory_item_id), (needs.get(Number(rec.inventory_item_id)) || 0) + Number(rec.quantity) * qty);
+          // Adicional com várias camadas gasta o ingrediente uma vez por camada.
+          const bySize = rec.size_id && Number(rec.size_id) === Number(item.sizeId);
+          const optionLayers = rec.option_id ? Math.max(0, ...(item.options || []).filter(o => Number(o.id) === Number(rec.option_id)).map(o => Number(o.layers) || 1)) : 0;
+          const multiplier = bySize ? 1 : optionLayers;
+          if (multiplier > 0)
+            needs.set(Number(rec.inventory_item_id), (needs.get(Number(rec.inventory_item_id)) || 0) + Number(rec.quantity) * qty * multiplier);
         }
       }
       const simpleItems = await client.query('SELECT id,name,unit,quantity,consumption_quantity,consumption_unit,option_id FROM inventory_items WHERE active=true AND consumption_quantity>0');
@@ -323,8 +349,9 @@ router.patch('/orders/:id/status', async (req, res, next) => {
         for (const orderItem of items) {
           const itemQty = Number(orderItem.quantity || 1);
           if (product.option_id) {
-            if ((orderItem.options || []).some(o => Number(o.id) === Number(product.option_id)))
-              count += itemQty;
+            const matched = (orderItem.options || []).filter(o => Number(o.id) === Number(product.option_id));
+            if (matched.length)
+              count += itemQty * Math.max(...matched.map(o => Number(o.layers) || 1));
           }
           else
             count += itemQty;
@@ -358,9 +385,9 @@ router.patch('/orders/:id/status', async (req, res, next) => {
     // Cancelou: o cupom pessoal que estava preso a este pedido volta para o cliente.
     if (status === 'cancelled' && order.status !== 'cancelled')
       await releasePersonalCoupon(client, order.id);
-    const r = await client.query('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,order_code,status,total_cents,delivery_fee_cents,customer_phone', [status, order.id]);
+    const r = await client.query('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,order_code,status,total_cents,delivery_fee_cents,spoon_cents,customer_phone', [status, order.id]);
     if (status === 'delivered') {
-      const points = calculateLoyaltyPoints(Math.max(0, Number(r.rows[0].total_cents) - Number(r.rows[0].delivery_fee_cents)));
+      const points = calculateLoyaltyPoints(Math.max(0, Number(r.rows[0].total_cents) - Number(r.rows[0].delivery_fee_cents) - Number(r.rows[0].spoon_cents || 0)));
       if (points > 0)
         await client.query('INSERT INTO loyalty_points(order_id,customer_phone,points) VALUES($1,$2,$3) ON CONFLICT(order_id) DO NOTHING', [r.rows[0].id, r.rows[0].customer_phone, points]);
     }

@@ -154,7 +154,7 @@ router.post('/customers/me/password', auth, async (req, res, next) => {
 });
 router.get('/customers/me/orders', auth, async (req, res, next) => {
   try {
-    const r = await getPool().query(`SELECT order_code,customer_name,customer_phone,address,neighborhood,payment_method,change_for,items,subtotal_cents,delivery_fee_cents,total_cents,status,created_at,updated_at FROM orders WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`, [req.customerId]);
+    const r = await getPool().query(`SELECT order_code,customer_name,customer_phone,address,neighborhood,payment_method,change_for,items,subtotal_cents,delivery_fee_cents,needs_spoon,spoon_quantity,spoon_cents,total_cents,status,created_at,updated_at FROM orders WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`, [req.customerId]);
     res.json({ orders: r.rows });
   }
   catch (e) {

@@ -213,3 +213,15 @@ A tela chega na 3.3b; por enquanto confira a rota (use o token do painel, que fi
 6. Um cupom usado cujo pedido foi excluído deve indicar "Pedido usado excluído".
 7. Confirme que os cupons automáticos não têm botões de editar/excluir; cupons manuais continuam com as ações normais.
 8. Repita no tema escuro e em celular; não deve haver rolagem horizontal.
+
+
+### Colheres (R$ 0,10 cada)
+1. No site, monte um pedido e escolha o bairro. Em **Precisa de colher?** o padrão é **0** ("Nenhuma colher") e o total não muda.
+2. Toque em **+**: a quantidade sobe (até 10), aparece a linha **Colher(es)** no resumo e o total soma R$ 0,10 por colher (2 colheres = R$ 0,20). **−** diminui; em 0 a linha some.
+3. Digite um número fora do limite (ex.: 99 ou -4): o campo corrige para 10 ou 0.
+4. Faça o pedido com 2 colheres: a mensagem do WhatsApp traz `Colher: 2 colheres (R$ 0,20)` e, se o pagamento for Pix, o valor do Pix já inclui as colheres.
+5. No painel da loja (**Pedidos**): aparece **🥄 COLHERES: 2** na coluna Itens e `+ colheres R$ 0,20` no total; sem colher mostra "Sem colher".
+6. Clique em **🖨️ Imprimir**: o cupom traz o quadro **COLHERES: 2** (ou "Sem colher") e a linha `Colheres (2x)` nos totais.
+7. Em **Acompanhe seu pedido**: aparece "Colher: 2 colheres (R$ 0,20)". Em "Editar dados da entrega" dá para mudar a quantidade; o total é recalculado e as colheres continuam no pedido ao editar os itens.
+8. Baixe a planilha (CSV): a última coluna é **Colheres** (quantidade).
+9. Em bancos já existentes, as colunas são criadas sozinhas na próxima inicialização (pedidos antigos feitos com "Sim" viram 1 colher; os demais ficam em 0).

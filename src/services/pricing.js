@@ -5,6 +5,53 @@ import { calculateComboDiscount } from './promotions.js';
 // Acima disso o pedido é recusado (R$ 20.000,00).
 export const MAX_ORDER_SUBTOTAL_CENTS = 2000000;
 
+// Colher: R$ 0,10 por unidade, na quantidade que o cliente escolher (0 a MAX_SPOONS). Não entra no combo nem no cupom.
+export const SPOON_PRICE_CENTS = 10;
+export const MAX_SPOONS = 10;
+
+// Lê a quantidade de colheres vinda do navegador. Devolve um inteiro de 0 a MAX_SPOONS, ou null se for inválida.
+// `legacyNeedsSpoon` aceita o campo antigo needsSpoon ('yes'/'no'), para quem ainda estiver com o site em cache: 'yes' = 1 colher.
+export function parseSpoonQuantity(quantity, legacyNeedsSpoon) {
+  if (quantity === undefined || quantity === null || quantity === '') {
+    if (legacyNeedsSpoon === undefined || legacyNeedsSpoon === null || legacyNeedsSpoon === 'no' || legacyNeedsSpoon === false) return 0;
+    return legacyNeedsSpoon === 'yes' || legacyNeedsSpoon === true ? 1 : null;
+  }
+  if (typeof quantity !== 'number' && typeof quantity !== 'string') return null;
+  if (typeof quantity === 'string' && quantity.trim() === '') return null;
+  const n = Number(quantity);
+  return Number.isInteger(n) && n >= 0 && n <= MAX_SPOONS ? n : null;
+}
+
+// Camadas de adicional pago (extras e mousses): o cliente escolhe quantas camadas quiser, até MAX_OPTION_LAYERS.
+// A 1ª camada custa o preço normal; cada camada seguinte custa o preço normal MENOS R$ 1,00 (nunca abaixo de zero).
+// Ex.: adicional de R$ 4,00 → 1 camada = R$ 4,00 · 2 = R$ 7,00 · 3 = R$ 10,00 · 4 = R$ 13,00.
+export const MAX_OPTION_LAYERS = 20;
+export const LAYER_DISCOUNT_CENTS = 100;
+export const LAYERED_CATEGORIES = ['extra', 'mousse'];
+
+export function optionLayerPriceCents(unitPriceCents, layers = 1) {
+  const base = Math.max(0, Number(unitPriceCents) || 0);
+  const n = Math.max(1, Math.trunc(Number(layers) || 1));
+  return base + (n - 1) * Math.max(0, base - LAYER_DISCOUNT_CENTS);
+}
+
+// Lê o mapa { idDoAdicional: camadas } vindo do navegador. Devolve um objeto limpo (só inteiros de 1 a MAX_OPTION_LAYERS),
+// {} quando não veio nada, ou null se o formato for inválido.
+export function parseOptionLayers(raw) {
+  if (raw === undefined || raw === null) return {};
+  if (typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const clean = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!/^\d+$/.test(key)) return null;
+    if (typeof value !== 'number' && typeof value !== 'string') return null;
+    if (typeof value === 'string' && !/^\d+$/.test(value.trim())) return null;
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < 1 || n > MAX_OPTION_LAYERS) return null;
+    clean[Number(key)] = n;
+  }
+  return clean;
+}
+
 // Erro de regra de preço. As rotas respondem com `status` e `message` (sem expor detalhes internos).
 export class PricingError extends Error {
   constructor(message, status = 400) {
@@ -31,7 +78,7 @@ export function comboRules(settings = {}) {
 // Monta uma linha do pedido a partir do tamanho e dos adicionais já carregados do banco.
 // `size`: { id, name, price_cents, product_name }. `options`: lista de { id, name, category, price_cents }
 // (um elemento undefined/null significa que o adicional escolhido não existe mais).
-export function buildOrderItem({ size, options, quantity, maxToppings = 5 }) {
+export function buildOrderItem({ size, options, quantity, maxToppings = 5, layers = {} }) {
   if (options.some(option => !option)) throw new PricingError('Adicional inválido.');
   if (options.filter(option => option.category === 'topping').length > maxToppings) {
     throw new PricingError(`Escolha no máximo ${maxToppings} acompanhamentos por açaí.`);
@@ -39,17 +86,30 @@ export function buildOrderItem({ size, options, quantity, maxToppings = 5 }) {
   if (options.filter(option => option.category === 'syrup').length > 1) {
     throw new PricingError('Escolha apenas uma calda por açaí.');
   }
-  const unitPriceCents = toCents(size.price_cents) + options.reduce((sum, option) => sum + toCents(option.price_cents), 0);
+  // Camadas só valem para adicional pago (extra/mousse com preço). Sem informação = 1 camada.
+  const layersOf = option => {
+    const n = Number(layers?.[option.id] ?? 1);
+    if (!Number.isInteger(n) || n < 1 || n > MAX_OPTION_LAYERS) throw new PricingError(`Escolha de 1 a ${MAX_OPTION_LAYERS} camadas.`);
+    if (n > 1 && (!LAYERED_CATEGORIES.includes(option.category) || toCents(option.price_cents) <= 0)) throw new PricingError('Só os adicionais pagos aceitam camadas.');
+    return n;
+  };
+  const priced = options.map(option => {
+    const n = layersOf(option);
+    return { option, layers: n, priceCents: optionLayerPriceCents(option.price_cents, n) };
+  });
+  const unitPriceCents = toCents(size.price_cents) + priced.reduce((sum, p) => sum + p.priceCents, 0);
   return {
     product: size.product_name,
     sizeId: size.id,
     size: size.name,
     quantity,
-    options: options.map(option => ({
+    // priceCents = valor total do adicional já com as camadas; `layers` só aparece quando passa de 1 (pedidos antigos não têm).
+    options: priced.map(({ option, layers: n, priceCents }) => ({
       id: option.id,
       name: option.name,
       category: option.category,
-      priceCents: toCents(option.price_cents),
+      priceCents,
+      ...(n > 1 ? { layers: n } : {}),
     })),
     unitPriceCents,
     lineTotalCents: unitPriceCents * quantity,
@@ -86,12 +146,14 @@ export function couponMinimumMessage(minimumCents) {
 //   subtotalCents / itemCount: ver summarizeItems
 //   deliveryFeeCents: taxa do bairro
 //   combo: { minItems, percent } (ver comboRules)
+//   spoons: quantidade de colheres (cada uma soma SPOON_PRICE_CENTS ao total)
 //   coupon: linha da tabela coupons ({ code, discount_type, discount_value, min_subtotal_cents }) ou null
 // Se o cupom não atinge o subtotal mínimo, ele NÃO é aplicado e `couponRejected` traz o motivo; quem chama decide
 // o que fazer (criar pedido e validar cupom recusam; editar pedido simplesmente remove o cupom).
-export function priceOrder({ subtotalCents, itemCount, deliveryFeeCents = 0, combo = {}, coupon = null }) {
+export function priceOrder({ subtotalCents, itemCount, deliveryFeeCents = 0, combo = {}, coupon = null, spoons = 0 }) {
   const subtotal = toCents(subtotalCents);
   const fee = toCents(deliveryFeeCents);
+  const spoonCents = Math.max(0, Math.trunc(Number(spoons) || 0)) * SPOON_PRICE_CENTS;
   const comboDiscountCents = calculateComboDiscount(subtotal, itemCount, combo.minItems ?? 2, combo.percent ?? 5);
   const base = Math.max(0, subtotal - comboDiscountCents);
   let couponDiscountCents = 0;
@@ -114,6 +176,7 @@ export function priceOrder({ subtotalCents, itemCount, deliveryFeeCents = 0, com
     couponDiscountCents,
     couponRejected,
     deliveryFeeCents: fee,
-    totalCents: base - couponDiscountCents + fee,
+    spoonCents,
+    totalCents: base - couponDiscountCents + fee + spoonCents,
   };
 }

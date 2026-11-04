@@ -193,6 +193,12 @@ export async function initializeDatabase() {
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS combo_discount_cents INTEGER NOT NULL DEFAULT 0");
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_minutes_min INTEGER NOT NULL DEFAULT 35");
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_minutes_max INTEGER NOT NULL DEFAULT 55");
+  // Colher: spoon_quantity = quantas colheres o cliente pediu; spoon_cents = quanto foi cobrado; needs_spoon = quantidade > 0.
+  await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS needs_spoon BOOLEAN NOT NULL DEFAULT FALSE");
+  await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS spoon_cents INTEGER NOT NULL DEFAULT 0");
+  await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS spoon_quantity INTEGER NOT NULL DEFAULT 0");
+  // Pedidos feitos quando a colher era só Sim/Não (1 colher) passam a ter quantidade 1.
+  await db.query("UPDATE orders SET spoon_quantity=1 WHERE needs_spoon AND spoon_quantity=0");
   // Cupom de boas-vindas (5% na primeira compra, uso único): fica na tabela coupons, ligado a uma conta de cliente.
   // used_order_id é só um número (sem chave estrangeira) para o backup poder restaurar cupons antes dos pedidos.
   await db.query("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'manual'");

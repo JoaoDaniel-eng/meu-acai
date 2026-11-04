@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getPool } from '../db/pool.js';
 import { getSettings, isOpenAt } from '../services/store.js';
-import { comboRules, priceOrder } from '../services/pricing.js';
+import { comboRules, MAX_SPOONS, priceOrder, SPOON_PRICE_CENTS } from '../services/pricing.js';
 import { soldOutSizeIds } from '../services/inventory.js';
 import { parseReviewPhoto, photoBufferFromDataUrl, createRateLimiter } from '../services/reviews.js';
 import { getPhotoStorage, uploadPhoto, downloadPhoto } from '../services/photoStorage.js';
@@ -31,7 +31,7 @@ router.get('/store', async (_req, res, next) => {
     const settings = await getSettings();
     const now = new Date();
     const openNow = isOpenAt(now, settings) && settings.manual_closed !== 'true';
-    res.json({ name: settings.store_name || 'Açaí da Roça', whatsappNumber: settings.whatsapp_number || '', timezone: settings.timezone || 'America/Sao_Paulo', openingDays: (settings.opening_days || '2,3,4,5,6,0').split(',').map(Number), openingTime: settings.opening_time || '13:30', closingTime: settings.closing_time || '22:00', minimumScheduleMinutes: Number(settings.minimum_schedule_minutes || 30), maxFreeToppings: Number(settings.max_free_toppings || 5), comboMinItems: Number(settings.combo_min_items || 2), comboDiscountPercent: Number(settings.combo_discount_percent || 5), estimatedMinutesMin: Number(settings.estimated_minutes_min || 35), estimatedMinutesMax: Number(settings.estimated_minutes_max || 55), manualClosed: settings.manual_closed === 'true', openNow });
+    res.json({ name: settings.store_name || 'Açaí da Roça', whatsappNumber: settings.whatsapp_number || '', timezone: settings.timezone || 'America/Sao_Paulo', openingDays: (settings.opening_days || '2,3,4,5,6,0').split(',').map(Number), openingTime: settings.opening_time || '13:30', closingTime: settings.closing_time || '22:00', minimumScheduleMinutes: Number(settings.minimum_schedule_minutes || 30), maxFreeToppings: Number(settings.max_free_toppings || 5), spoonPriceCents: SPOON_PRICE_CENTS, maxSpoons: MAX_SPOONS, comboMinItems: Number(settings.combo_min_items || 2), comboDiscountPercent: Number(settings.combo_discount_percent || 5), estimatedMinutesMin: Number(settings.estimated_minutes_min || 35), estimatedMinutesMax: Number(settings.estimated_minutes_max || 55), manualClosed: settings.manual_closed === 'true', openNow });
   }
   catch (e) {
     next(e);

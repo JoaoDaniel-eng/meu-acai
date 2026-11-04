@@ -44,7 +44,7 @@ const cell = v => {
 const itemsText = items => (Array.isArray(items) ? items : []).map(i => `${i.quantity}x ${i.size || i.product || ''}${Array.isArray(i.options) && i.options.length ? ` (${i.options.map(o => o.name).join(', ')})` : ''}`).join(' | ');
 // CSV com ";" e BOM (abre direto no Excel em português).
 export function ordersToCsv(rows) {
-  const head = ['Código', 'Data', 'Cliente', 'Telefone', 'Bairro', 'Endereço', 'Itens', 'Pagamento', 'Troco para', 'Cupom', 'Subtotal', 'Entrega', 'Total', 'Status', 'Agendado para', 'Observações'];
-  const lines = rows.map(o => [o.order_code, fmtDate(o.created_at), o.customer_name, o.customer_phone, o.neighborhood, o.address, itemsText(o.items), o.payment_method, o.change_for, o.coupon_code, brMoney(o.subtotal_cents), brMoney(o.delivery_fee_cents), brMoney(o.total_cents), STATUS_LABEL[o.status] || o.status, fmtDate(o.scheduled_for), o.notes].map(cell).join(';'));
+  const head = ['Código', 'Data', 'Cliente', 'Telefone', 'Bairro', 'Endereço', 'Itens', 'Pagamento', 'Troco para', 'Cupom', 'Subtotal', 'Entrega', 'Total', 'Status', 'Agendado para', 'Observações', 'Colheres'];
+  const lines = rows.map(o => [o.order_code, fmtDate(o.created_at), o.customer_name, o.customer_phone, o.neighborhood, o.address, itemsText(o.items), o.payment_method, o.change_for, o.coupon_code, brMoney(o.subtotal_cents), brMoney(o.delivery_fee_cents), brMoney(o.total_cents), STATUS_LABEL[o.status] || o.status, fmtDate(o.scheduled_for), o.notes, Number(o.spoon_quantity) || 0].map(cell).join(';'));
   return '\uFEFF' + [head.join(';'), ...lines].join('\r\n') + '\r\n';
 }
