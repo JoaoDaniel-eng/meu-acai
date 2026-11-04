@@ -790,3 +790,31 @@ html[data-theme="dark"] #truffled-sizes .size-card{background:#2b1a3b;color:var(
 
 /* Galeria: botão para o cardápio */
 .gallery-order{margin-top:2px}
+
+/* Colher (R$ 0,10 cada): contador − / + no pedido e destaque no painel da loja */
+.spoon-choice{margin:0 0 14px;padding:10px 14px 12px;border:1px solid var(--line);border-radius:14px;min-width:0}
+.spoon-choice legend{padding:0 6px;font-weight:700}
+.spoon-stepper{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.spoon-btn{width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:#fff;color:var(--purple2);font-size:1.4rem;font-weight:800;line-height:1;cursor:pointer}
+.spoon-btn:active{transform:scale(.96)}
+form .spoon-stepper input[type="number"]{width:74px;min-width:0;text-align:center;font-weight:700}
+.spoon-hint{color:var(--muted);font-size:.85rem;font-weight:600}
+.order-spoon{display:block;margin-top:6px}
+.order-spoon.yes{font-weight:800;color:#7a4300;background:#fff1cf;border-radius:6px;padding:3px 7px;width:fit-content}
+html[data-theme="dark"] .spoon-choice{border-color:#4a3560}
+html[data-theme="dark"] .spoon-btn{background:#2a1838;border-color:#4a3560;color:#e3c3fa}
+html[data-theme="dark"] .order-spoon.yes{background:#4a3410;color:#ffd98f}
+
+/* Camadas de adicional pago: campo numérico ao lado do adicional escolhido */
+.option-row{display:flex;align-items:stretch;gap:8px;min-width:0}
+.option-row .option-pill{flex:1 1 auto}
+.layers-field{display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:700;color:var(--purple);margin:0;white-space:nowrap}
+.layers-field input{width:3.2rem;min-height:38px;padding:6px 8px;text-align:center;font-size:1rem;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--ink)}
+.layers-total{align-self:center;font-weight:800;color:var(--purple2);white-space:nowrap}
+.edit-option-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px}
+.edit-option-row .layers-field[hidden]{display:none}
+.edit-option-list .layers-field input{width:3.2rem}
+@media(max-width:620px){.option-row.has-layers{grid-column:1/-1;flex-wrap:wrap;align-items:center}.option-row .option-pill{flex:1 1 100%}}
+html[data-theme="dark"] .layers-field{color:#e3c8f5}
+html[data-theme="dark"] .layers-field input{background:#2a1a38;color:#fff;border-color:#5b3a73}
+html[data-theme="dark"] .layers-total{color:#c9a0ee}

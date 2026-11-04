@@ -102,11 +102,42 @@ document.addEventListener('change', e => {
         return;
       }
       selected.add(id);
+      if (isLayered(opt))
+        selectedLayers.set(id, 1);
     }
-    else
+    else {
       selected.delete(id);
+      selectedLayers.delete(id);
+    }
     renderBuilder();
   }
+});
+// Campo de camadas (só números). Enquanto digita, atualiza os preços sem redesenhar a tela (para não perder o foco).
+document.addEventListener('input', e => {
+  if (!e.target.matches('[data-layers]'))
+    return;
+  const id = Number(e.target.dataset.layers), opt = menu.options.find(o => o.id === id);
+  const digits = e.target.value.replace(/\D/g, '').slice(0, 2);
+  if (digits !== e.target.value)
+    e.target.value = digits;
+  let n = Number(digits);
+  if (n > MAX_LAYERS) {
+    n = MAX_LAYERS;
+    e.target.value = String(n);
+    builderMessage(`O máximo é ${MAX_LAYERS} camadas por adicional.`);
+  }
+  else
+    builderMessage('');
+  // Campo vazio ou 0 conta como 1 camada até o cliente sair do campo.
+  selectedLayers.set(id, Math.max(1, n));
+  const total = document.querySelector(`[data-layers-total="${id}"]`);
+  if (total && opt)
+    total.textContent = brl(layerPrice(opt.price, layerCountOf(id)));
+  $('#unit-price').textContent = brl(priceForBuilder());
+});
+document.addEventListener('focusout', e => {
+  if (e.target.matches?.('[data-layers]'))
+    e.target.value = String(layerCountOf(Number(e.target.dataset.layers)));
 });
 document.addEventListener('click', e => {
   const remove = e.target.closest('[data-remove]');
@@ -125,15 +156,23 @@ $('#add-cart').addEventListener('click', () => {
   builderMessage('');
   const opts = [...selected].map(id => menu.options.find(o => o.id === id)).filter(Boolean);
   const unit = priceForBuilder(), quantity = Number($('#builder-quantity').value || 1);
-  cart.push({ sizeId: selectedSize.id, product: traditionalProduct().name, size: selectedSize.name, quantity, optionIds: opts.map(o => o.id), options: opts, unitPriceCents: unit, lineTotalCents: unit * quantity });
+  const optionLayers = layersObject(opts.filter(isLayered).map(o => o.id), layerCountOf);
+  cart.push({ sizeId: selectedSize.id, product: traditionalProduct().name, size: selectedSize.name, quantity, optionIds: opts.map(o => o.id), optionLayers, options: opts, unitPriceCents: unit, lineTotalCents: unit * quantity });
   appliedCoupon = null;
   $('#coupon-message').textContent = '';
   selected.clear();
+  selectedLayers.clear();
   renderBuilder();
   renderCart();
   $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 $('#zone-select').addEventListener('change', renderCart);
+// Colheres: botões − / + e campo numérico (de 0 até store.maxSpoons), R$ 0,10 cada.
+const setSpoons = n => { $('#spoon-quantity').value = String(Math.min(maxSpoons(), Math.max(0, n))); renderCart(); };
+$('#spoon-minus').addEventListener('click', () => setSpoons(spoonCount() - 1));
+$('#spoon-plus').addEventListener('click', () => setSpoons(spoonCount() + 1));
+$('#spoon-quantity').addEventListener('input', renderCart);
+$('#spoon-quantity').addEventListener('change', () => setSpoons(spoonCount()));
 $('#payment-method').addEventListener('change', e => {
   const cash = e.target.value === 'Dinheiro';
   $('#cash-change-fields').classList.toggle('hidden', !cash);
@@ -237,15 +276,15 @@ $('#checkout-form').addEventListener('submit', async (e) => {
     return;
   }
   const fd = new FormData(form);
-  const payload = { customerName: fd.get('customerName'), phone: fd.get('phone'), address: fd.get('address'), zoneId: Number(fd.get('zoneId')), notes: fd.get('notes'), paymentMethod: fd.get('paymentMethod'), needsChange: fd.get('needsChange') || 'no', changeFor: fd.get('changeFor') || '', scheduledFor: fd.get('orderTime') === 'scheduled' ? fd.get('scheduledFor') : null, couponCode: appliedCoupon?.code || '', items: cart.map(i => ({ sizeId: i.sizeId, quantity: i.quantity, optionIds: i.optionIds })) };
+  const payload = { customerName: fd.get('customerName'), phone: fd.get('phone'), address: fd.get('address'), zoneId: Number(fd.get('zoneId')), notes: fd.get('notes'), paymentMethod: fd.get('paymentMethod'), needsChange: fd.get('needsChange') || 'no', changeFor: fd.get('changeFor') || '', spoonQuantity: spoonCount(), scheduledFor: fd.get('orderTime') === 'scheduled' ? fd.get('scheduledFor') : null, couponCode: appliedCoupon?.code || '', items: cart.map(i => ({ sizeId: i.sizeId, quantity: i.quantity, optionIds: i.optionIds, optionLayers: i.optionLayers || {} })) };
   const button = $('#submit-order');
   button.disabled = true;
   button.textContent = 'Registrando pedido…';
   try {
     const order = await api('/orders', { method: 'POST', body: JSON.stringify(payload) });
-    const lines = order.items.map(i => `• ${i.quantity}x ${i.product} (${i.size})\n  ${i.options.map(o => o.name).join(', ') || 'Sem adicionais'} — ${brl(i.lineTotalCents)}`).join('\n');
+    const lines = order.items.map(i => `• ${i.quantity}x ${i.product} (${i.size})\n  ${i.options.map(o => o.name + layersText(o.layers)).join(', ') || 'Sem adicionais'} — ${brl(i.lineTotalCents)}`).join('\n');
     const scheduled = order.scheduledFor ? `\nAgendamento: ${new Date(order.scheduledFor).toLocaleString('pt-BR')}` : '\nEntrega: assim que possível';
-    const text = `Olá! Quero confirmar o pedido ${order.orderCode} no Açaí da Roça.\n\n${lines}\n\nSubtotal: ${brl(order.subtotalCents)}${order.comboDiscountCents ? `\nDesconto combo: -${brl(order.comboDiscountCents)}` : ''}${order.discountCents ? `\nCupom ${order.couponCode}: -${brl(order.discountCents)}` : ''}\nEntrega (${order.neighborhood}): ${brl(order.deliveryFeeCents)}\nTOTAL: ${brl(order.totalCents)}\nPrevisão estimada: ${order.estimatedMinutesMin} a ${order.estimatedMinutesMax} minutos\n\nNome: ${order.customerName}\nTelefone: ${order.phone}\nEndereço: ${order.address}
+    const text = `Olá! Quero confirmar o pedido ${order.orderCode} no Açaí da Roça.\n\n${lines}\n\nSubtotal: ${brl(order.subtotalCents)}${order.comboDiscountCents ? `\nDesconto combo: -${brl(order.comboDiscountCents)}` : ''}${order.discountCents ? `\nCupom ${order.couponCode}: -${brl(order.discountCents)}` : ''}\nEntrega (${order.neighborhood}): ${brl(order.deliveryFeeCents)}\nColher: ${spoonText(order.spoonQuantity, order.spoonCents)}\nTOTAL: ${brl(order.totalCents)}\nPrevisão estimada: ${order.estimatedMinutesMin} a ${order.estimatedMinutesMax} minutos\n\nNome: ${order.customerName}\nTelefone: ${order.phone}\nEndereço: ${order.address}
 Forma de pagamento: ${order.paymentMethod}${order.pix ? '\nValor do Pix: ' + brl(order.pix.amountCents) : ''}${order.changeFor ? `\nTroco para: R$ ${order.changeFor}` : ''}${scheduled}${order.notes ? '\nObservações: ' + order.notes : ''}\n\nO pedido foi registrado pelo site.${order.pix ? '\nO código Pix está disponível no site, na tela do pedido. Após pagar, envie o comprovante nesta conversa.\n' + PIX_NOTICE : ''}`;
     msg.textContent = `Pedido ${order.orderCode} registrado! Agora envie no WhatsApp para a loja confirmar (botão abaixo). Guarde esse código para acompanhar, editar ou cancelar seu pedido na seção “Acompanhe seu pedido”.`;
     $('#tracking-form [name=code]').value = order.orderCode;

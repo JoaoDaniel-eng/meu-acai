@@ -7,7 +7,7 @@ const fmtDateTime = d => { const x = new Date(d); return Number.isNaN(x.getTime(
 function receiptHtml(o) {
   const items = (o.items || []).map(i => {
     const product = i.product && !/tradicional/i.test(i.product) ? `<div class="r-opt">${esc(i.product)}</div>` : '';
-    const opts = (i.options || []).map(x => esc(x.name)).join(', ') || 'sem adicionais';
+    const opts = (i.options || []).map(x => esc(x.name) + (Number(x.layers) > 1 ? ` (${Number(x.layers)} camadas)` : '')).join(', ') || 'sem adicionais';
     return `<div class="r-item r-row"><span>${esc(i.quantity)}x ${esc(i.size)}</span><span>${brl(i.lineTotalCents)}</span></div>${product}<div class="r-opt">${opts}</div>`;
   }).join('');
   const when = o.scheduled_for ? `<div class="r-box">AGENDADO: ${esc(fmtDateTime(o.scheduled_for))}</div>` : '<div class="r-center r-small">Entrega assim que possível</div>';
@@ -19,11 +19,14 @@ function receiptHtml(o) {
   if (Number(o.discount_cents) > 0)
     lines.push([`Cupom ${o.coupon_code || ''}`.trim(), `-${brl(o.discount_cents)}`]);
   lines.push([`Entrega${o.neighborhood ? ' (' + o.neighborhood + ')' : ''}`, brl(o.delivery_fee_cents)]);
+  if (Number(o.spoon_quantity) > 0)
+    lines.push([`Colher${Number(o.spoon_quantity) > 1 ? 'es' : ''} (${Number(o.spoon_quantity)}x)`, brl(o.spoon_cents)]);
   const totals = lines.map(([a, b]) => `<div class="r-row"><span>${esc(a)}</span><span>${esc(b)}</span></div>`).join('');
   return `<div class="r-title">AÇAÍ DA ROÇA</div><div class="r-code">${esc(o.order_code)}</div><div class="r-center r-small">${esc(fmtDateTime(o.created_at))}</div><hr class="r-line">${when}<hr class="r-line">`
     + `<div class="r-label">Cliente</div><div class="r-block">${esc(o.customer_name)}<br>${esc(o.customer_phone)}</div>`
     + `<div class="r-label">Endereço</div><div class="r-block">${esc(o.address)}${o.neighborhood ? '<br>' + esc(o.neighborhood) : ''}</div>`
     + `<hr class="r-line"><div class="r-label">Pedido</div>${items}<hr class="r-line">`
+    + (Number(o.spoon_quantity) > 0 ? `<div class="r-box">${Number(o.spoon_quantity) === 1 ? 'COLHER' : 'COLHERES'}: ${Number(o.spoon_quantity)}</div>` : '<div class="r-center r-small">Sem colher</div>')
     + (o.notes ? `<div class="r-label">Observações</div><div class="r-block">${esc(o.notes)}</div><hr class="r-line">` : '')
     + `${totals}<div class="r-row r-total"><span>TOTAL</span><span>${brl(o.total_cents)}</span></div><hr class="r-line">`
     + `<div class="r-label">Pagamento</div><div class="r-block">${pay}</div>${change}<div class="r-center r-small">Obrigado pela preferência!</div>`;
@@ -62,7 +65,7 @@ async function autoPrintNewOrders(previousId) {
     await printOrder(o);
   }
 }
-const TEST_ORDER = { order_code: 'AR-TESTE', created_at: new Date().toISOString(), customer_name: 'Cliente de Teste', customer_phone: '(21) 99999-9999', address: 'Rua Exemplo, 123', neighborhood: 'Centro', items: [{ quantity: 1, size: '500 ml', product: 'Açaí tradicional', options: [{ name: 'Granola' }, { name: 'Leite em pó' }], lineTotalCents: 1900 }], notes: 'Teste de impressão', payment_method: 'Pix', subtotal_cents: 1900, delivery_fee_cents: 500, total_cents: 2400 };
+const TEST_ORDER = { order_code: 'AR-TESTE', created_at: new Date().toISOString(), customer_name: 'Cliente de Teste', customer_phone: '(21) 99999-9999', address: 'Rua Exemplo, 123', neighborhood: 'Centro', items: [{ quantity: 1, size: '500 ml', product: 'Açaí tradicional', options: [{ name: 'Granola' }, { name: 'Leite em pó' }], lineTotalCents: 1900 }], notes: 'Teste de impressão', payment_method: 'Pix', subtotal_cents: 1900, delivery_fee_cents: 500, needs_spoon: true, spoon_quantity: 2, spoon_cents: 20, total_cents: 2420 };
 document.addEventListener('click', e => {
   const btn = e.target.closest?.('[data-print-order]');
   if (btn) {
