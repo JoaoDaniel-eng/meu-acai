@@ -818,3 +818,18 @@ html[data-theme="dark"] .order-spoon.yes{background:#4a3410;color:#ffd98f}
 html[data-theme="dark"] .layers-field{color:#e3c8f5}
 html[data-theme="dark"] .layers-field input{background:#2a1a38;color:#fff;border-color:#5b3a73}
 html[data-theme="dark"] .layers-total{color:#c9a0ee}
+
+/* ===== Adicionais pagos no celular: 1 coluna, preço em destaque e camadas sempre visíveis ===== */
+@media(max-width:620px){
+  #extras.option-grid,#mousses.option-grid{grid-template-columns:minmax(0,1fr);gap:8px}
+  #extras .option-pill,#mousses .option-pill{height:auto;min-height:48px;overflow-wrap:break-word;word-break:normal}
+  #extras .option-pill span,#mousses .option-pill span{flex:1 1 auto}
+  #extras .option-pill small,#mousses .option-pill small{margin-left:auto;padding-left:8px;font-size:.88rem;font-weight:700;color:var(--purple2);white-space:nowrap}
+  html[data-theme="dark"] #extras .option-pill small,html[data-theme="dark"] #mousses .option-pill small{color:#e3c8f5}
+  /* Linha com camadas: o adicional em cima (largura toda), e embaixo "Camadas [n]" à esquerda e o total à direita */
+  .option-row.has-layers{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 12px;grid-column:1/-1;padding:0 2px 6px}
+  .option-row.has-layers .option-pill{grid-column:1/-1;width:100%;height:auto;flex:none}
+  .option-row.has-layers .layers-field{grid-column:1;justify-self:start;font-size:.9rem}
+  .option-row.has-layers .layers-field input{width:4rem;min-height:44px}
+  .option-row.has-layers .layers-total{grid-column:2;justify-self:end;align-self:center;font-size:1.05rem}
+}
