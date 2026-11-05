@@ -24,8 +24,13 @@
     catch (e) { /* registrar o erro nunca pode causar outro erro */ }
   }
   window.addEventListener('error', function (e) {
-    if (e.target && e.target !== window && (e.target.src || e.target.href))
-      return report('Arquivo não carregou: ' + (e.target.src || e.target.href), location.origin, null, null, null);
+    if (e.target && e.target !== window && (e.target.src || e.target.href)) {
+      const url = String(e.target.src || e.target.href);
+      // Só interessa arquivo do próprio site. Scripts de fora (ex.: navegador do Instagram/Facebook injetando pcm.js) são barrados de propósito pela CSP e não são bug.
+      if (url.indexOf(location.origin) !== 0)
+        return;
+      return report('Arquivo não carregou: ' + url, location.origin, null, null, null);
+    }
     report(e.message, e.filename, e.lineno, e.colno, e.error && e.error.stack);
   }, true);
   window.addEventListener('unhandledrejection', function (e) {

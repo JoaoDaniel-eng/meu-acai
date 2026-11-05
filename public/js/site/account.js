@@ -14,7 +14,6 @@ async function loadCustomerAccount() {
   try {
     const data = await api('/customers/me');
     setAccountView(true);
-    reviewPointEarned = Boolean(data.reviewPointEarned);
     applyAuthUI(data.customer, data.loyaltyBalance);
     $('#customer-greeting').textContent = `Olá, ${data.customer.name}!`;
     $('#customer-phone-display').textContent = data.customer.phone;

@@ -8,20 +8,6 @@ async function loadReviews() {
     $('#reviews-list').innerHTML = '<p class="muted">Avaliações indisponíveis no momento.</p>';
   }
 }
-// Aviso do ponto por avaliação: muda conforme a pessoa está conectada e se já ganhou o ponto (vale 1 por cliente).
-var reviewPointEarned = false;
-function updateReviewHint() {
-  const el = $('#review-points-hint');
-  if (!el)
-    return;
-  const signedIn = document.body.dataset.auth === 'in';
-  el.textContent = !signedIn
-    ? '💜 Entre na sua conta antes de avaliar e ganhe 1 ponto na sua primeira avaliação.'
-    : reviewPointEarned
-      ? 'Você já ganhou seu ponto de avaliação. Pode avaliar de novo, mas o ponto vale só para a primeira avaliação.'
-      : '💜 Você ganha 1 ponto quando fizer sua primeira avaliação.';
-}
-updateReviewHint();
 $('#review-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.currentTarget;
@@ -38,7 +24,7 @@ $('#review-form').addEventListener('submit', async (e) => {
   try {
     const fd = new FormData(form);
     const data = await api('/reviews', { method: 'POST', body: JSON.stringify({ name: fd.get('name'), rating: Number(fd.get('rating')), comment: fd.get('comment'), photo: reviewPhoto || undefined }) });
-    msg.textContent = data.willEarnPoints ? `${data.message} Seu ponto de avaliação será creditado em breve.` : data.message;
+    msg.textContent = data.message;
     msg.classList.add('is-success');
     form.reset();
     clearReviewPhoto();
