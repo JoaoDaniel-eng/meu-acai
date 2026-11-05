@@ -840,3 +840,5 @@ html[data-theme="dark"] .layers-total{color:#c9a0ee}
 .review-points-badge{display:inline-block;margin-top:8px;padding:4px 9px;border-radius:999px;background:#f1e6f6;color:var(--purple2);font-size:.74rem;font-weight:600}
 .review-points-badge.is-given{background:#e5f7dc;color:#356f1a}
 .review-points-badge.is-none{background:#eee;color:#666}
+/* aviso do ponto por avaliação no tema escuro: mesmo roxo dos campos e cartões do site */
+html[data-theme="dark"] .review-points-hint{background:var(--cream);border:1px solid var(--line);color:var(--purple)}

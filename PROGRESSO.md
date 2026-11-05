@@ -329,3 +329,5 @@
 ## Ajuste de textos do ponto por avaliação (04/11/2026)
 - Os avisos do site não citam mais a aprovação da loja nem o “Clube da Roça”: “Você ganha 1 ponto quando fizer sua primeira avaliação.” (conectado), “Entre na sua conta antes de avaliar e ganhe 1 ponto na sua primeira avaliação.” (visitante). Ao enviar: “Seu ponto de avaliação será creditado em breve.” A regra não mudou: o ponto continua sendo creditado quando a loja aprova no painel.
 - Cache atualizado para `20261104-pontos-2`.
+
+- Tema escuro: a caixa do aviso do ponto (`.review-points-hint`) usa o roxo escuro padrão do site (`--cream`, borda `--line`, texto `--purple`) em vez do lilás claro. Cache `20261104-pontos-3`. Falta conferir no navegador.
