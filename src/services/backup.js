@@ -91,12 +91,12 @@ export async function backupRestore(req, res, next) {
     for (const r of (b.data.inventory_calibrations || []))
       await client.query('INSERT INTO inventory_calibrations(id,inventory_item_id,size_id,option_id,samples,average_quantity,approved,created_at,approved_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)', [r.id, r.inventory_item_id, r.size_id ?? null, r.option_id ?? null, r.samples, r.average_quantity, r.approved || false, r.created_at, r.approved_at ?? null]);
     for (const r of b.data.reviews)
-      await client.query('INSERT INTO reviews(id,customer_name,rating,comment,approved,created_at,photo,photo_url,photo_public_id,customer_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [r.id, r.customer_name, r.rating, r.comment, r.approved, r.created_at, r.photo ?? null, r.photo_url ?? null, r.photo_public_id ?? null, r.customer_id && keepCustomerIds.has(Number(r.customer_id)) ? r.customer_id : null]);
+      await client.query('INSERT INTO reviews(id,customer_name,rating,comment,approved,created_at,photo,photo_url,photo_public_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)', [r.id, r.customer_name, r.rating, r.comment, r.approved, r.created_at, r.photo ?? null, r.photo_url ?? null, r.photo_public_id ?? null]);
     if (withAccounts)
       for (const r of (b.data.customer_favorites || []))
         await client.query('INSERT INTO customer_favorites(id,customer_id,name,size_id,option_ids,created_at) VALUES($1,$2,$3,$4,$5::jsonb,$6)', [r.id, r.customer_id, r.name, r.size_id, JSON.stringify(r.option_ids || []), r.created_at]);
     for (const r of b.data.loyalty_points)
-      await client.query('INSERT INTO loyalty_points(id,order_id,customer_phone,points,created_at,review_id,source) VALUES($1,$2,$3,$4,$5,$6,$7)', [r.id, r.order_id ?? null, r.customer_phone, r.points, r.created_at, r.review_id ?? null, r.source || (r.review_id ? 'review' : 'order')]);
+      await client.query('INSERT INTO loyalty_points(id,order_id,customer_phone,points,created_at) VALUES($1,$2,$3,$4,$5)', [r.id, r.order_id, r.customer_phone, r.points, r.created_at]);
     for (const [table, col] of [['products', 'id'], ['product_sizes', 'id'], ['options', 'id'], ['delivery_zones', 'id'], ['orders', 'id'], ['reviews', 'id'], ['coupons', 'id'], ['loyalty_points', 'id'], ['inventory_items', 'id'], ['inventory_recipes', 'id'], ['inventory_movements', 'id'], ['inventory_calibrations', 'id'], ...(withAccounts ? [['customers', 'id'], ['customer_favorites', 'id']] : [])])
       await client.query(`SELECT setval(pg_get_serial_sequence('${table}','${col}'),COALESCE((SELECT MAX(${col}) FROM ${table}),1),EXISTS(SELECT 1 FROM ${table}))`);
     await client.query('COMMIT');

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateComboDiscount, calculateLoyaltyPoints, REVIEW_POINTS } from './promotions.js';
+import { calculateComboDiscount, calculateLoyaltyPoints } from './promotions.js';
 test('combo aplica desconto configurado quando atinge a quantidade mínima', () => {
   assert.equal(calculateComboDiscount(4000, 2, 2, 5), 200);
 });
@@ -13,9 +13,4 @@ test('desconto de combo nunca ultrapassa 50 por cento', () => {
 test('fidelidade concede um ponto por real completo em produtos', () => {
   assert.equal(calculateLoyaltyPoints(2599), 25);
   assert.equal(calculateLoyaltyPoints(99), 0);
-});
-
-test('avaliação aprovada vale um ponto inteiro e positivo', () => {
-  assert.equal(REVIEW_POINTS, 1);
-  assert.ok(Number.isInteger(REVIEW_POINTS) && REVIEW_POINTS > 0);
 });

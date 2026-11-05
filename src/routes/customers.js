@@ -4,7 +4,6 @@ import jwt from 'jsonwebtoken';
 import { getPool } from '../db/pool.js';
 import { createAttemptLimiter } from '../services/rateLimit.js';
 import { issueWelcomeCoupon, presentWelcomeCoupon, WELCOME_KIND } from '../services/welcomeCoupon.js';
-import { customerHasReviewPoint } from '../services/reviewPoints.js';
 const router = Router();
 // Entrada de cliente: 10 senhas erradas por IP e por celular a cada 15 min.
 const custLoginByIp = createAttemptLimiter({ max: 10, windowMs: 15 * 60 * 1000 }), custLoginByPhone = createAttemptLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
@@ -89,7 +88,7 @@ router.get('/customers/me', auth, async (req, res, next) => {
       return res.status(404).json({ error: 'Conta não encontrada.' });
     const l = await db.query("SELECT COALESCE(SUM(points),0)::int AS balance FROM loyalty_points WHERE regexp_replace(customer_phone,'[^0-9]','','g')=$1", [r.rows[0].phone]);
     const { must_change_password, ...customer } = r.rows[0];
-    res.json({ customer, loyaltyBalance: l.rows[0].balance, reviewPointEarned: await customerHasReviewPoint(db, req.customerId), mustChangePassword: !!must_change_password });
+    res.json({ customer, loyaltyBalance: l.rows[0].balance, mustChangePassword: !!must_change_password });
   }
   catch (e) {
     next(e);

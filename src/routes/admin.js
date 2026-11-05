@@ -7,9 +7,8 @@ import { requireAdmin } from '../middleware/auth.js';
 import { auditMutations, logLogin } from '../services/audit.js';
 import { versionOf } from '../services/sessionVersion.js';
 import { getSettings } from '../services/store.js';
-import { calculateLoyaltyPoints, REVIEW_POINTS } from '../services/promotions.js';
+import { calculateLoyaltyPoints } from '../services/promotions.js';
 import { photoBufferFromDataUrl } from '../services/reviews.js';
-import { customerHasReviewPoint } from '../services/reviewPoints.js';
 import { getPhotoStorage, uploadPhoto, downloadPhoto, deletePhoto } from '../services/photoStorage.js';
 import { createAttemptLimiter } from '../services/rateLimit.js';
 import { buildNoOrdersAlert } from '../services/alerts.js';
@@ -407,11 +406,7 @@ router.patch('/orders/:id/status', async (req, res, next) => {
 });
 router.get('/reviews', async (_req, res, next) => {
   try {
-    const { rows } = await getPool().query(`SELECT r.id,r.customer_name,r.rating,r.comment,r.approved,r.created_at,(r.photo IS NOT NULL OR r.photo_url IS NOT NULL) AS has_photo,
-      (r.customer_id IS NOT NULL) AS has_account,
-      EXISTS(SELECT 1 FROM loyalty_points lp WHERE lp.review_id=r.id) AS points_given,
-      (r.customer_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM loyalty_points lp JOIN customers c ON c.id=r.customer_id WHERE lp.source='review' AND regexp_replace(lp.customer_phone,'[^0-9]','','g')=regexp_replace(c.phone,'[^0-9]','','g'))) AS can_earn
-      FROM reviews r ORDER BY r.approved ASC,r.created_at DESC LIMIT 200`);
+    const { rows } = await getPool().query('SELECT id,customer_name,rating,comment,approved,created_at,(photo IS NOT NULL OR photo_url IS NOT NULL) AS has_photo FROM reviews ORDER BY approved ASC,created_at DESC LIMIT 200');
     res.json(rows);
   }
   catch (e) {
@@ -436,38 +431,10 @@ router.patch('/reviews/:id', async (req, res, next) => {
     if (typeof req.body.approved !== 'boolean')
       return res.status(400).json({ error: 'Estado da avaliação inválido.' });
     const approved = req.body.approved;
-    const client = await getPool().connect();
-    try {
-      await client.query('BEGIN');
-      const r = await client.query('UPDATE reviews SET approved=$1 WHERE id=$2 RETURNING id,approved,customer_id', [approved, Number(req.params.id)]);
-      if (!r.rowCount) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Avaliação não encontrada.' });
-      }
-      // Aprovou uma avaliação feita com conta: o cliente ganha pontos, uma única vez por avaliação (review_id é único).
-      // Desaprovar depois não tira os pontos já dados, e aprovar de novo não dá pontos em dobro.
-      // Vale 1 ponto de avaliação por cliente: a partir da segunda avaliação aprovada não há novo ponto.
-      let pointsAwarded = 0, alreadyRewarded = false;
-      if (approved && r.rows[0].customer_id) {
-        // Trava por cliente: duas aprovações ao mesmo tempo não podem passar juntas pela checagem abaixo.
-        await client.query('SELECT pg_advisory_xact_lock(7001, $1::int)', [r.rows[0].customer_id]);
-        const own = await client.query('SELECT 1 FROM loyalty_points WHERE review_id=$1', [r.rows[0].id]);
-        alreadyRewarded = !own.rowCount && await customerHasReviewPoint(client, r.rows[0].customer_id);
-      }
-      if (approved && r.rows[0].customer_id && !alreadyRewarded) {
-        const ins = await client.query("INSERT INTO loyalty_points(review_id,source,customer_phone,points) SELECT $1,'review',c.phone,$2 FROM customers c WHERE c.id=$3 ON CONFLICT(review_id) DO NOTHING", [r.rows[0].id, REVIEW_POINTS, r.rows[0].customer_id]);
-        pointsAwarded = ins.rowCount ? REVIEW_POINTS : 0;
-      }
-      await client.query('COMMIT');
-      res.json({ id: r.rows[0].id, approved: r.rows[0].approved, pointsAwarded, hasAccount: Boolean(r.rows[0].customer_id), alreadyRewarded });
-    }
-    catch (e) {
-      await client.query('ROLLBACK').catch(() => { });
-      throw e;
-    }
-    finally {
-      client.release();
-    }
+    const r = await getPool().query('UPDATE reviews SET approved=$1 WHERE id=$2 RETURNING id,approved', [approved, Number(req.params.id)]);
+    if (!r.rowCount)
+      return res.status(404).json({ error: 'Avaliação não encontrada.' });
+    res.json(r.rows[0]);
   }
   catch (e) {
     next(e);
