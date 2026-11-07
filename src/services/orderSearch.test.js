@@ -26,8 +26,11 @@ test('CSV: cabeçalho, valores em reais, aspas e proteção contra fórmula', ()
   const [head, line] = csv.replace('\uFEFF', '').split('\r\n');
   assert.equal(head.split(';')[0], 'Código');
   assert.ok(csv.startsWith('\uFEFF'));
-  assert.equal(line, "AR-1;15/11/2026 17:00;'=SOMA(A1);21999990000;Centro;\"Rua \"\"A\"\"; 10\";2x 500 ml (Granola, Leite em pó);Pix;;;35,00;5,00;40,00;Entregue;;sem granola;0");
+  assert.equal(line, "AR-1;15/11/2026 17:00;'=SOMA(A1);21999990000;Centro;\"Rua \"\"A\"\"; 10\";2x 500 ml (Granola, Leite em pó);Pix;;;35,00;5,00;40,00;Entregue;;sem granola;Entrega;0");
   // Pedido com colheres sai com a quantidade na última coluna.
   const comColher = ordersToCsv([{ order_code: 'AR-2', created_at: '2026-11-15T20:00:00Z', items: [], subtotal_cents: 0, delivery_fee_cents: 0, total_cents: 20, status: 'new', spoon_quantity: 2 }]);
   assert.ok(comColher.split('\r\n')[1].endsWith(';2'));
+  // Retirada aparece na coluna Tipo.
+  const retirada = ordersToCsv([{ order_code: 'AR-3', created_at: '2026-11-15T20:00:00Z', items: [], subtotal_cents: 0, delivery_fee_cents: 0, total_cents: 0, status: 'new', fulfillment: 'pickup' }]);
+  assert.ok(retirada.split('\r\n')[1].endsWith(';Retirada;0'));
 });

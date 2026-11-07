@@ -75,6 +75,12 @@ export function comboRules(settings = {}) {
   };
 }
 
+// Frete grátis: valor mínimo (em reais, como texto no banco) a partir do qual a entrega não é cobrada. 0/vazio = desligado.
+export function freeDeliveryMinCents(settings = {}) {
+  const reais = Number(String(settings.free_delivery_min ?? '').replace(',', '.'));
+  return Number.isFinite(reais) && reais > 0 ? Math.round(reais * 100) : 0;
+}
+
 // Monta uma linha do pedido a partir do tamanho e dos adicionais já carregados do banco.
 // `size`: { id, name, price_cents, product_name }. `options`: lista de { id, name, category, price_cents }
 // (um elemento undefined/null significa que o adicional escolhido não existe mais).
@@ -150,9 +156,9 @@ export function couponMinimumMessage(minimumCents) {
 //   coupon: linha da tabela coupons ({ code, discount_type, discount_value, min_subtotal_cents }) ou null
 // Se o cupom não atinge o subtotal mínimo, ele NÃO é aplicado e `couponRejected` traz o motivo; quem chama decide
 // o que fazer (criar pedido e validar cupom recusam; editar pedido simplesmente remove o cupom).
-export function priceOrder({ subtotalCents, itemCount, deliveryFeeCents = 0, combo = {}, coupon = null, spoons = 0 }) {
+export function priceOrder({ subtotalCents, itemCount, deliveryFeeCents = 0, combo = {}, coupon = null, spoons = 0, freeDeliveryMinCents: freeMin = 0 }) {
   const subtotal = toCents(subtotalCents);
-  const fee = toCents(deliveryFeeCents);
+  const feeBeforeFree = toCents(deliveryFeeCents);
   const spoonCents = Math.max(0, Math.trunc(Number(spoons) || 0)) * SPOON_PRICE_CENTS;
   const comboDiscountCents = calculateComboDiscount(subtotal, itemCount, combo.minItems ?? 2, combo.percent ?? 5);
   const base = Math.max(0, subtotal - comboDiscountCents);
@@ -168,6 +174,10 @@ export function priceOrder({ subtotalCents, itemCount, deliveryFeeCents = 0, com
       couponDiscountCents = calculateCouponDiscount(base, coupon);
     }
   }
+  // Frete grátis: vale o que o cliente paga pelos produtos (já sem combo e sem cupom, sem contar colher nem frete).
+  const productsPaid = Math.max(0, base - couponDiscountCents);
+  const freeDelivery = feeBeforeFree > 0 && toCents(freeMin) > 0 && productsPaid >= toCents(freeMin);
+  const fee = freeDelivery ? 0 : feeBeforeFree;
   return {
     subtotalCents: subtotal,
     itemCount: Number(itemCount) || 0,
@@ -176,6 +186,7 @@ export function priceOrder({ subtotalCents, itemCount, deliveryFeeCents = 0, com
     couponDiscountCents,
     couponRejected,
     deliveryFeeCents: fee,
+    freeDelivery,
     spoonCents,
     totalCents: base - couponDiscountCents + fee + spoonCents,
   };

@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS orders (
   id BIGSERIAL PRIMARY KEY, customer_id BIGINT REFERENCES customers(id) ON DELETE SET NULL, order_code VARCHAR(20) NOT NULL UNIQUE, customer_name VARCHAR(120) NOT NULL,
   customer_phone VARCHAR(30) NOT NULL, address TEXT NOT NULL, neighborhood VARCHAR(120) NOT NULL,
-  notes TEXT NOT NULL DEFAULT '', scheduled_for TIMESTAMPTZ, fulfillment VARCHAR(20) NOT NULL DEFAULT 'delivery' CHECK(fulfillment='delivery'),
+  notes TEXT NOT NULL DEFAULT '', scheduled_for TIMESTAMPTZ, fulfillment VARCHAR(20) NOT NULL DEFAULT 'delivery' CHECK(fulfillment IN ('delivery','pickup')),
   items JSONB NOT NULL, subtotal_cents INTEGER NOT NULL CHECK(subtotal_cents >= 0), delivery_fee_cents INTEGER NOT NULL CHECK(delivery_fee_cents >= 0),
   total_cents INTEGER NOT NULL CHECK(total_cents >= 0), status VARCHAR(30) NOT NULL DEFAULT 'new' CHECK(status IN ('new','preparing','out_for_delivery','delivered','cancelled')),
   whatsapp_opened BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -212,6 +212,13 @@ export async function initializeDatabase() {
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS needs_spoon BOOLEAN NOT NULL DEFAULT FALSE");
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS spoon_cents INTEGER NOT NULL DEFAULT 0");
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS spoon_quantity INTEGER NOT NULL DEFAULT 0");
+  // Retirada na loja: bancos antigos só aceitavam 'delivery'. Troca a regra uma única vez (só se ainda for a antiga).
+  await db.query(`DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='orders'::regclass AND contype='c' AND pg_get_constraintdef(oid) LIKE '%fulfillment%' AND pg_get_constraintdef(oid) NOT LIKE '%pickup%') THEN
+      ALTER TABLE orders DROP CONSTRAINT orders_fulfillment_check;
+      ALTER TABLE orders ADD CONSTRAINT orders_fulfillment_check CHECK(fulfillment IN ('delivery','pickup'));
+    END IF;
+  END $$`);
   // Pedidos feitos quando a colher era só Sim/Não (1 colher) passam a ter quantidade 1.
   await db.query("UPDATE orders SET spoon_quantity=1 WHERE needs_spoon AND spoon_quantity=0");
   // Cupom de boas-vindas (5% na primeira compra, uso único): fica na tabela coupons, ligado a uma conta de cliente.
@@ -224,7 +231,7 @@ export async function initializeDatabase() {
   for (const [key, value] of Object.entries({
     manual_closed: 'false', store_name: 'Açaí da Roça', whatsapp_number: process.env.WHATSAPP_NUMBER || '5521969081157',
     timezone: 'America/Sao_Paulo', opening_days: '2,3,4,5,6,0', opening_time: '13:30', closing_time: '22:00',
-    minimum_schedule_minutes: '30', max_free_toppings: '5', combo_min_items: '2', combo_discount_percent: '0', estimated_minutes_min: '35', estimated_minutes_max: '55'
+    minimum_schedule_minutes: '30', max_free_toppings: '5', combo_min_items: '2', combo_discount_percent: '0', free_delivery_min: '0', estimated_minutes_min: '35', estimated_minutes_max: '55'
   }))
     await db.query('INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO NOTHING', [key, value]);
   // A loja não quer o desconto de combo: desliga uma única vez (0%). Se ela quiser religar depois, é só definir no painel: esta regra não roda de novo.

@@ -9,6 +9,7 @@ import {
   calculateCouponDiscount,
   comboRules,
   formatBRL,
+  freeDeliveryMinCents,
   MAX_SPOONS,
   parseSpoonQuantity,
   priceOrder,
@@ -230,4 +231,37 @@ test('buildOrderItem cobra as camadas e guarda quantas foram', () => {
 test('buildOrderItem recusa camadas em item grátis, categoria errada ou fora do limite', () => {
   assert.throws(() => buildOrderItem({ size, options: [topping(1)], quantity: 1, layers: { 1: 2 } }), /adicionais pagos/);
   assert.throws(() => buildOrderItem({ size, options: [{ id: 90, name: 'Nutella', category: 'extra', price_cents: 400 }], quantity: 1, layers: { 90: MAX_OPTION_LAYERS + 1 } }), PricingError);
+});
+
+test('frete grátis: vale a partir do mínimo, sobre o valor dos produtos já com desconto', () => {
+  const base = { itemCount: 2, deliveryFeeCents: 500, combo: { minItems: 2, percent: 0 }, freeDeliveryMinCents: 5000 };
+  const abaixo = priceOrder({ ...base, subtotalCents: 4999 });
+  assert.equal(abaixo.freeDelivery, false);
+  assert.equal(abaixo.deliveryFeeCents, 500);
+  assert.equal(abaixo.totalCents, 5499);
+  const exato = priceOrder({ ...base, subtotalCents: 5000 });
+  assert.equal(exato.freeDelivery, true);
+  assert.equal(exato.deliveryFeeCents, 0);
+  assert.equal(exato.totalCents, 5000);
+  // Cupom que derruba o valor abaixo do mínimo faz perder o frete grátis.
+  const comCupom = priceOrder({ ...base, subtotalCents: 5200, coupon: { code: 'X10', discount_type: 'fixed', discount_value: 500, min_subtotal_cents: 0 } });
+  assert.equal(comCupom.freeDelivery, false);
+  assert.equal(comCupom.deliveryFeeCents, 500);
+});
+test('frete grátis: desligado (0) ou sem taxa não muda nada; colher não conta para o mínimo', () => {
+  const off = priceOrder({ subtotalCents: 9000, itemCount: 2, deliveryFeeCents: 500, combo: { minItems: 2, percent: 0 }, freeDeliveryMinCents: 0 });
+  assert.equal(off.freeDelivery, false);
+  assert.equal(off.deliveryFeeCents, 500);
+  const semTaxa = priceOrder({ subtotalCents: 9000, itemCount: 2, deliveryFeeCents: 0, combo: { minItems: 2, percent: 0 }, freeDeliveryMinCents: 5000 });
+  assert.equal(semTaxa.freeDelivery, false);
+  const colher = priceOrder({ subtotalCents: 4990, itemCount: 2, deliveryFeeCents: 500, combo: { minItems: 2, percent: 0 }, spoons: 5, freeDeliveryMinCents: 5000 });
+  assert.equal(colher.freeDelivery, false);
+});
+test('frete grátis: lê o mínimo das configurações (reais, com vírgula ou ponto)', () => {
+  assert.equal(freeDeliveryMinCents({ free_delivery_min: '50' }), 5000);
+  assert.equal(freeDeliveryMinCents({ free_delivery_min: '49,90' }), 4990);
+  assert.equal(freeDeliveryMinCents({ free_delivery_min: '49.9' }), 4990);
+  assert.equal(freeDeliveryMinCents({ free_delivery_min: '0' }), 0);
+  assert.equal(freeDeliveryMinCents({}), 0);
+  assert.equal(freeDeliveryMinCents({ free_delivery_min: 'abc' }), 0);
 });

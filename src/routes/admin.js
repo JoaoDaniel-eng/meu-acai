@@ -671,7 +671,7 @@ router.patch('/settings', async (req, res, next) => {
     const minEstimate = Number(req.body.estimated_minutes_min ?? currentSettings.estimated_minutes_min ?? 35), maxEstimate = Number(req.body.estimated_minutes_max ?? currentSettings.estimated_minutes_max ?? 55);
     if (Number.isFinite(minEstimate) && Number.isFinite(maxEstimate) && minEstimate > maxEstimate)
       return res.status(400).json({ error: 'O tempo mínimo não pode ser maior que o máximo.' });
-    const allowed = ['manual_closed', 'store_name', 'whatsapp_number', 'opening_days', 'opening_time', 'closing_time', 'minimum_schedule_minutes', 'max_free_toppings', 'combo_min_items', 'combo_discount_percent', 'estimated_minutes_min', 'estimated_minutes_max', 'pix_key', 'pix_name', 'pix_city'];
+    const allowed = ['manual_closed', 'store_name', 'whatsapp_number', 'opening_days', 'opening_time', 'closing_time', 'minimum_schedule_minutes', 'max_free_toppings', 'combo_min_items', 'combo_discount_percent', 'free_delivery_min', 'estimated_minutes_min', 'estimated_minutes_max', 'pix_key', 'pix_name', 'pix_city'];
     const db = getPool();
     const mergedPix = { ...currentSettings, ...Object.fromEntries(['pix_key', 'pix_name', 'pix_city'].filter(k => req.body[k] !== undefined).map(k => [k, String(req.body[k]).trim()])) };
     if (String(mergedPix.pix_key || '').trim() && !(String(mergedPix.pix_name || '').trim() && String(mergedPix.pix_city || '').trim()))
@@ -704,6 +704,14 @@ router.patch('/settings', async (req, res, next) => {
         return res.status(400).json({ error: 'O combo deve exigir de 2 a 10 açaís.' });
       if (key === 'combo_discount_percent' && (!/^\d+$/.test(value) || Number(value) < 0 || Number(value) > 50))
         return res.status(400).json({ error: 'O desconto do combo deve ficar entre 0% e 50%.' });
+      if (key === 'free_delivery_min') {
+        // Valor em reais (ex.: 50 ou 49,90). Vazio ou 0 desliga o frete grátis.
+        if (value === '')
+          value = '0';
+        if (!/^\d{1,5}([.,]\d{1,2})?$/.test(value))
+          return res.status(400).json({ error: 'Informe o valor mínimo do frete grátis em reais (ex.: 50 ou 49,90), ou 0 para desligar.' });
+        value = String(Number(value.replace(',', '.')));
+      }
       if ((key === 'estimated_minutes_min' || key === 'estimated_minutes_max') && (!/^\d+$/.test(value) || Number(value) < 10 || Number(value) > 180))
         return res.status(400).json({ error: 'A previsão deve ficar entre 10 e 180 minutos.' });
       if (key === 'store_name' && (value.length < 2 || value.length > 120))

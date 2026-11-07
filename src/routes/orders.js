@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getPool } from '../db/pool.js';
 import { getSettings, isOpenAt } from '../services/store.js';
-import { assertWithinOrderLimit, buildOrderItem, comboRules, MAX_SPOONS, parseOptionLayers, parseSpoonQuantity, priceOrder, summarizeItems } from '../services/pricing.js';
+import { assertWithinOrderLimit, buildOrderItem, comboRules, freeDeliveryMinCents, MAX_SPOONS, parseOptionLayers, parseSpoonQuantity, priceOrder, summarizeItems } from '../services/pricing.js';
 import { createAttemptLimiter } from '../services/rateLimit.js';
 import { findStockShortage } from '../services/inventory.js';
 import { buildOrderPix } from '../services/pix.js';
@@ -10,6 +10,8 @@ import { validateScheduledAt } from '../services/schedule.js';
 import { optionalCustomerId } from '../middleware/auth.js';
 import { claimPersonalCoupon, couponProblem, findCouponByCode, findCouponForEdit, isPersonalCoupon, releasePersonalCoupon, USED_COUPON_MESSAGE } from '../services/welcomeCoupon.js';
 const router = Router();
+// Retirada na loja: o cliente não informa endereço nem bairro e não paga frete.
+const PICKUP_ADDRESS = 'Retirada na loja', PICKUP_ZONE = 'Retirada';
 // Anti-spam de pedidos: no máximo 20 pedidos por IP e 6 por telefone a cada hora (só pedidos criados contam).
 const ordersByIp = createAttemptLimiter({ max: 20, windowMs: 60 * 60 * 1000 }), ordersByPhone = createAttemptLimiter({ max: 6, windowMs: 60 * 60 * 1000 });
 // Só o pedido ainda "Recebido" (new) pode ser editado/cancelado pelo cliente. Depois que a loja começa o preparo,
@@ -35,8 +37,8 @@ function lookupFail(req, code) {
 }
 router.post('/orders', async (req, res, next) => {
   try {
-    const { customerName, phone, address, zoneId, notes = '', scheduledFor = null, paymentMethod, needsChange = 'no', changeFor = '', needsSpoon, spoonQuantity, couponCode = '', items } = req.body || {};
-    const name = String(customerName || '').trim(), customerPhone = String(phone || '').trim(), addr = String(address || '').trim();
+    const { customerName, phone, address: rawAddress, zoneId, fulfillment: rawFulfillment = 'delivery', notes = '', scheduledFor = null, paymentMethod, needsChange = 'no', changeFor = '', needsSpoon, spoonQuantity, couponCode = '', items } = req.body || {};
+    const name = String(customerName || '').trim(), customerPhone = String(phone || '').trim(), fulfillment = rawFulfillment === 'pickup' ? 'pickup' : 'delivery', isPickup = fulfillment === 'pickup', addr = isPickup ? PICKUP_ADDRESS : String(rawAddress || '').trim();
     const ipKey = String(req.ip || 'unknown'), phoneKey = customerPhone.replace(/\D/g, '');
     const wait = Math.max(ordersByIp.retryAfterSeconds(ipKey), phoneKey ? ordersByPhone.retryAfterSeconds(phoneKey) : 0);
     if (wait > 0) {
@@ -61,12 +63,15 @@ router.post('/orders', async (req, res, next) => {
       if (!account.rowCount || account.rows[0].phone !== customerPhone.replace(/\D/g, ''))
         return res.status(400).json({ error: 'O telefone do pedido precisa ser o mesmo da sua conta.' });
     }
-    if (!Number.isInteger(Number(zoneId)) || Number(zoneId) < 1)
-      return res.status(400).json({ error: 'Selecione um bairro válido.' });
-    const zoneResult = await db.query('SELECT id,name,fee_cents FROM delivery_zones WHERE id=$1 AND active=true', [Number(zoneId)]);
-    if (!zoneResult.rowCount)
-      return res.status(400).json({ error: 'Bairro não atendido no momento. Escolha uma opção disponível.' });
-    const zone = zoneResult.rows[0];
+    let zone = { name: PICKUP_ZONE, fee_cents: 0 };
+    if (!isPickup) {
+      if (!Number.isInteger(Number(zoneId)) || Number(zoneId) < 1)
+        return res.status(400).json({ error: 'Selecione um bairro válido.' });
+      const zoneResult = await db.query('SELECT id,name,fee_cents FROM delivery_zones WHERE id=$1 AND active=true', [Number(zoneId)]);
+      if (!zoneResult.rowCount)
+        return res.status(400).json({ error: 'Bairro não atendido no momento. Escolha uma opção disponível.' });
+      zone = zoneResult.rows[0];
+    }
     let schedule = null;
     if (scheduledFor) {
       // Mesma regra da lista de horários do site (services/schedule.js): dia aberto, dentro do horário e com antecedência.
@@ -122,7 +127,7 @@ router.post('/orders', async (req, res, next) => {
         return res.status(400).json({ error: problem.message });
       couponRow = found;
     }
-    const pricing = priceOrder({ subtotalCents: subtotal, itemCount, deliveryFeeCents: zone.fee_cents, combo: comboRules(settings), coupon: couponRow, spoons });
+    const pricing = priceOrder({ subtotalCents: subtotal, itemCount, deliveryFeeCents: zone.fee_cents, combo: comboRules(settings), coupon: couponRow, spoons, freeDeliveryMinCents: freeDeliveryMinCents(settings) });
     if (pricing.couponRejected)
       return res.status(400).json({ error: pricing.couponRejected.message });
     const { comboDiscountCents: comboDiscount, couponDiscountCents: discount, deliveryFeeCents: fee, spoonCents, totalCents: total } = pricing;
@@ -140,8 +145,8 @@ router.post('/orders', async (req, res, next) => {
     const client = await db.connect();
     try {
       await client.query('BEGIN');
-      result = await client.query(`INSERT INTO orders(customer_id,order_code,customer_name,customer_phone,address,neighborhood,notes,scheduled_for,payment_method,change_for,coupon_code,discount_cents,combo_discount_cents,estimated_minutes_min,estimated_minutes_max,items,subtotal_cents,delivery_fee_cents,total_cents,needs_spoon,spoon_quantity,spoon_cents)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING id,order_code,created_at`, [accountId, orderCode, name, customerPhone, addr, zone.name, String(notes).trim().slice(0, 1000), schedule, paymentMethod, cashChangeFor, pricing.couponCode, discount, comboDiscount, estimatedMin, estimatedMax, JSON.stringify(normalized), subtotal, fee, total, spoons > 0, spoons, spoonCents]);
+      result = await client.query(`INSERT INTO orders(customer_id,order_code,customer_name,customer_phone,address,neighborhood,notes,scheduled_for,fulfillment,payment_method,change_for,coupon_code,discount_cents,combo_discount_cents,estimated_minutes_min,estimated_minutes_max,items,subtotal_cents,delivery_fee_cents,total_cents,needs_spoon,spoon_quantity,spoon_cents)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING id,order_code,created_at`, [accountId, orderCode, name, customerPhone, addr, zone.name, String(notes).trim().slice(0, 1000), schedule, fulfillment, paymentMethod, cashChangeFor, pricing.couponCode, discount, comboDiscount, estimatedMin, estimatedMax, JSON.stringify(normalized), subtotal, fee, total, spoons > 0, spoons, spoonCents]);
       if (isPersonalCoupon(couponRow) && !(await claimPersonalCoupon(client, { couponId: couponRow.id, customerId: accountId, orderId: result.rows[0].id }))) {
         await client.query('ROLLBACK');
         return res.status(409).json({ error: USED_COUPON_MESSAGE });
@@ -158,7 +163,7 @@ router.post('/orders', async (req, res, next) => {
     ordersByIp.record(ipKey);
     if (phoneKey)
       ordersByPhone.record(phoneKey);
-    res.status(201).json({ id: result.rows[0].id, orderCode, createdAt: result.rows[0].created_at, customerName: name, phone: customerPhone, address: addr, neighborhood: zone.name, notes: String(notes).trim(), scheduledFor: schedule, paymentMethod, changeFor: cashChangeFor, items: normalized, subtotalCents: subtotal, discountCents: discount, comboDiscountCents: comboDiscount, couponCode: pricing.couponCode, estimatedMinutesMin: estimatedMin, estimatedMinutesMax: estimatedMax, deliveryFeeCents: fee, needsSpoon: spoons > 0, spoonQuantity: spoons, spoonCents, totalCents: total, whatsappNumber: String(settings.whatsapp_number || '').replace(/\D/g, ''), pix: paymentMethod === 'Pix' ? buildOrderPix(settings, { amountCents: total, orderCode }) : null });
+    res.status(201).json({ id: result.rows[0].id, orderCode, fulfillment, freeDelivery: pricing.freeDelivery, createdAt: result.rows[0].created_at, customerName: name, phone: customerPhone, address: addr, neighborhood: zone.name, notes: String(notes).trim(), scheduledFor: schedule, paymentMethod, changeFor: cashChangeFor, items: normalized, subtotalCents: subtotal, discountCents: discount, comboDiscountCents: comboDiscount, couponCode: pricing.couponCode, estimatedMinutesMin: estimatedMin, estimatedMinutesMax: estimatedMax, deliveryFeeCents: fee, needsSpoon: spoons > 0, spoonQuantity: spoons, spoonCents, totalCents: total, whatsappNumber: String(settings.whatsapp_number || '').replace(/\D/g, ''), pix: paymentMethod === 'Pix' ? buildOrderPix(settings, { amountCents: total, orderCode }) : null });
   }
   catch (e) {
     next(e);
@@ -189,7 +194,7 @@ router.get('/orders/track', async (req, res, next) => {
       lookupFail(req, '');
       return res.status(400).json({ error: 'Informe o código do pedido e o telefone usado na compra.' });
     }
-    const r = await getPool().query("SELECT order_code,customer_name,customer_phone,address,neighborhood,notes,scheduled_for,payment_method,change_for,coupon_code,discount_cents,combo_discount_cents,estimated_minutes_min,estimated_minutes_max,items,subtotal_cents,delivery_fee_cents,needs_spoon,spoon_quantity,spoon_cents,total_cents,status,created_at,updated_at FROM orders WHERE order_code=$1 AND regexp_replace(customer_phone,'[^0-9]','','g')=$2", [code, phone]);
+    const r = await getPool().query("SELECT order_code,fulfillment,customer_name,customer_phone,address,neighborhood,notes,scheduled_for,payment_method,change_for,coupon_code,discount_cents,combo_discount_cents,estimated_minutes_min,estimated_minutes_max,items,subtotal_cents,delivery_fee_cents,needs_spoon,spoon_quantity,spoon_cents,total_cents,status,created_at,updated_at FROM orders WHERE order_code=$1 AND regexp_replace(customer_phone,'[^0-9]','','g')=$2", [code, phone]);
     if (!r.rowCount) {
       lookupFail(req, code);
       return res.status(404).json({ error: 'Pedido não encontrado. Confira o código e o telefone.' });
@@ -197,7 +202,7 @@ router.get('/orders/track', async (req, res, next) => {
     const o = r.rows[0];
     const loyalty = await getPool().query("SELECT COALESCE(SUM(points),0)::int AS balance FROM loyalty_points WHERE regexp_replace(customer_phone,'[^0-9]','','g')=$1", [phone]);
     const earned = await getPool().query('SELECT points FROM loyalty_points WHERE order_id=(SELECT id FROM orders WHERE order_code=$1)', [code]);
-    res.json({ orderCode: o.order_code, customerName: o.customer_name, phone: o.customer_phone, address: o.address, neighborhood: o.neighborhood, notes: o.notes, scheduledFor: o.scheduled_for, paymentMethod: o.payment_method, changeFor: o.change_for, items: o.items, subtotalCents: o.subtotal_cents, discountCents: o.discount_cents || 0, comboDiscountCents: o.combo_discount_cents || 0, estimatedMinutesMin: o.estimated_minutes_min || 35, estimatedMinutesMax: o.estimated_minutes_max || 55, loyaltyBalance: loyalty.rows[0].balance, earnedPoints: earned.rows[0]?.points || 0, couponCode: o.coupon_code, deliveryFeeCents: o.delivery_fee_cents, needsSpoon: Boolean(o.needs_spoon), spoonQuantity: o.spoon_quantity || 0, spoonCents: o.spoon_cents || 0, totalCents: o.total_cents, status: o.status, createdAt: o.created_at, updatedAt: o.updated_at, canEdit: EDITABLE_STATUSES.includes(o.status), canCancel: EDITABLE_STATUSES.includes(o.status) });
+    res.json({ orderCode: o.order_code, fulfillment: o.fulfillment, customerName: o.customer_name, phone: o.customer_phone, address: o.address, neighborhood: o.neighborhood, notes: o.notes, scheduledFor: o.scheduled_for, paymentMethod: o.payment_method, changeFor: o.change_for, items: o.items, subtotalCents: o.subtotal_cents, discountCents: o.discount_cents || 0, comboDiscountCents: o.combo_discount_cents || 0, estimatedMinutesMin: o.estimated_minutes_min || 35, estimatedMinutesMax: o.estimated_minutes_max || 55, loyaltyBalance: loyalty.rows[0].balance, earnedPoints: earned.rows[0]?.points || 0, couponCode: o.coupon_code, deliveryFeeCents: o.delivery_fee_cents, needsSpoon: Boolean(o.needs_spoon), spoonQuantity: o.spoon_quantity || 0, spoonCents: o.spoon_cents || 0, totalCents: o.total_cents, status: o.status, createdAt: o.created_at, updatedAt: o.updated_at, canEdit: EDITABLE_STATUSES.includes(o.status), canCancel: EDITABLE_STATUSES.includes(o.status) });
   }
   catch (e) {
     next(e);
@@ -260,14 +265,24 @@ router.patch('/orders/:code/customer', async (req, res, next) => {
     const editShortage = findStockShortage(normalized.map(n => ({ sizeId: n.sizeId, quantity: n.quantity })), editStockRows);
     if (editShortage)
       return res.status(409).json({ error: `Não temos ${editShortage.name} suficiente para essa alteração. Escolha um tamanho menor, reduza a quantidade ou fale com a loja pelo WhatsApp.` });
-    const name = String(req.body.customerName || o.customer_name).trim(), address = String(req.body.address || o.address).trim(), notes = String(req.body.notes ?? o.notes).trim().slice(0, 1000);
+    const isPickupEdit = o.fulfillment === 'pickup';
+    // Em retirada o endereço, o bairro e o frete (zero) não mudam; a troca entre entrega e retirada não é feita pela edição.
+    const name = String(req.body.customerName || o.customer_name).trim(), address = isPickupEdit ? o.address : String(req.body.address || o.address).trim(), notes = String(req.body.notes ?? o.notes).trim().slice(0, 1000);
     if (name.length < 2 || name.length > 120 || address.length < 6 || address.length > 400)
       return res.status(400).json({ error: 'Confira o nome e o endereço.' });
-    const zoneId = Number(req.body.zoneId || 0);
+    const zoneId = isPickupEdit ? 0 : Number(req.body.zoneId || 0);
     const zone = zoneId ? await db.query('SELECT name,fee_cents FROM delivery_zones WHERE id=$1 AND active=true', [zoneId]) : null;
     if (zoneId && (!zone || !zone.rowCount))
       return res.status(400).json({ error: 'Bairro não disponível. Escolha outro.' });
-    const neighborhood = zone?.rows[0]?.name || o.neighborhood, fee = zone?.rows[0]?.fee_cents ?? o.delivery_fee_cents;
+    const neighborhood = zone?.rows[0]?.name || o.neighborhood, zoneFee = await (async () => {
+      if (isPickupEdit)
+        return 0;
+      if (zone?.rows[0])
+        return zone.rows[0].fee_cents;
+      // Bairro mantido: usa a taxa atual do bairro (o frete gravado pode ser 0 só por ter sido frete grátis).
+      const current = await db.query('SELECT fee_cents FROM delivery_zones WHERE name=$1 ORDER BY active DESC, id LIMIT 1', [o.neighborhood]);
+      return current.rowCount ? current.rows[0].fee_cents : o.delivery_fee_cents;
+    })();
     const scheduled = req.body.scheduledFor === undefined ? o.scheduled_for : (req.body.scheduledFor ? new Date(req.body.scheduledFor) : null);
     const editSettings = await getSettings();
     // Mudança de horário na edição segue as mesmas regras de um pedido novo.
@@ -291,8 +306,8 @@ router.patch('/orders/:code/customer', async (req, res, next) => {
     const spoons = spoonInformed ? parseSpoonQuantity(req.body.spoonQuantity, req.body.needsSpoon) : Number(o.spoon_quantity || 0);
     if (spoons === null)
       return res.status(400).json({ error: `Quantidade de colheres inválida (de 0 a ${MAX_SPOONS}).` });
-    const pricing = priceOrder({ subtotalCents: subtotal, itemCount: editedCount, deliveryFeeCents: fee, combo: comboRules(editSettings), coupon: couponRow, spoons });
-    const { comboDiscountCents: comboDiscount, couponDiscountCents: discount, couponCode, totalCents: total } = pricing;
+    const pricing = priceOrder({ subtotalCents: subtotal, itemCount: editedCount, deliveryFeeCents: zoneFee, combo: comboRules(editSettings), coupon: couponRow, spoons, freeDeliveryMinCents: freeDeliveryMinCents(editSettings) });
+    const { comboDiscountCents: comboDiscount, couponDiscountCents: discount, couponCode, totalCents: total, deliveryFeeCents: fee } = pricing;
     const updated = await db.query(`UPDATE orders SET customer_name=$1,address=$2,neighborhood=$3,notes=$4,scheduled_for=$5,items=$6,subtotal_cents=$7,delivery_fee_cents=$8,discount_cents=$9,coupon_code=$10,combo_discount_cents=$11,total_cents=$12,needs_spoon=$13,spoon_quantity=$14,spoon_cents=$15,updated_at=NOW() WHERE id=$16 RETURNING order_code,status`, [name, address, neighborhood, notes, scheduled, JSON.stringify(normalized), subtotal, fee, discount, couponCode, comboDiscount, total, spoons > 0, spoons, pricing.spoonCents, o.id]);
     // Se a edição deixou o pedido sem o cupom (ex.: subtotal abaixo do mínimo), o cupom pessoal volta para o cliente.
     if (o.coupon_code && !couponCode)
@@ -301,7 +316,7 @@ router.patch('/orders/:code/customer', async (req, res, next) => {
     const settings = await getSettings();
     const loyalty = await db.query("SELECT COALESCE(SUM(points),0)::int AS balance FROM loyalty_points WHERE regexp_replace(customer_phone,'[^0-9]','','g')=$1", [phone]);
     res.json({
-      ok: true, loyaltyBalance: loyalty.rows[0].balance, canEdit: EDITABLE_STATUSES.includes(updated.rows[0].status), canCancel: EDITABLE_STATUSES.includes(updated.rows[0].status), orderCode: code, status: updated.rows[0].status, customerName: name, phone: o.customer_phone, address, neighborhood, notes, scheduledFor: scheduled, paymentMethod: o.payment_method, changeFor: o.change_for, items: normalized, subtotalCents: subtotal, discountCents: discount, comboDiscountCents: comboDiscount, couponCode, estimatedMinutesMin: o.estimated_minutes_min || 35, estimatedMinutesMax: o.estimated_minutes_max || 55, deliveryFeeCents: fee, needsSpoon: spoons > 0, spoonQuantity: spoons, spoonCents: pricing.spoonCents, totalCents: total, whatsappNumber: String(settings.whatsapp_number || '').replace(/\D/g, ''),
+      ok: true, loyaltyBalance: loyalty.rows[0].balance, canEdit: EDITABLE_STATUSES.includes(updated.rows[0].status), canCancel: EDITABLE_STATUSES.includes(updated.rows[0].status), orderCode: code, fulfillment: o.fulfillment, freeDelivery: pricing.freeDelivery, status: updated.rows[0].status, customerName: name, phone: o.customer_phone, address, neighborhood, notes, scheduledFor: scheduled, paymentMethod: o.payment_method, changeFor: o.change_for, items: normalized, subtotalCents: subtotal, discountCents: discount, comboDiscountCents: comboDiscount, couponCode, estimatedMinutesMin: o.estimated_minutes_min || 35, estimatedMinutesMax: o.estimated_minutes_max || 55, deliveryFeeCents: fee, needsSpoon: spoons > 0, spoonQuantity: spoons, spoonCents: pricing.spoonCents, totalCents: total, whatsappNumber: String(settings.whatsapp_number || '').replace(/\D/g, ''),
       // O total pode ter mudado: gera o Pix de novo com o valor atualizado (o código antigo ficaria com o valor errado).
       pix: o.payment_method === 'Pix' ? buildOrderPix(settings, { amountCents: total, orderCode: code }) : null
     });
