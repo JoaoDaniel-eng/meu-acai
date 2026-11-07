@@ -42,13 +42,31 @@ function printArea() {
 }
 let printQueue = Promise.resolve();
 // Imprime um pedido por vez (vários pedidos novos ao mesmo tempo saem em sequência).
+// Qualquer erro é avisado na tela e nunca trava a fila (antes, um erro deixava todos os próximos cliques sem efeito).
 function printOrder(order) {
-  printQueue = printQueue.then(() => new Promise(resolve => {
-    printArea().innerHTML = receiptHtml(order);
+  printQueue = printQueue.catch(() => { }).then(() => new Promise(resolve => {
+    let html;
+    try {
+      html = receiptHtml(order);
+    }
+    catch (e) {
+      say('Não foi possível montar o cupom: ' + e.message);
+      return resolve();
+    }
+    printArea().innerHTML = html;
+    say('Enviando o pedido ' + (order.order_code || '') + ' para a impressora…');
     const done = () => { window.removeEventListener('afterprint', done); setTimeout(resolve, 800); };
     window.addEventListener('afterprint', done);
     setTimeout(() => { window.removeEventListener('afterprint', done); resolve(); }, 20000);
-    setTimeout(() => window.print(), 150);
+    setTimeout(() => {
+      try {
+        window.print();
+      }
+      catch (e) {
+        say('O navegador não abriu a impressão: ' + e.message);
+        done();
+      }
+    }, 150);
   }));
   return printQueue;
 }
@@ -72,6 +90,8 @@ document.addEventListener('click', e => {
     const order = window.adminOrdersById?.get(Number(btn.dataset.printOrder));
     if (order)
       printOrder(order);
+    else
+      say('Não encontrei esse pedido na lista. Atualize a página e tente de novo.');
     return;
   }
   if (e.target.id === 'print-test')
@@ -83,8 +103,13 @@ document.addEventListener('change', e => {
     say(e.target.checked ? 'Impressão automática ligada neste aparelho.' : 'Impressão automática desligada.');
   }
 });
-(function initAutoPrintToggle() {
+// O script carrega antes da página ficar pronta: espera o DOM para marcar a caixinha salva neste aparelho.
+function initAutoPrintToggle() {
   const box = document.getElementById('auto-print');
   if (box)
     box.checked = autoPrintOn();
-})();
+}
+if (document.readyState === 'loading')
+  document.addEventListener('DOMContentLoaded', initAutoPrintToggle);
+else
+  initAutoPrintToggle();
