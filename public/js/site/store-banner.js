@@ -58,6 +58,7 @@ setInterval(async () => {
   try {
     store = await api('/store');
     paintStoreBanner();
+    if (typeof syncOrderTimeOptions === 'function') syncOrderTimeOptions();
   }
   catch { }
 }, 120000);

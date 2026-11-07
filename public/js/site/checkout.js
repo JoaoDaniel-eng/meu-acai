@@ -36,6 +36,9 @@ async function load() {
     restoreCart();
     renderCart();
     renderFavorites();
+    paintCartNote();
+    syncOrderTimeOptions();
+    showPendingWhatsappBanner();
   }
   catch (e) {
     $('#menu-status').textContent = e.message + ' Confira a configuração do banco de dados e tente novamente.';
@@ -88,6 +91,7 @@ document.addEventListener('change', e => {
   if (e.target.matches('[data-size]')) {
     selectedSize = traditionalProduct().sizes.find(s => s.id === Number(e.target.dataset.size));
     renderBuilder();
+    syncDraft();
   }
   if (e.target.matches('[data-option]')) {
     builderMessage('');
@@ -110,7 +114,10 @@ document.addEventListener('change', e => {
       selectedLayers.delete(id);
     }
     renderBuilder();
+    syncDraft();
   }
+  if (e.target.matches('#builder-quantity'))
+    syncDraft();
 });
 // Campo de camadas (só números). Enquanto digita, atualiza os preços sem redesenhar a tela (para não perder o foco).
 document.addEventListener('input', e => {
@@ -134,37 +141,91 @@ document.addEventListener('input', e => {
   if (total && opt)
     total.textContent = brl(layerPrice(opt.price, layerCountOf(id)));
   $('#unit-price').textContent = brl(priceForBuilder());
+  syncDraft();
 });
 document.addEventListener('focusout', e => {
-  if (e.target.matches?.('[data-layers]'))
+  if (e.target.matches?.('[data-layers]')) {
     e.target.value = String(layerCountOf(Number(e.target.dataset.layers)));
+    syncDraft();
+  }
+});
+// Clicar no tamanho que já está marcado não dispara "change": também coloca o açaí no pedido.
+document.addEventListener('click', e => {
+  if (e.target.matches?.('[data-size]') && selectedSize && Number(e.target.dataset.size) === selectedSize.id && !draftInCart())
+    syncDraft();
 });
 document.addEventListener('click', e => {
   const remove = e.target.closest('[data-remove]');
   if (remove) {
-    cart.splice(Number(remove.dataset.remove), 1);
+    const [removed] = cart.splice(Number(remove.dataset.remove), 1);
+    // Se saiu o açaí que estava sendo montado, o montador volta ao começo.
+    if (removed && removed === draftItem) resetBuilder();
     appliedCoupon = null;
     $('#coupon-message').textContent = '';
     renderCart();
   }
 });
-$('#add-cart').addEventListener('click', () => {
-  if (!selectedSize) {
-    builderMessage('Escolha um tamanho antes de adicionar ao pedido.');
-    return;
-  }
-  builderMessage('');
-  const opts = [...selected].map(id => menu.options.find(o => o.id === id)).filter(Boolean);
-  const unit = priceForBuilder(), quantity = Number($('#builder-quantity').value || 1);
-  const optionLayers = layersObject(opts.filter(isLayered).map(o => o.id), layerCountOf);
-  cart.push({ sizeId: selectedSize.id, product: traditionalProduct().name, size: selectedSize.name, quantity, optionIds: opts.map(o => o.id), optionLayers, options: opts, unitPriceCents: unit, lineTotalCents: unit * quantity });
-  appliedCoupon = null;
-  $('#coupon-message').textContent = '';
+// O açaí que o cliente está montando já fica no pedido: entra na primeira escolha e acompanha cada mudança
+// (tamanho, acompanhamentos, adicionais, camadas e quantidade). Não existe mais o passo "Adicionar ao pedido".
+let draftItem = null;
+const draftInCart = () => !!draftItem && cart.includes(draftItem);
+function paintCartNote() {
+  const note = $('#builder-cart-note'), another = $('#another-acai');
+  if (!note) return;
+  const inCart = draftInCart();
+  another?.classList.toggle('hidden', !inCart);
+  note.classList.toggle('is-in-cart', inCart);
+  note.textContent = inCart
+    ? `✓ No seu pedido: ${draftItem.quantity}× ${draftItem.size} · ${brl(draftItem.lineTotalCents)}. Pode continuar escolhendo, é só tocar em “Ver meu pedido” quando terminar.`
+    : 'Escolha o tamanho e os acompanhamentos: seu açaí entra no pedido automaticamente.';
+}
+function resetBuilder() {
+  draftItem = null;
   selected.clear();
   selectedLayers.clear();
-  renderBuilder();
+  const q = $('#builder-quantity');
+  if (q) q.value = '1';
+  if (menu) renderBuilder();
+  paintCartNote();
+}
+function syncDraft() {
+  if (!menu || !selectedSize) {
+    if (draftInCart()) { cart.splice(cart.indexOf(draftItem), 1); renderCart(); }
+    draftItem = null;
+    paintCartNote();
+    return;
+  }
+  const opts = [...selected].map(id => menu.options.find(o => o.id === id)).filter(Boolean);
+  const unit = priceForBuilder(), quantity = Math.max(1, Number($('#builder-quantity').value || 1));
+  const optionLayers = layersObject(opts.filter(isLayered).map(o => o.id), layerCountOf);
+  const data = { sizeId: selectedSize.id, product: traditionalProduct().name, size: selectedSize.name, quantity, optionIds: opts.map(o => o.id), optionLayers, options: opts, unitPriceCents: unit, lineTotalCents: unit * quantity };
+  if (draftInCart())
+    Object.assign(draftItem, data);
+  else {
+    draftItem = data;
+    cart.push(draftItem);
+  }
+  // O valor mudou: o cupom precisa ser validado de novo.
+  if (appliedCoupon) {
+    appliedCoupon = null;
+    $('#coupon-message').textContent = 'O pedido mudou. Aplique o cupom novamente.';
+    $('#coupon-message').classList.remove('is-success');
+  }
   renderCart();
+  paintCartNote();
+}
+$('#view-order').addEventListener('click', () => {
+  // Quem gostou do açaí que já está na tela e não mexeu em nada: entra no pedido ao tocar em "Ver meu pedido".
+  if (!cart.length) syncDraft();
+  if (!cart.length) { builderMessage('Escolha um tamanho para continuar.'); return; }
+  builderMessage('');
   $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+$('#another-acai').addEventListener('click', () => {
+  // Fecha o açaí atual (ele continua no pedido) e começa um novo, em branco.
+  resetBuilder();
+  builderMessage('Pronto! O açaí anterior está no pedido. Monte o próximo.');
+  $('#builder').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 $('#zone-select').addEventListener('change', renderCart);
 // Colheres: botões − / + e campo numérico (de 0 até store.maxSpoons), R$ 0,10 cada.
@@ -283,7 +344,7 @@ $('#checkout-form').addEventListener('submit', async (e) => {
   try {
     const order = await api('/orders', { method: 'POST', body: JSON.stringify(payload) });
     const lines = order.items.map(i => `• ${i.quantity}x ${i.product} (${i.size})\n  ${i.options.map(o => o.name + layersText(o.layers)).join(', ') || 'Sem adicionais'} — ${brl(i.lineTotalCents)}`).join('\n');
-    const scheduled = order.scheduledFor ? `\nAgendamento: ${new Date(order.scheduledFor).toLocaleString('pt-BR')}` : '\nEntrega: assim que possível';
+    const scheduled = order.scheduledFor ? `\nAgendamento: ${new Date(order.scheduledFor).toLocaleString('pt-BR')}` : '\nEntrega: agora';
     const text = `Olá! Quero confirmar o pedido ${order.orderCode} no Açaí da Roça.\n\n${lines}\n\nSubtotal: ${brl(order.subtotalCents)}${order.comboDiscountCents ? `\nDesconto combo: -${brl(order.comboDiscountCents)}` : ''}${order.discountCents ? `\nCupom ${order.couponCode}: -${brl(order.discountCents)}` : ''}\nEntrega (${order.neighborhood}): ${brl(order.deliveryFeeCents)}\nColher: ${spoonText(order.spoonQuantity, order.spoonCents)}\nTOTAL: ${brl(order.totalCents)}\nPrevisão estimada: ${order.estimatedMinutesMin} a ${order.estimatedMinutesMax} minutos\n\nNome: ${order.customerName}\nTelefone: ${order.phone}\nEndereço: ${order.address}
 Forma de pagamento: ${order.paymentMethod}${order.pix ? '\nValor do Pix: ' + brl(order.pix.amountCents) : ''}${order.changeFor ? `\nTroco para: R$ ${order.changeFor}` : ''}${scheduled}${order.notes ? '\nObservações: ' + order.notes : ''}\n\nO pedido foi registrado pelo site.${order.pix ? '\nO código Pix está disponível no site, na tela do pedido. Após pagar, envie o comprovante nesta conversa.\n' + PIX_NOTICE : ''}`;
     msg.textContent = `Pedido ${order.orderCode} registrado! Agora envie no WhatsApp para a loja confirmar (botão abaixo). Guarde esse código para acompanhar, editar ou cancelar seu pedido na seção “Acompanhe seu pedido”.`;
@@ -298,16 +359,20 @@ Forma de pagamento: ${order.paymentMethod}${order.pix ? '\nValor do Pix: ' + brl
     if (localStorage.getItem('acaiCustomerToken'))
       loadCustomerAccount();
     cart = [];
+    resetBuilder();
     appliedCoupon = null;
     $('#coupon-code').value = '';
     $('#coupon-message').textContent = '';
     renderCart();
     const waUrl = `https://wa.me/${String(order.whatsappNumber || '').replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
+    rememberPendingWhatsapp(order, waUrl);
     showWhatsappStep(msg, order, waUrl);
-    window.open(waUrl, '_blank', 'noopener,noreferrer');
+    // Se o navegador deixou abrir o WhatsApp sozinho, avisa a loja que o cliente chegou lá.
+    if (window.open(waUrl, '_blank', 'noopener,noreferrer')) markWhatsappOpened(order.orderCode, order.phone);
     form.reset();
     renderCart();
     $('#schedule-label').classList.add('hidden');
+    syncOrderTimeOptions();
   }
   catch (err) {
     msg.textContent = err.message;
@@ -317,6 +382,59 @@ Forma de pagamento: ${order.paymentMethod}${order.pix ? '\nValor do Pix: ' + brl
     button.textContent = 'Fazer pedido';
   }
 });
+// "Agora" só vale com a loja aberta para pedidos imediatos; fechada, o cliente cai direto em "Agendar".
+function syncOrderTimeOptions() {
+  const sel = $('#order-time'), now = sel?.querySelector('option[value="now"]');
+  if (!sel || !now || !store) return;
+  const closed = !store.openNow;
+  now.disabled = closed;
+  now.textContent = closed ? 'Agora (loja fechada)' : 'Agora';
+  if (closed && sel.value !== 'scheduled') {
+    sel.value = 'scheduled';
+    sel.dispatchEvent(new Event('change'));
+  }
+}
+// Avisa a loja que o cliente tocou no WhatsApp (o painel mostra isso no pedido). Nunca atrapalha o cliente se falhar.
+function markWhatsappOpened(code, phone) {
+  try {
+    fetch(`/api/orders/${encodeURIComponent(code)}/whatsapp-opened`, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) }).catch(() => {});
+  } catch { /* segue sem avisar */ }
+}
+// Lembrete fixo: se o cliente registrou o pedido e saiu sem enviar a mensagem, o aviso volta quando ele reabrir o site.
+const PENDING_WA_KEY = 'acaiPendingWhatsapp', PENDING_WA_MAX_MS = 6 * 60 * 60 * 1000;
+function rememberPendingWhatsapp(order, url) {
+  try { localStorage.setItem(PENDING_WA_KEY, JSON.stringify({ code: order.orderCode, phone: order.phone, url, at: Date.now() })); } catch { /* sem armazenamento */ }
+}
+function clearPendingWhatsapp() {
+  try { localStorage.removeItem(PENDING_WA_KEY); } catch { /* sem armazenamento */ }
+  document.getElementById('wa-pending-banner')?.remove();
+}
+function showPendingWhatsappBanner() {
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem(PENDING_WA_KEY) || 'null'); } catch { data = null; }
+  if (!data || !data.url || Date.now() - Number(data.at || 0) > PENDING_WA_MAX_MS) { clearPendingWhatsapp(); return; }
+  if (document.getElementById('wa-pending-banner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'wa-pending-banner';
+  bar.className = 'wa-pending-banner';
+  bar.setAttribute('role', 'status');
+  const text = document.createElement('span');
+  text.textContent = `Seu pedido ${data.code} foi registrado. Falta enviar a mensagem no WhatsApp para a loja confirmar.`;
+  const send = document.createElement('a');
+  send.className = 'button button-green button-small';
+  send.href = data.url;
+  send.target = '_blank';
+  send.rel = 'noopener noreferrer';
+  send.textContent = 'Enviar no WhatsApp';
+  send.addEventListener('click', () => markWhatsappOpened(data.code, data.phone));
+  const done = document.createElement('button');
+  done.type = 'button';
+  done.className = 'button button-outline button-small';
+  done.textContent = 'Já enviei';
+  done.addEventListener('click', clearPendingWhatsapp);
+  bar.append(text, send, done);
+  document.body.prepend(bar);
+}
 // O navegador costuma bloquear janelas abertas depois de uma espera (iPhone principalmente). Por isso o botão fica na tela
 // até o cliente enviar a mensagem: o pedido só é confirmado pela loja depois disso.
 function showWhatsappStep(anchor, order, url) {
@@ -335,6 +453,7 @@ function showWhatsappStep(anchor, order, url) {
   a.target = '_blank';
   a.rel = 'noopener noreferrer';
   a.textContent = 'Enviar pedido no WhatsApp';
+  a.addEventListener('click', () => markWhatsappOpened(order.orderCode, order.phone));
   box.append(t, p);
   if (order.pix) box.append(pixBlock(order.pix));
   box.append(a);

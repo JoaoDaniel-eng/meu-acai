@@ -833,3 +833,16 @@ html[data-theme="dark"] .layers-total{color:#c9a0ee}
   .option-row.has-layers .layers-field input{width:4rem;min-height:44px}
   .option-row.has-layers .layers-total{grid-column:2;justify-self:end;align-self:center;font-size:1.05rem}
 }
+
+/* Açaí que já entra no pedido enquanto o cliente monta */
+.builder-cart-note{margin:10px 0 0;padding:10px 14px;border-radius:12px;background:rgba(91,26,122,.08);font-size:.92rem;line-height:1.4}
+.builder-cart-note.is-in-cart{background:rgba(124,194,66,.18);font-weight:600}
+.builder-actions .button.hidden{display:none}
+/* Lembrete para enviar o pedido no WhatsApp */
+.wa-pending-banner{position:sticky;top:0;z-index:60;display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:center;padding:10px 14px;background:#fff4dc;color:#24162b;border-bottom:2px solid #7cc242;font-weight:600;text-align:center}
+.wa-pending-banner span{flex:1 1 240px}
+html[data-theme="dark"] .wa-pending-banner{background:#2a1838;color:#f3e6fb}
+/* Painel: selo do WhatsApp nos pedidos novos */
+.order-wa{display:block;margin-top:6px;font-weight:700}
+.order-wa-warn{color:#b45309}
+.order-wa-ok{color:#15803d}

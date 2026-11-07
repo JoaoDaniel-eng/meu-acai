@@ -10,7 +10,7 @@ function receiptHtml(o) {
     const opts = (i.options || []).map(x => esc(x.name) + (Number(x.layers) > 1 ? ` (${Number(x.layers)} camadas)` : '')).join(', ') || 'sem adicionais';
     return `<div class="r-item r-row"><span>${esc(i.quantity)}x ${esc(i.size)}</span><span>${brl(i.lineTotalCents)}</span></div>${product}<div class="r-opt">${opts}</div>`;
   }).join('');
-  const when = o.scheduled_for ? `<div class="r-box">AGENDADO: ${esc(fmtDateTime(o.scheduled_for))}</div>` : '<div class="r-center r-small">Entrega assim que possível</div>';
+  const when = o.scheduled_for ? `<div class="r-box">AGENDADO: ${esc(fmtDateTime(o.scheduled_for))}</div>` : '<div class="r-center r-small">Entrega agora</div>';
   const pay = o.payment_method === 'Pix' ? 'PIX (conferir comprovante)' : esc(o.payment_method || 'A combinar');
   const change = o.change_for ? `<div class="r-block">Troco para R$ ${esc(o.change_for)}</div>` : '';
   const lines = [['Subtotal', brl(o.subtotal_cents)]];
