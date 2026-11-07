@@ -164,6 +164,21 @@ router.post('/orders', async (req, res, next) => {
     next(e);
   }
 });
+// O cliente tocou no WhatsApp depois de registrar o pedido. É só um aviso para a loja (não dá para saber se a mensagem foi enviada).
+router.post('/orders/:code/whatsapp-opened', async (req, res, next) => {
+  try {
+    const code = String(req.params.code || '').trim().toUpperCase(), phone = String(req.body?.phone || '').replace(/\D/g, '');
+    if (!ORDER_CODE_PATTERN.test(code) || phone.length < 10)
+      return res.status(204).end();
+    if (!lookupGuard(req, res, code))
+      return;
+    await getPool().query("UPDATE orders SET whatsapp_opened=TRUE WHERE order_code=$1 AND whatsapp_opened=FALSE AND regexp_replace(customer_phone,'[^0-9]','','g')=$2", [code, phone]);
+    res.status(204).end();
+  }
+  catch (e) {
+    next(e);
+  }
+});
 // Consulta pública protegida por código do pedido + telefone cadastrado.
 router.get('/orders/track', async (req, res, next) => {
   try {

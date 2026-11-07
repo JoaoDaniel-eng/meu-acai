@@ -28,6 +28,9 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 ## Funcionalidades
 - Cardápio e preços carregados do PostgreSQL.
 - Personalização de açaí com até cinco acompanhamentos grátis por item e no máximo uma calda grátis por item.
+- O açaí que o cliente está montando já entra no pedido na primeira escolha e acompanha cada mudança (sem botão “Adicionar ao pedido”). “+ Montar outro açaí” fecha o atual e começa um novo.
+- Entrega em duas opções: **Agora** (só com a loja aberta; fechada, o site já sugere Agendar) e **Agendar**.
+- WhatsApp: o site avisa a loja quando o cliente toca no botão (coluna `orders.whatsapp_opened`), lembra o cliente de enviar a mensagem ao reabrir o site e o painel tem o botão “💬 Chamar cliente” com a confirmação já escrita.
 - Adicionais pagos, mousses e quantidade de 1 a 20 por item.
 - Cálculo de preço no servidor, inclusive taxa de entrega por bairro.
 - Pedido imediato quando a loja está aberta ou agendamento com antecedência mínima dentro do horário de funcionamento. No agendamento o cliente escolhe **Dia** e **Horário** entre as opções que o servidor oferece (`GET /api/schedule-slots`: só os dias marcados e o horário da aba Funcionamento, de 15 em 15 min, até 14 dias à frente). O servidor valida de novo com a mesma regra ao criar e ao editar o pedido, então dia ou horário fechado é recusado mesmo que alguém altere a requisição.
