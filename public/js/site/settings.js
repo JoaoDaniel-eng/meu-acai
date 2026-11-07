@@ -160,7 +160,7 @@ async function checkOrderStatuses() {
     for (const o of r.orders) {
       next[o.order_code] = o.status;
       if (!first && prev[o.order_code] && prev[o.order_code] !== o.status) {
-        showOrderNotice(`Pedido ${o.order_code}`, `Status atualizado: ${statusNames[o.status] || o.status}`);
+        showOrderNotice(`Pedido ${o.order_code}`, `Status atualizado: ${statusLabelFor(o)}`);
       }
     }
     localStorage.setItem('acaiOrderStatuses', JSON.stringify(next));

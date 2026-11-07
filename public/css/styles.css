@@ -864,3 +864,7 @@ html[data-theme="dark"] .cash-card{background:#2a1838;border-color:#3d2552}
 html[data-theme="dark"] .cash-table th,html[data-theme="dark"] .cash-table td{border-color:#3d2552}
 html[data-theme="dark"] .cash-ok{color:#4ade80}html[data-theme="dark"] .cash-over{color:#fbbf24}html[data-theme="dark"] .cash-short{color:#f87171}
 @media(max-width:700px){.cash-table{display:block;overflow-x:auto}}
+/* Retirada na loja */
+.order-pickup { color: #ffd166; }
+.estimate-note.free-delivery-won{background:#e6f4df;color:#2d6a1b;font-weight:700}
+html[data-theme="dark"] .estimate-note.free-delivery-won{background:#1f3a1a;color:#b9e6a8}

@@ -228,6 +228,19 @@ $('#another-acai').addEventListener('click', () => {
   $('#builder').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 $('#zone-select').addEventListener('change', renderCart);
+// Entrega x retirada: na retirada some endereço e bairro (não são obrigatórios) e o frete é zero.
+function syncFulfillment() {
+  const pickup = isPickup();
+  $('#address-label').classList.toggle('hidden', pickup);
+  $('#zone-label').classList.toggle('hidden', pickup);
+  $('#address-input').required = !pickup;
+  $('#zone-select').required = !pickup;
+  $('#pickup-note').classList.toggle('hidden', !pickup);
+  $('#checkout-heading').textContent = pickup ? 'Retirada' : 'Entrega';
+  $('#order-time-label').textContent = pickup ? 'Quando deseja retirar?' : 'Quando deseja receber?';
+  renderCart();
+}
+$('#fulfillment').addEventListener('change', syncFulfillment);
 // Colheres: botões − / + e campo numérico (de 0 até store.maxSpoons), R$ 0,10 cada.
 const setSpoons = n => { $('#spoon-quantity').value = String(Math.min(maxSpoons(), Math.max(0, n))); renderCart(); };
 $('#spoon-minus').addEventListener('click', () => setSpoons(spoonCount() - 1));
@@ -337,21 +350,22 @@ $('#checkout-form').addEventListener('submit', async (e) => {
     return;
   }
   const fd = new FormData(form);
-  const payload = { customerName: fd.get('customerName'), phone: fd.get('phone'), address: fd.get('address'), zoneId: Number(fd.get('zoneId')), notes: fd.get('notes'), paymentMethod: fd.get('paymentMethod'), needsChange: fd.get('needsChange') || 'no', changeFor: fd.get('changeFor') || '', spoonQuantity: spoonCount(), scheduledFor: fd.get('orderTime') === 'scheduled' ? fd.get('scheduledFor') : null, couponCode: appliedCoupon?.code || '', items: cart.map(i => ({ sizeId: i.sizeId, quantity: i.quantity, optionIds: i.optionIds, optionLayers: i.optionLayers || {} })) };
+  const payload = { customerName: fd.get('customerName'), phone: fd.get('phone'), fulfillment: fd.get('fulfillment') === 'pickup' ? 'pickup' : 'delivery', address: fd.get('address'), zoneId: Number(fd.get('zoneId')), notes: fd.get('notes'), paymentMethod: fd.get('paymentMethod'), needsChange: fd.get('needsChange') || 'no', changeFor: fd.get('changeFor') || '', spoonQuantity: spoonCount(), scheduledFor: fd.get('orderTime') === 'scheduled' ? fd.get('scheduledFor') : null, couponCode: appliedCoupon?.code || '', items: cart.map(i => ({ sizeId: i.sizeId, quantity: i.quantity, optionIds: i.optionIds, optionLayers: i.optionLayers || {} })) };
   const button = $('#submit-order');
   button.disabled = true;
   button.textContent = 'Registrando pedido…';
   try {
     const order = await api('/orders', { method: 'POST', body: JSON.stringify(payload) });
     const lines = order.items.map(i => `• ${i.quantity}x ${i.product} (${i.size})\n  ${i.options.map(o => o.name + layersText(o.layers)).join(', ') || 'Sem adicionais'} — ${brl(i.lineTotalCents)}`).join('\n');
-    const scheduled = order.scheduledFor ? `\nAgendamento: ${new Date(order.scheduledFor).toLocaleString('pt-BR')}` : '\nEntrega: agora';
-    const text = `Olá! Quero confirmar o pedido ${order.orderCode} no Açaí da Roça.\n\n${lines}\n\nSubtotal: ${brl(order.subtotalCents)}${order.comboDiscountCents ? `\nDesconto combo: -${brl(order.comboDiscountCents)}` : ''}${order.discountCents ? `\nCupom ${order.couponCode}: -${brl(order.discountCents)}` : ''}\nEntrega (${order.neighborhood}): ${brl(order.deliveryFeeCents)}\nColher: ${spoonText(order.spoonQuantity, order.spoonCents)}\nTOTAL: ${brl(order.totalCents)}\nPrevisão estimada: ${order.estimatedMinutesMin} a ${order.estimatedMinutesMax} minutos\n\nNome: ${order.customerName}\nTelefone: ${order.phone}\nEndereço: ${order.address}
+    const pickupOrder = order.fulfillment === 'pickup';
+    const scheduled = order.scheduledFor ? `\nAgendamento: ${new Date(order.scheduledFor).toLocaleString('pt-BR')}` : (order.fulfillment === 'pickup' ? '\nRetirada: agora' : '\nEntrega: agora');
+    const text = `Olá! Quero confirmar o pedido ${order.orderCode} no Açaí da Roça.\n\n${lines}\n\nSubtotal: ${brl(order.subtotalCents)}${order.comboDiscountCents ? `\nDesconto combo: -${brl(order.comboDiscountCents)}` : ''}${order.discountCents ? `\nCupom ${order.couponCode}: -${brl(order.discountCents)}` : ''}${pickupOrder ? '\nRETIRADA NA LOJA (sem taxa de entrega)' : `\nEntrega (${order.neighborhood}): ${order.freeDelivery ? 'GRÁTIS 🎉' : brl(order.deliveryFeeCents)}`}\nColher: ${spoonText(order.spoonQuantity, order.spoonCents)}\nTOTAL: ${brl(order.totalCents)}\nPrevisão estimada: ${order.estimatedMinutesMin} a ${order.estimatedMinutesMax} minutos\n\nNome: ${order.customerName}\nTelefone: ${order.phone}${pickupOrder ? '' : `\nEndereço: ${order.address}`}
 Forma de pagamento: ${order.paymentMethod}${order.pix ? '\nValor do Pix: ' + brl(order.pix.amountCents) : ''}${order.changeFor ? `\nTroco para: R$ ${order.changeFor}` : ''}${scheduled}${order.notes ? '\nObservações: ' + order.notes : ''}\n\nO pedido foi registrado pelo site.${order.pix ? '\nO código Pix está disponível no site, na tela do pedido. Após pagar, envie o comprovante nesta conversa.\n' + PIX_NOTICE : ''}`;
     msg.textContent = `Pedido ${order.orderCode} registrado! Agora envie no WhatsApp para a loja confirmar (botão abaixo). Guarde esse código para acompanhar, editar ou cancelar seu pedido na seção “Acompanhe seu pedido”.`;
     $('#tracking-form [name=code]').value = order.orderCode;
     $('#tracking-form [name=phone]').value = order.phone;
     if ($('#save-customer-details').checked) {
-      localStorage.setItem('acaiCustomerDetails', JSON.stringify({ customerName: order.customerName, phone: order.phone, address: order.address, zoneId: fd.get('zoneId') }));
+      localStorage.setItem('acaiCustomerDetails', JSON.stringify({ customerName: order.customerName, phone: order.phone, address: String(fd.get('address') || '').trim(), zoneId: fd.get('zoneId') }));
     }
     else {
       localStorage.removeItem('acaiCustomerDetails');
@@ -370,7 +384,7 @@ Forma de pagamento: ${order.paymentMethod}${order.pix ? '\nValor do Pix: ' + brl
     // Se o navegador deixou abrir o WhatsApp sozinho, avisa a loja que o cliente chegou lá.
     if (window.open(waUrl, '_blank', 'noopener,noreferrer')) markWhatsappOpened(order.orderCode, order.phone);
     form.reset();
-    renderCart();
+    syncFulfillment();
     $('#schedule-label').classList.add('hidden');
     syncOrderTimeOptions();
   }

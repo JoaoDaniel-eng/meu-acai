@@ -21,7 +21,7 @@ function paintStatus(o) {
   const badge = r.querySelector('.tracking-top .status');
   if (badge) {
     badge.className = `status status-${o.status}`;
-    badge.textContent = statusNames[o.status] || o.status;
+    badge.textContent = statusLabelFor(o);
   }
   const spans = r.querySelectorAll('.tracking-progress span');
   const done = [o.status !== 'cancelled', ['preparing', 'out_for_delivery', 'delivered'].includes(o.status), ['out_for_delivery', 'delivered'].includes(o.status), o.status === 'delivered'];
@@ -39,11 +39,11 @@ async function refreshTracked() {
         trackedOrder.status = o.status;
         trackedOrder.canEdit = o.canEdit;
         paintStatus(o);
-        showLiveNote(`✅ Status atualizado: ${statusNames[o.status] || o.status}. Suas edições em andamento foram mantidas.`);
+        showLiveNote(`✅ Status atualizado: ${statusLabelFor(o)}. Suas edições em andamento foram mantidas.`);
       }
       else {
         renderTracking(o);
-        showLiveNote(`✅ Status atualizado: ${statusNames[o.status] || o.status}`);
+        showLiveNote(`✅ Status atualizado: ${statusLabelFor(o)}`);
       }
       if (finished)
         stopLiveTracking();

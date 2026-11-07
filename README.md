@@ -29,7 +29,9 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 - Cardápio e preços carregados do PostgreSQL.
 - Personalização de açaí com até cinco acompanhamentos grátis por item e no máximo uma calda grátis por item.
 - O açaí que o cliente está montando já entra no pedido na primeira escolha e acompanha cada mudança (sem botão “Adicionar ao pedido”). “+ Montar outro açaí” fecha o atual e começa um novo.
-- Entrega em duas opções: **Agora** (só com a loja aberta; fechada, o site já sugere Agendar) e **Agendar**.
+- **Entrega ou retirada na loja:** o cliente escolhe no checkout. Na retirada não pede endereço nem bairro, não cobra frete e o pedido aparece com o selo “🏪 RETIRADA NA LOJA” no painel, no recibo e no WhatsApp; o status “Saiu para entrega” vira “Pronto para retirar”. A planilha (CSV) tem a coluna “Tipo”.
+- **Frete grátis por valor mínimo:** a loja define em Funcionamento o valor (R$) a partir do qual a entrega não é cobrada (0 desliga). Conta o valor dos açaís já com combo e cupom, sem colher; não vale para retirada. O site mostra quanto falta para ganhar o frete grátis.
+- Horário em duas opções: **Agora** (só com a loja aberta; fechada, o site já sugere Agendar) e **Agendar**.
 - WhatsApp: o site avisa a loja quando o cliente toca no botão (coluna `orders.whatsapp_opened`), lembra o cliente de enviar a mensagem ao reabrir o site e o painel tem o botão “💬 Chamar cliente” com a confirmação já escrita.
 - Adicionais pagos, mousses e quantidade de 1 a 20 por item.
 - Cálculo de preço no servidor, inclusive taxa de entrega por bairro.
