@@ -46,6 +46,8 @@ async function loadTab(tab) {
   try {
     if (tab === 'orders')
       await loadOrders();
+    if (tab === 'cash')
+      await loadCash();
     if (tab === 'menu')
       await loadMenu();
     if (tab === 'zones')
