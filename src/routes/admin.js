@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import { getPool } from '../db/pool.js';
 import { requireAdmin } from '../middleware/auth.js';
+import cashRouter from './cash.js';
 import { auditMutations, logLogin } from '../services/audit.js';
 import { versionOf } from '../services/sessionVersion.js';
 import { getSettings } from '../services/store.js';
@@ -63,6 +64,7 @@ router.post('/login', async (req, res, next) => {
 router.use(requireAdmin);
 // Registra automaticamente toda mutação administrativa concluída (ver services/audit.js).
 router.use(auditMutations('admin'));
+router.use('/cash', cashRouter);
 router.get('/stats', async (_req, res, next) => {
   try {
     const db = getPool();

@@ -106,6 +106,21 @@ CREATE TABLE IF NOT EXISTS inventory_calibrations (
  samples NUMERIC(14,3)[] NOT NULL, average_quantity NUMERIC(14,3) NOT NULL, approved BOOLEAN NOT NULL DEFAULT FALSE,
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), approved_at TIMESTAMPTZ
 );
+CREATE TABLE IF NOT EXISTS cash_sessions (
+  id BIGSERIAL PRIMARY KEY, opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), opened_by VARCHAR(254) NOT NULL,
+  opening_cents INTEGER NOT NULL CHECK(opening_cents >= 0), open_notes TEXT NOT NULL DEFAULT '',
+  closed_at TIMESTAMPTZ, closed_by VARCHAR(254), counted_cents INTEGER CHECK(counted_cents >= 0),
+  expected_cents INTEGER, difference_cents INTEGER, close_notes TEXT NOT NULL DEFAULT '', summary JSONB
+);
+CREATE UNIQUE INDEX IF NOT EXISTS cash_sessions_one_open ON cash_sessions((TRUE)) WHERE closed_at IS NULL;
+CREATE INDEX IF NOT EXISTS cash_sessions_opened_idx ON cash_sessions(opened_at DESC);
+CREATE TABLE IF NOT EXISTS cash_movements (
+  id BIGSERIAL PRIMARY KEY, session_id BIGINT NOT NULL REFERENCES cash_sessions(id) ON DELETE CASCADE,
+  kind VARCHAR(20) NOT NULL CHECK(kind IN ('suprimento','sangria','despesa')),
+  amount_cents INTEGER NOT NULL CHECK(amount_cents > 0), reason VARCHAR(200) NOT NULL,
+  created_by VARCHAR(254) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS cash_movements_session_idx ON cash_movements(session_id,created_at);
 `;
 const products = [
   { name: 'Açaí tradicional', description: 'Monte do seu jeito com acompanhamentos e caldas.', sizes: [['300 ml', 1200], ['400 ml', 1600], ['500 ml', 1900], ['700 ml', 2300], ['Pote de 1 litro', 3800], ['1 copo especial', 3500]] }

@@ -37,6 +37,7 @@ O schema e os dados iniciais são criados de forma idempotente quando o servidor
 - Registro do pedido no banco com código único `AR-XXXXXX` e abertura do WhatsApp com texto pré-preenchido.
 - Avaliações públicas somente após moderação.
 - Painel administrativo com autenticação JWT que expira (7 dias por padrão; ajuste com `ADMIN_TOKEN_TTL`, ex.: `12h`) e bloqueio temporário após 5 senhas erradas por IP (ou 20 por e-mail) em 15 minutos, atualização automática de pedidos, preços e disponibilidade de produtos/tamanhos/opções, bairros/taxas, avaliações, cupons, configurações, auditoria e backup/restauração.
+- **Caixa** (aba no painel): abre com o troco inicial, aceita retiradas (sangria), despesas e entradas com motivo, e fecha comparando o dinheiro contado com o esperado (troco + vendas em dinheiro + entradas − retiradas − despesas). Mostra vendas por forma de pagamento, guarda o histórico e imprime o relatório na térmica. Só um caixa pode ficar aberto por vez; abrir/fechar pode reabrir/pausar os pedidos imediatos (opcional). As tabelas `cash_sessions` e `cash_movements` ainda não entram no backup JSON do /dev.
 - Relatórios de vendas com resumo de hoje, semana atual e mês atual, além de períodos de 7, 30 e 90 dias, ticket médio, quantidade de pedidos e tamanhos mais vendidos.
 - Cupons públicos com desconto percentual ou fixo, subtotal mínimo e validação de preço no servidor.
 - Cliente pode repetir um pedido anterior pelo acompanhamento, adicionando novamente ao carrinho apenas itens ainda disponíveis.
