@@ -87,7 +87,9 @@ const TEST_ORDER = { order_code: 'AR-TESTE', created_at: new Date().toISOString(
 document.addEventListener('click', e => {
   const btn = e.target.closest?.('[data-print-order]');
   if (btn) {
-    const order = window.adminOrdersById?.get(Number(btn.dataset.printOrder));
+    const byId = window.adminOrdersById, key = btn.dataset.printOrder;
+    // O id do pedido (BIGSERIAL) chega do banco como texto; aceita texto ou número para achar o pedido.
+    const order = byId?.get(key) ?? byId?.get(Number(key)) ?? byId?.get(String(key));
     if (order)
       printOrder(order);
     else
