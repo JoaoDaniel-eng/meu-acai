@@ -1,10 +1,10 @@
-/* Cupom do pedido para impressora térmica de 58 mm. Na tela fica escondido; só aparece ao imprimir. */
+/* Cupom do pedido para impressora térmica de 58 mm (área útil de impressão: 48 mm). Na tela fica escondido; só aparece ao imprimir. */
 #print-area { display: none; }
-@page { size: 58mm auto; margin: 0; }
+@page { size: 48mm auto; margin: 0; }
 @media print {
-  html, body { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; }
+  html, body { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; width: 48mm !important; max-width: 48mm !important; overflow: hidden !important; }
   body > *:not(#print-area) { display: none !important; }
-  #print-area { display: block !important; width: 48mm; margin: 0 auto; padding: 2mm 0 14mm; color: #000; background: #fff;
+  #print-area { display: block !important; width: 48mm; max-width: 48mm; margin: 0; padding: 2mm 1mm 14mm; overflow: hidden; box-sizing: border-box; color: #000; background: #fff;
     font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.25; font-weight: 600; }
   #print-area * { color: #000 !important; background: #fff !important; box-sizing: border-box; }
   #print-area .r-title { text-align: center; font-size: 17px; font-weight: 800; letter-spacing: .5px; }
@@ -14,8 +14,9 @@
   #print-area .r-line { border: 0; border-top: 1px dashed #000; margin: 5px 0; height: 0; }
   #print-area .r-block { margin: 3px 0; word-break: break-word; }
   #print-area .r-label { font-size: 11px; font-weight: 800; text-transform: uppercase; }
-  #print-area .r-row { display: flex; justify-content: space-between; gap: 6px; }
-  #print-area .r-row span:last-child { white-space: nowrap; }
+  #print-area .r-row { display: flex; justify-content: space-between; gap: 4px; }
+  #print-area .r-row span:first-child { min-width: 0; overflow-wrap: anywhere; }
+  #print-area .r-row span:last-child { white-space: nowrap; flex: none; }
   #print-area .r-item { font-weight: 800; margin-top: 4px; }
   #print-area .r-opt { font-size: 11px; font-weight: 500; padding-left: 8px; word-break: break-word; }
   #print-area .r-total { font-size: 16px; font-weight: 800; }
