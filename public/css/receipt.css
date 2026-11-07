@@ -1,24 +1,62 @@
-/* Cupom do pedido para impressora térmica de 58 mm (área útil de impressão: 48 mm). Na tela fica escondido; só aparece ao imprimir. */
+/* ==========================================================================
+   CUPOM DO PEDIDO — impressora térmica 58 mm (área útil 48 mm / 384 pontos)
+   Na tela fica escondido; só aparece ao imprimir (RawBT / navegador).
+
+   >>> AJUSTE AQUI SE AINDA CORTAR UM POUCO <<<
+   --cupom-largura: largura do cupom (teste entre 42mm e 46mm).
+     Cortando nas DUAS laterais  -> diminua (ex.: 42mm)
+     Sobrando margem branca      -> aumente (ex.: 46mm)
+   --cupom-padding: respiro interno nas laterais (1mm a 3mm).
+   ========================================================================== */
+:root {
+  --cupom-largura: 44mm;
+  --cupom-padding: 2mm;
+  --cupom-fonte: 11px;
+}
+
 #print-area { display: none; }
+
 @page { size: 48mm auto; margin: 0; }
+
 @media print {
-  html, body { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; width: 48mm !important; max-width: 48mm !important; overflow: hidden !important; }
+  html, body {
+    background: #fff !important; color: #000 !important;
+    margin: 0 !important; padding: 0 !important;
+    width: 48mm; height: auto !important; min-height: 0 !important;
+  }
   body > *:not(#print-area) { display: none !important; }
-  #print-area { display: block !important; width: 48mm; max-width: 48mm; margin: 0; padding: 2mm 1mm 14mm; overflow: hidden; box-sizing: border-box; color: #000; background: #fff;
-    font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.25; font-weight: 600; }
-  #print-area * { color: #000 !important; background: #fff !important; box-sizing: border-box; }
-  #print-area .r-title { text-align: center; font-size: 17px; font-weight: 800; letter-spacing: .5px; }
+
+  #print-area {
+    display: block !important;
+    box-sizing: border-box;
+    width: var(--cupom-largura);
+    margin: 0 auto;                                  /* centralizado nos 48 mm */
+    padding: 1mm var(--cupom-padding) 2mm;           /* termina logo após o "Obrigado" */
+    height: auto; min-height: 0;
+    color: #000; background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: var(--cupom-fonte); line-height: 1.2; font-weight: 600;
+    overflow-wrap: anywhere; word-break: break-word;
+  }
+  #print-area * { box-sizing: border-box; color: #000 !important; background: #fff !important; max-width: 100%; }
+
+  /* Textos */
+  #print-area .r-title  { text-align: center; font-size: 16px; font-weight: 800; letter-spacing: .3px; }
+  #print-area .r-code   { text-align: center; font-size: 18px; font-weight: 800; margin: 1mm 0; }
   #print-area .r-center { text-align: center; }
-  #print-area .r-code { text-align: center; font-size: 20px; font-weight: 800; margin: 2px 0; }
-  #print-area .r-small { font-size: 11px; font-weight: 500; }
-  #print-area .r-line { border: 0; border-top: 1px dashed #000; margin: 5px 0; height: 0; }
-  #print-area .r-block { margin: 3px 0; word-break: break-word; }
-  #print-area .r-label { font-size: 11px; font-weight: 800; text-transform: uppercase; }
-  #print-area .r-row { display: flex; justify-content: space-between; gap: 4px; }
-  #print-area .r-row span:first-child { min-width: 0; overflow-wrap: anywhere; }
-  #print-area .r-row span:last-child { white-space: nowrap; flex: none; }
-  #print-area .r-item { font-weight: 800; margin-top: 4px; }
-  #print-area .r-opt { font-size: 11px; font-weight: 500; padding-left: 8px; word-break: break-word; }
-  #print-area .r-total { font-size: 16px; font-weight: 800; }
-  #print-area .r-box { border: 2px solid #000; padding: 3px 4px; text-align: center; font-weight: 800; margin: 4px 0; }
+  #print-area .r-small  { font-size: 10px; font-weight: 500; }
+  #print-area .r-label  { font-size: 10px; font-weight: 800; text-transform: uppercase; }
+  #print-area .r-block  { margin: .6mm 0; overflow-wrap: anywhere; word-break: break-word; }
+  #print-area .r-opt    { font-size: 10px; font-weight: 500; padding-left: 2mm; overflow-wrap: anywhere; word-break: break-word; }
+  #print-area .r-item   { font-weight: 800; margin-top: 1mm; }
+  #print-area .r-total  { font-size: 15px; font-weight: 800; }
+
+  /* Linha "descrição ........ valor": a descrição quebra, o valor nunca sai da folha */
+  #print-area .r-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5mm; }
+  #print-area .r-row span:first-child { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+  #print-area .r-row span:last-child  { flex: 0 0 auto; white-space: nowrap; text-align: right; }
+
+  /* Divisórias e caixas */
+  #print-area .r-line { border: 0; border-top: 1px dashed #000; margin: 1.2mm 0; height: 0; }
+  #print-area .r-box  { border: 2px solid #000; padding: .8mm 1mm; text-align: center; font-weight: 800; margin: 1mm 0; }
 }

@@ -1,4 +1,4 @@
-// Impressão do pedido em impressora térmica de 58 mm (usa o diálogo de impressão do navegador).
+// Impressão do pedido em impressora térmica de 58 mm, área útil 48 mm (layout em receipt.css; usa o diálogo de impressão do navegador).
 // Para sair sozinho, sem janela de confirmação, o Chrome da loja deve abrir com --kiosk-printing (ver IMPRESSORA.md).
 const AUTO_PRINT_KEY = 'acaiAutoPrint';
 const autoPrintOn = () => localStorage.getItem(AUTO_PRINT_KEY) === '1';

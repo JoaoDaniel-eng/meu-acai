@@ -4,7 +4,7 @@ O painel `/admin` imprime o cupom do pedido pelo navegador. Para sair sozinho, s
 
 ## Montagem (Windows)
 1. Ligue a impressora no notebook pelo cabo USB e ligue-a. Instale o **driver** dela (o anúncio não traz o driver: peça ao vendedor ou procure "driver POS-58 / POS-5890"). Ela precisa aparecer em *Configurações → Impressoras e scanners*. O driver "Genérico / Somente texto" não serve, porque o navegador imprime em modo gráfico.
-2. Nas propriedades da impressora, escolha o papel de **58 mm** e deixe-a como **impressora padrão**. O cupom é montado com **48 mm** de largura (a área realmente impressa por essas máquinas), sem margens, para nada ser cortado na borda.
+2. Nas propriedades da impressora, escolha o papel de **58 mm** e deixe-a como **impressora padrão**. O cupom usa página de **48 mm** e um container de **44 mm** centralizado. Se ainda cortar, mude `--cupom-largura` (42 a 46 mm) no topo de `public/css/receipt.css`.
 3. Feche todas as janelas do Chrome. Crie um atalho do Chrome na área de trabalho, clique nele com o botão direito → Propriedades → no campo **Destino**, deixe assim (o caminho pode variar):
    `"C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk-printing "https://meu-acai.onrender.com/admin"`
 4. Abra o Chrome **sempre por esse atalho**. Entre no `/admin`, vá em **Pedidos**, clique em **🖨️ Testar impressora** (deve sair um cupom de teste) e marque **"Imprimir pedido novo automaticamente"**.
