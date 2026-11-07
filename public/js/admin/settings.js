@@ -16,12 +16,21 @@ $('#settings-form').addEventListener('submit', async (e) => {
   body.manual_closed = f.elements.manual_closed.checked ? 'true' : 'false';
   body.opening_days = openingDays.join(',');
   try {
-    await api('/settings', { method: 'PATCH', body: JSON.stringify(body) });
-    say('Configurações salvas.');
+    const note = text => { const el = $('#settings-message'); if (el) el.textContent = text; say(text); };
+    note('Salvando…');
+    const saved = await api('/settings', { method: 'PATCH', body: JSON.stringify(body) });
+    // Servidor antigo (pasta src não atualizada) ignora o campo sem erro: avisa em vez de parecer que salvou.
+    if (saved && !('free_delivery_min' in saved)) {
+      note('Atenção: o servidor ainda está na versão antiga e não salvou o frete grátis. Publique também a pasta "src" e reinicie o servidor.');
+      return;
+    }
+    note(`Configurações salvas. Frete grátis a partir de: ${Number(saved.free_delivery_min) > 0 ? 'R$ ' + String(saved.free_delivery_min).replace('.', ',') : 'desligado'}.`);
     await loadStats();
     await loadPauseState();
   }
   catch (err) {
+    const el = $('#settings-message');
+    if (el) el.textContent = err.message;
     say(err.message);
   }
 });
