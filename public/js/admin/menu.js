@@ -16,25 +16,39 @@ async function loadMenu() {
   window.scrollTo(0, scrollY);
   document.querySelectorAll('.truffle-card').forEach(form => form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    // Guarda o card e o id de ANTES do recarregamento: o painel é redesenhado ao salvar e a confirmação tem que cair no mesmo sabor.
+    const productId = form.dataset.id, flavor = form.querySelector('.truffle-card-head strong')?.firstChild?.textContent.trim() || 'Trufado';
+    const msg = form.querySelector('.truffle-msg');
+    if (msg) { msg.textContent = 'Salvando…'; msg.classList.remove('error-message'); }
     try {
       // Imagem não é enviada aqui: a que já está cadastrada continua como está.
-      await api('/menu/products/' + form.dataset.id, { method: 'PATCH', body: JSON.stringify({ active: form.elements.active.checked }) });
+      const product = await api('/menu/products/' + productId, { method: 'PATCH', body: JSON.stringify({ active: form.elements.active.checked }) });
+      if (product.id !== undefined && String(product.id) !== String(productId))
+        throw new Error(`O servidor respondeu com outro sabor ao salvar ${flavor}. Atualize a página e tente de novo.`);
+      const saved = [];
       for (const box of form.querySelectorAll('.truffle-size')) {
-        const id = box.dataset.sizeId, stock = form.elements['stock-' + id];
+        const id = box.dataset.sizeId, stock = form.elements['stock-' + id], sizeName = box.querySelector('strong')?.textContent.trim() || 'tamanho';
         const body = { priceCents: Math.round(Number(form.elements['price-' + id].value) * 100), active: form.elements['size-active-' + id].checked };
         // Só envia a quantidade se a dona mexeu nela (evita sobrescrever vendas feitas com a tela aberta).
-        if (stock.value.trim() !== stock.dataset.original) body.stockQuantity = stock.value.trim() === '' ? null : Number(stock.value);
-        await api('/menu/sizes/' + id, { method: 'PATCH', body: JSON.stringify(body) });
+        const stockChanged = stock.value.trim() !== stock.dataset.original;
+        if (stockChanged) body.stockQuantity = stock.value.trim() === '' ? null : Number(stock.value);
+        const row = await api('/menu/sizes/' + id, { method: 'PATCH', body: JSON.stringify(body) });
+        // Confere o que o servidor gravou: nunca mostra "Salvo!" se a quantidade ou o tamanho não bateram.
+        if (row.id !== undefined && String(row.id) !== String(id))
+          throw new Error(`O servidor respondeu com outro tamanho ao salvar ${flavor} ${sizeName}. Atualize a página e tente de novo.`);
+        if (stockChanged && (row.stock_quantity ?? null) !== body.stockQuantity)
+          throw new Error(`A quantidade de ${flavor} ${sizeName} não foi gravada. Atualize a página e tente de novo.`);
+        saved.push(`${sizeName}: ${row.stock_quantity ?? 'sem limite'}`);
       }
-      say('Trufado salvo.');
+      say(`${flavor} salvo.`);
       await loadMenu();
-      const msg = document.querySelector(`.truffle-card[data-id="${form.dataset.id}"] .truffle-msg`);
-      if (msg) msg.textContent = '✔ Salvo!';
+      // O card foi redesenhado: acha de novo pelo id do sabor e escreve a confirmação nele.
+      const fresh = document.querySelector(`.truffle-card[data-id="${productId}"] .truffle-msg`);
+      if (fresh) { fresh.classList.remove('error-message'); fresh.textContent = `✔ ${flavor} salvo! ${saved.join(' · ')}`; }
     }
     catch (err) {
       say(err.message);
-      const msg = form.querySelector('.truffle-msg');
-      if (msg) { msg.textContent = err.message; msg.classList.add('error-message'); }
+      if (msg && msg.isConnected) { msg.textContent = err.message; msg.classList.add('error-message'); }
     }
   }));
   document.querySelectorAll('.product-active-row').forEach(form => form.addEventListener('submit', async (e) => {
