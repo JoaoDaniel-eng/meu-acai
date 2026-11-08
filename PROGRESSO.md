@@ -319,3 +319,6 @@
 - **Frete na hora:** ao escolher o bairro aparece logo abaixo dele "Frete para X: R$ …" e "Total com entrega: R$ …" (ou "Grátis" quando vale o frete grátis). A barra de baixo mostra o mesmo total.
 - Versão dos arquivos e do cache do PWA atualizada para `20261108-passos`.
 - Validação: `node --check` em todos os JS alterados; teste de fumaça no Chromium (celular, desktop e tema escuro) com API simulada: 48 verificações passaram. Teste real com PostgreSQL/Neon e em aparelhos reais continua pendente.
+
+### "Quero esse" da galeria (08/11/2026)
+- O botão "Quero esse" só leva ao cardápio. Ele não anota mais "Sabor escolhido" nas observações nem mostra aviso no montador. O sabor só entra no pedido quando a cliente escolhe o trufado no cardápio.
