@@ -617,20 +617,5 @@ function pixBlock(pix) {
   return wrap;
 }
 
-// "Quero esse" na galeria: leva ao cardápio e anota o sabor escolhido nas observações do pedido.
-document.addEventListener('click', e => {
-  const btn = e.target.closest?.('.gallery-order');
-  if (!btn)
-    return;
-  const flavor = btn.dataset.flavor || '';
-  const notes = document.querySelector('#checkout-form [name=notes]');
-  if (notes && flavor) {
-    const rest = notes.value.split('\n').filter(l => !l.startsWith('Sabor escolhido:')).join('\n').trim();
-    notes.value = `Sabor escolhido: ${flavor}${rest ? '\n' + rest : ''}`;
-  }
-  const hint = document.getElementById('builder-message');
-  if (hint && flavor) {
-    hint.textContent = `Anotamos que você quer o ${flavor}. Escolha o tamanho e os acompanhamentos abaixo.`;
-    hint.classList.remove('error-message');
-  }
-});
+// "Quero esse" na galeria só leva ao cardápio (link #cardapio). Nada é anotado no pedido:
+// o sabor só entra quando a cliente escolhe o trufado no cardápio.
