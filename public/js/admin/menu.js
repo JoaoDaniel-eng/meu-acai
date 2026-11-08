@@ -7,12 +7,13 @@ function stockHint(stock) {
 }
 // Card de trufado: nome, disponibilidade e os tamanhos (preço, disponível e quantidade pronta) no mesmo lugar.
 function truffleCard(p, sizes) {
-  const box = s => `<div class="truffle-size" data-size-id="${s.id}"><strong>${esc(s.name)}</strong><label>Quantidade pronta<input type="number" min="0" max="9999" step="1" name="stock-${s.id}" inputmode="numeric" placeholder="sem limite" value="${s.stock_quantity ?? ''}" data-original="${s.stock_quantity ?? ''}"></label><small class="stock-hint">${stockHint(s.stock_quantity)}</small><label>Preço (R$)<input type="number" min="0" step="0.01" name="price-${s.id}" value="${moneyInput(s.price_cents)}"></label><label class="mini-check"><input type="checkbox" name="size-active-${s.id}" ${s.active ? 'checked' : ''}> Tamanho disponível</label></div>`;
-  return `<form class="truffle-card" data-id="${p.id}"><div class="truffle-card-head"><strong>${esc(p.name)} <small>Trufado</small></strong><label class="mini-check"><input type="checkbox" name="active" ${p.active ? 'checked' : ''}> Disponível</label><button class="button button-small button-primary">Salvar</button><button type="button" class="button button-small button-danger" data-delete-product="${p.id}">Excluir</button></div><div class="truffle-sizes">${sizes.map(box).join('') || '<p class="muted">Este sabor não tem tamanhos cadastrados.</p>'}</div></form>`;
+  const box = s => `<div class="truffle-size" data-size-id="${s.id}"><strong>${esc(s.name)}</strong><label>Quantidade pronta<input type="number" min="0" max="9999" step="1" name="stock-${s.id}" inputmode="numeric" placeholder="sem limite" value="${s.stock_quantity ?? ''}" data-original="${s.stock_quantity ?? ''}"></label><small class="stock-hint">${s.active ? stockHint(s.stock_quantity) : '🚫 Escondido do site: marque “Tamanho disponível” e salve'}</small><label>Preço (R$)<input type="number" min="0" step="0.01" name="price-${s.id}" value="${moneyInput(s.price_cents)}"></label><label class="mini-check"><input type="checkbox" name="size-active-${s.id}" ${s.active ? 'checked' : ''}> Tamanho disponível</label></div>`;
+  return `<form class="truffle-card" data-id="${p.id}"><div class="truffle-card-head"><strong>${esc(p.name)} <small>Trufado</small></strong><label class="mini-check"><input type="checkbox" name="active" ${p.active ? 'checked' : ''}> Disponível</label><button class="button button-small button-primary">Salvar</button><button type="button" class="button button-small button-danger" data-delete-product="${p.id}">Excluir</button></div><p class="form-message truffle-msg" role="status"></p><div class="truffle-sizes">${sizes.map(box).join('') || '<p class="muted">Este sabor não tem tamanhos cadastrados.</p>'}</div></form>`;
 }
 async function loadMenu() {
-  const d = await api('/menu');
+  const d = await api('/menu'), scrollY = window.scrollY;
   $('#menu-admin').innerHTML = `<h3>Produtos</h3><div class="admin-option-list">${d.products.map(p => p.product_type === 'truffled' ? truffleCard(p, d.sizes.filter(s => s.product_id === p.id)) : `<form class="product-active-row" data-id="${p.id}"><strong>${esc(p.name)} <small>${p.product_type === 'truffled' ? 'Trufado' : 'Tradicional'}</small></strong><label>Imagem (URL)<input type="url" name="imageUrl" maxlength="1000" value="${esc(p.image_url || '')}" placeholder="https://… ou /images/…"></label><label class="mini-check"><input type="checkbox" name="active" ${p.active ? 'checked' : ''}> Disponível</label><button class="button button-small button-primary">Salvar</button><button type="button" class="button button-small button-danger" data-delete-product="${p.id}">Excluir</button></form>`).join('')}</div><h3>Tamanhos</h3><p class="muted">Desative um tamanho para ocultá-lo temporariamente do cardápio, sem apagar seu preço. Os tamanhos e o estoque dos trufados ficam dentro de cada trufado, em Produtos.</p><div class="admin-option-list">${d.sizes.filter(s => s.product_type !== 'truffled').map(s => `<form class="price-row" data-kind="size" data-id="${s.id}"><span><strong>${esc(s.product_name)} — ${esc(s.name)}</strong></span><label>Preço (R$)<input type="number" min="0" step="0.01" value="${moneyInput(s.price_cents)}" name="price"></label><label class="mini-check"><input type="checkbox" name="active" ${s.active ? 'checked' : ''}> Disponível</label><button class="button button-small button-primary">Salvar</button></form>`).join('')}</div><h3>Acompanhamentos, caldas e adicionais</h3><p class="muted">Desmarque “Disponível” para retirar uma opção do site até que volte ao estoque.</p><div class="admin-option-list">${d.options.map(o => `<form class="price-row" data-kind="option" data-id="${o.id}"><span><strong>${esc(o.name)}</strong><small>${esc(o.category)}</small></span><label>Preço (R$)<input type="number" min="0" step="0.01" value="${moneyInput(o.price_cents)}" name="price"></label><label class="mini-check"><input type="checkbox" name="active" ${o.active ? 'checked' : ''}> Disponível</label><button class="button button-small button-primary">Salvar</button></form>`).join('')}</div>`;
+  window.scrollTo(0, scrollY);
   document.querySelectorAll('.truffle-card').forEach(form => form.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -27,9 +28,13 @@ async function loadMenu() {
       }
       say('Trufado salvo.');
       await loadMenu();
+      const msg = document.querySelector(`.truffle-card[data-id="${form.dataset.id}"] .truffle-msg`);
+      if (msg) msg.textContent = '✔ Salvo!';
     }
     catch (err) {
       say(err.message);
+      const msg = form.querySelector('.truffle-msg');
+      if (msg) { msg.textContent = err.message; msg.classList.add('error-message'); }
     }
   }));
   document.querySelectorAll('.product-active-row').forEach(form => form.addEventListener('submit', async (e) => {
