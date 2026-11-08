@@ -878,3 +878,14 @@ html[data-theme="dark"] .stock-badge-out{background:#2d2038;color:#c9bad3;border
 .stock-row{grid-template-columns:minmax(150px,1fr) 120px 110px 90px auto}
 .stock-row small.stock-hint{display:block;color:var(--muted);font-size:.7rem;margin-top:2px}
 @media(max-width:620px){.stock-row{grid-template-columns:1fr 1fr}.stock-row>span{grid-column:1/-1}}
+
+/* Painel: card de trufado com os tamanhos dentro */
+.truffle-card{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:12px}
+.truffle-card-head{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px}
+.truffle-card-head>strong{flex:1;min-width:180px}
+.truffle-card-head label{margin:0}
+.truffle-sizes{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.truffle-size{border:1px dashed var(--line);border-radius:10px;padding:10px;display:grid;gap:6px;align-content:start}
+.truffle-size label{margin:0;font-size:.75rem}
+.truffle-size input:not([type=checkbox]){padding:8px}
+.truffle-size small.stock-hint{color:var(--muted);font-size:.7rem}
