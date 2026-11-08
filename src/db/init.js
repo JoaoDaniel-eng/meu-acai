@@ -199,6 +199,9 @@ export async function initializeDatabase() {
   await db.query('CREATE UNIQUE INDEX IF NOT EXISTS products_name_normalized_uidx ON products (LOWER(TRIM(name)))');
   // Compatibilidade com bancos já existentes: adiciona a forma de pagamento sem apagar pedidos.
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_id BIGINT REFERENCES customers(id) ON DELETE SET NULL");
+  // Estoque por unidade (trufados): NULL = sem controle. O pedido guarda o que reservou para devolver no cancelamento.
+  await db.query('ALTER TABLE product_sizes ADD COLUMN IF NOT EXISTS stock_quantity INTEGER CHECK (stock_quantity IS NULL OR stock_quantity >= 0)');
+  await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS unit_stock JSONB NOT NULL DEFAULT '{}'::jsonb");
   await db.query("ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
   await db.query("ALTER TABLE customers ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE");
   await db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(40) NOT NULL DEFAULT 'A combinar'");

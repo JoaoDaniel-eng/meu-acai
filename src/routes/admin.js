@@ -16,6 +16,7 @@ import { buildNoOrdersAlert } from '../services/alerts.js';
 import { buildOrderFilter, ordersToCsv } from '../services/orderSearch.js';
 import { validatePixSetting } from '../services/pix.js';
 import { convertConsumptionToStockUnit, convertStockQuantity, stockUnitFactor, defaultConsumptionUnit } from '../services/inventory.js';
+import { parseUnitStock, reservedToMap, reservedToObject, syncUnitStock, unitsBySize } from '../services/unitStock.js';
 import {
   releasePersonalCoupon,
   buildWelcomeAdminFilter,
@@ -328,6 +329,13 @@ router.patch('/orders/:id/status', async (req, res, next) => {
         }
       }
     }
+    // Estoque por unidade (trufados): ao reativar um pedido cancelado, as unidades voltam a ser reservadas (recusa se já acabaram).
+    if (order.status === 'cancelled' && status !== 'cancelled') {
+      const taken = await syncUnitStock(client, new Map(), unitsBySize(items));
+      if (taken.shortage)
+        throw Object.assign(new Error(`Não dá para reativar: restam ${taken.shortage.left} unidade(s) de ${taken.shortage.productName} (${taken.shortage.sizeName}). Ajuste o estoque do cardápio e tente de novo.`), { status: 409 });
+      await client.query('UPDATE orders SET unit_stock=$1::jsonb WHERE id=$2', [JSON.stringify(reservedToObject(taken.reserved)), order.id]);
+    }
     if (status === 'preparing' && order.status !== 'preparing') {
       const prior = await client.query("SELECT 1 FROM inventory_movements WHERE order_id=$1 AND movement_type='consumo' LIMIT 1", [order.id]);
       const recipes = await client.query(`SELECT r.*,i.name,i.unit,i.quantity AS stock FROM inventory_recipes r JOIN inventory_items i ON i.id=r.inventory_item_id WHERE i.active=true`);
@@ -382,6 +390,14 @@ router.patch('/orders/:id/status', async (req, res, next) => {
         await client.query('UPDATE inventory_items SET quantity=quantity+$1,updated_at=NOW() WHERE id=$2', [m.quantity, m.inventory_item_id]);
         await client.query('UPDATE options o SET active=CASE WHEN i.auto_disable THEN TRUE ELSE o.active END FROM inventory_items i WHERE i.id=$1 AND o.id=i.option_id', [m.inventory_item_id]);
         await client.query(`INSERT INTO inventory_movements(inventory_item_id,movement_type,quantity,unit_cost,reason,order_id,idempotency_key) VALUES($1,'devolucao',$2,$3,'Devolução por cancelamento',$4,$5) ON CONFLICT(idempotency_key) DO NOTHING`, [m.inventory_item_id, m.quantity, m.unit_cost, order.id, `order-${order.id}-return-${m.inventory_item_id}`]);
+      }
+    }
+    // Estoque por unidade (trufados): cancelar devolve exatamente o que o pedido tinha reservado.
+    if (status === 'cancelled' && order.status !== 'cancelled') {
+      const held = reservedToMap(order.unit_stock);
+      if (held.size) {
+        await syncUnitStock(client, held, new Map());
+        await client.query("UPDATE orders SET unit_stock='{}'::jsonb WHERE id=$1", [order.id]);
       }
     }
     // Cancelou: o cupom pessoal que estava preso a este pedido volta para o cliente.
@@ -498,7 +514,7 @@ router.post('/reviews/migrate-photos', async (_req, res, next) => {
 router.get('/menu', async (_req, res, next) => {
   try {
     const db = getPool();
-    const [p, s, o] = await Promise.all([db.query('SELECT * FROM products ORDER BY sort_order,id'), db.query('SELECT s.*,p.name AS product_name FROM product_sizes s JOIN products p ON p.id=s.product_id ORDER BY p.sort_order,s.sort_order,s.id'), db.query('SELECT * FROM options ORDER BY category,sort_order,id')]);
+    const [p, s, o] = await Promise.all([db.query('SELECT * FROM products ORDER BY sort_order,id'), db.query('SELECT s.*,p.name AS product_name,p.product_type FROM product_sizes s JOIN products p ON p.id=s.product_id ORDER BY p.sort_order,s.sort_order,s.id'), db.query('SELECT * FROM options ORDER BY category,sort_order,id')]);
     res.json({ products: p.rows, sizes: s.rows, options: o.rows });
   }
   catch (e) {
@@ -510,7 +526,11 @@ router.patch('/menu/sizes/:id', async (req, res, next) => {
     const price = Number(req.body.priceCents);
     if (!Number.isInteger(price) || price < 0 || price > 500000)
       return res.status(400).json({ error: 'Preço inválido.' });
-    const r = await getPool().query('UPDATE product_sizes SET price_cents=$1,active=COALESCE($2,active) WHERE id=$3 RETURNING *', [price, typeof req.body.active === 'boolean' ? req.body.active : null, Number(req.params.id)]);
+    // Estoque por unidade: só muda quando o painel envia `stockQuantity` (vazio/null = sem controle). Quem não envia não mexe no saldo.
+    const hasStock = Object.hasOwn(req.body, 'stockQuantity'), stock = parseUnitStock(req.body.stockQuantity);
+    if (hasStock && stock.error)
+      return res.status(400).json({ error: stock.error });
+    const r = await getPool().query('UPDATE product_sizes SET price_cents=$1,active=COALESCE($2,active),stock_quantity=CASE WHEN $4 THEN $5::int ELSE stock_quantity END WHERE id=$3 RETURNING *', [price, typeof req.body.active === 'boolean' ? req.body.active : null, Number(req.params.id), hasStock, hasStock ? stock.value : null]);
     if (!r.rowCount)
       return res.status(404).json({ error: 'Tamanho não encontrado.' });
     res.json(r.rows[0]);
@@ -560,13 +580,18 @@ router.delete('/orders/:id', async (req, res, next) => {
     const client = await getPool().connect();
     try {
       await client.query('BEGIN');
-      const r = await client.query('DELETE FROM orders WHERE id=$1 RETURNING order_code,status', [id]);
+      const r = await client.query('DELETE FROM orders WHERE id=$1 RETURNING order_code,status,unit_stock', [id]);
       if (!r.rowCount) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Pedido não encontrado.' });
       }
-      if (r.rows[0].status !== 'delivered')
+      if (r.rows[0].status !== 'delivered') {
         await releasePersonalCoupon(client, id);
+        // Pedido apagado antes de entregar: as unidades reservadas voltam para o estoque (cancelado já devolveu, então não duplica).
+        const held = reservedToMap(r.rows[0].unit_stock);
+        if (held.size)
+          await syncUnitStock(client, held, new Map());
+      }
       await client.query('COMMIT');
       res.json({ ok: true, orderCode: r.rows[0].order_code });
     }

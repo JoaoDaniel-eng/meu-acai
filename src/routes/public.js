@@ -3,6 +3,7 @@ import { getPool } from '../db/pool.js';
 import { getSettings, isOpenAt } from '../services/store.js';
 import { comboRules, freeDeliveryMinCents, MAX_SPOONS, priceOrder, SPOON_PRICE_CENTS } from '../services/pricing.js';
 import { soldOutSizeIds } from '../services/inventory.js';
+import { unitStockState } from '../services/unitStock.js';
 import { parseReviewPhoto, photoBufferFromDataUrl, createRateLimiter } from '../services/reviews.js';
 import { getPhotoStorage, uploadPhoto, downloadPhoto } from '../services/photoStorage.js';
 import { createAttemptLimiter } from '../services/rateLimit.js';
@@ -52,14 +53,18 @@ router.get('/menu', async (_req, res, next) => {
     const db = getPool();
     const [p, s, o, z, stock] = await Promise.all([
       db.query('SELECT id,name,description,product_type AS type,image_url,active FROM products WHERE active=true ORDER BY sort_order,id'),
-      db.query('SELECT s.id,s.product_id,s.name,s.price_cents AS price,p.name AS product_name FROM product_sizes s JOIN products p ON p.id=s.product_id WHERE s.active=true ORDER BY s.sort_order,s.id'),
+      db.query('SELECT s.id,s.product_id,s.name,s.price_cents AS price,s.stock_quantity,p.name AS product_name FROM product_sizes s JOIN products p ON p.id=s.product_id WHERE s.active=true ORDER BY s.sort_order,s.id'),
       db.query('SELECT id,name,category,price_cents AS price FROM options WHERE active=true ORDER BY sort_order,id'),
       db.query('SELECT id,name,fee_cents AS fee FROM delivery_zones WHERE active=true ORDER BY name'),
       // Receitas por tamanho x saldo: tamanho cujo ingrediente não cobre nem um copo aparece como esgotado.
       db.query('SELECT r.size_id,r.quantity,i.quantity AS stock FROM inventory_recipes r JOIN inventory_items i ON i.id=r.inventory_item_id WHERE r.size_id IS NOT NULL AND i.active=true')
     ]);
     const soldOut = soldOutSizeIds(stock.rows);
-    res.json({ products: p.rows.map(product => ({ ...product, sizes: s.rows.filter(x => x.product_id === product.id).map(x => ({ ...x, soldOut: soldOut.has(Number(x.id)) })) })), options: o.rows, zones: z.rows });
+    res.json({ products: p.rows.map(product => ({ ...product, sizes: s.rows.filter(x => x.product_id === product.id).map(({ stock_quantity: stockQuantity, ...x }) => {
+      // Estoque por unidade (trufados): `stock` é null quando o tamanho não é controlado; `stockLabel` traz o aviso "Os 3 últimos!".
+      const unit = unitStockState(stockQuantity);
+      return { ...x, stock: unit.left, stockLabel: unit.label, soldOut: soldOut.has(Number(x.id)) || unit.soldOut };
+    }) })), options: o.rows, zones: z.rows });
   }
   catch (e) {
     next(e);

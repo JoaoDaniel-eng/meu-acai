@@ -37,3 +37,18 @@ Publicar primeiro em ambiente de homologação com Neon e testar cadastro, conve
 - Ao registrar um pedido, o servidor soma todos os copos e recusa (erro 409, mensagem clara) quando o saldo não cobre o pedido inteiro. Isso vale só para ingredientes com consumo por tamanho; consumo fixo (ex.: leite em pó) não bloqueia a venda.
 - Pedidos ainda não iniciados (Novo) **não reservam** estoque: a baixa continua acontecendo em Preparando. Vários pedidos novos ao mesmo tempo podem passar da quantidade; nesse caso o aviso "Estoque insuficiente" aparece ao iniciar a produção.
 - A edição de um pedido pelo cliente não refaz essa conferência.
+
+## Estoque por unidade dos trufados
+Para produtos prontos e contados em unidades (ex.: trufado de Ninho com Morango 400 ml: 10 unidades; 500 ml: 5 unidades), cada **tamanho** tem o campo `product_sizes.stock_quantity`.
+
+**Como a dona usa:** em **Administração → Cardápio → Tamanhos**, cada tamanho de trufado tem o campo **Em estoque (un.)**. Digite quantas unidades estão prontas e clique em **Salvar**. O número digitado é o que está disponível para venda agora (substitui o saldo anterior). Em branco = sem controle (vende sem limite, como antes). Só o campo alterado é enviado: salvar apenas o preço não mexe no estoque.
+
+**Regras:**
+- A baixa é **na hora do pedido** (não em "Preparando"), porque são unidades físicas limitadas: o saldo cai assim que o cliente conclui o pedido. A conferência é atômica no banco: se dois clientes disputam a última unidade, só um leva e o outro recebe a mensagem "acabou" (409).
+- O cliente não consegue colocar no carrinho mais do que existe, e o servidor confere de novo ao registrar o pedido.
+- Com **3 ou menos** unidades, o cardápio mostra **"Os 3 últimos!"** no tamanho (2 → "Os 2 últimos!", 1 → "Último!") e "🔥 Últimas unidades!" no card do sabor. Com 0, o tamanho aparece como **Esgotado** e não pode ser escolhido; se todos os tamanhos do sabor acabam, o card mostra **Esgotado**.
+- Cancelar o pedido (cliente ou painel) **devolve** as unidades. Editar o pedido (cliente) ajusta a diferença. Apagar no painel um pedido ainda não entregue também devolve. Reativar um pedido cancelado reserva de novo (e recusa se não houver mais unidades).
+- O que cada pedido reservou fica em `orders.unit_stock` (ex.: `{"12": 2}`), para devolver exatamente o que saiu, mesmo se a dona mudar o estoque no meio do caminho.
+- Independe do estoque de ingredientes (açaí, leite em pó etc.): os dois controles podem coexistir.
+
+**Banco:** a inicialização adiciona `product_sizes.stock_quantity` (NULL = sem controle) e `orders.unit_stock` (padrão `{}`), sem apagar nada. Backup e restauração incluem as duas colunas. Código: `src/services/unitStock.js`.

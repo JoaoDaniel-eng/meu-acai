@@ -4,6 +4,7 @@ import { getSettings, isOpenAt } from '../services/store.js';
 import { assertWithinOrderLimit, buildOrderItem, comboRules, freeDeliveryMinCents, MAX_SPOONS, parseOptionLayers, parseSpoonQuantity, priceOrder, summarizeItems } from '../services/pricing.js';
 import { createAttemptLimiter } from '../services/rateLimit.js';
 import { findStockShortage } from '../services/inventory.js';
+import { reservedToMap, reservedToObject, shortageMessage, syncUnitStock, unitsBySize } from '../services/unitStock.js';
 import { buildOrderPix } from '../services/pix.js';
 import { makeOrderCode, ORDER_CODE_PATTERN } from '../services/orderCode.js';
 import { validateScheduledAt } from '../services/schedule.js';
@@ -145,8 +146,14 @@ router.post('/orders', async (req, res, next) => {
     const client = await db.connect();
     try {
       await client.query('BEGIN');
-      result = await client.query(`INSERT INTO orders(customer_id,order_code,customer_name,customer_phone,address,neighborhood,notes,scheduled_for,fulfillment,payment_method,change_for,coupon_code,discount_cents,combo_discount_cents,estimated_minutes_min,estimated_minutes_max,items,subtotal_cents,delivery_fee_cents,total_cents,needs_spoon,spoon_quantity,spoon_cents)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING id,order_code,created_at`, [accountId, orderCode, name, customerPhone, addr, zone.name, String(notes).trim().slice(0, 1000), schedule, fulfillment, paymentMethod, cashChangeFor, pricing.couponCode, discount, comboDiscount, estimatedMin, estimatedMax, JSON.stringify(normalized), subtotal, fee, total, spoons > 0, spoons, spoonCents]);
+      // Estoque por unidade (trufados): desconta na hora, de forma atômica. Dois clientes disputando a última unidade: só um leva.
+      const unitSync = await syncUnitStock(client, new Map(), unitsBySize(normalized));
+      if (unitSync.shortage) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: shortageMessage(unitSync.shortage) });
+      }
+      result = await client.query(`INSERT INTO orders(customer_id,order_code,customer_name,customer_phone,address,neighborhood,notes,scheduled_for,fulfillment,payment_method,change_for,coupon_code,discount_cents,combo_discount_cents,estimated_minutes_min,estimated_minutes_max,items,subtotal_cents,delivery_fee_cents,total_cents,needs_spoon,spoon_quantity,spoon_cents,unit_stock)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb) RETURNING id,order_code,created_at`, [accountId, orderCode, name, customerPhone, addr, zone.name, String(notes).trim().slice(0, 1000), schedule, fulfillment, paymentMethod, cashChangeFor, pricing.couponCode, discount, comboDiscount, estimatedMin, estimatedMax, JSON.stringify(normalized), subtotal, fee, total, spoons > 0, spoons, spoonCents, JSON.stringify(reservedToObject(unitSync.reserved))]);
       if (isPersonalCoupon(couponRow) && !(await claimPersonalCoupon(client, { couponId: couponRow.id, customerId: accountId, orderId: result.rows[0].id }))) {
         await client.query('ROLLBACK');
         return res.status(409).json({ error: USED_COUPON_MESSAGE });
@@ -308,7 +315,11 @@ router.patch('/orders/:code/customer', async (req, res, next) => {
       return res.status(400).json({ error: `Quantidade de colheres inválida (de 0 a ${MAX_SPOONS}).` });
     const pricing = priceOrder({ subtotalCents: subtotal, itemCount: editedCount, deliveryFeeCents: zoneFee, combo: comboRules(editSettings), coupon: couponRow, spoons, freeDeliveryMinCents: freeDeliveryMinCents(editSettings) });
     const { comboDiscountCents: comboDiscount, couponDiscountCents: discount, couponCode, totalCents: total, deliveryFeeCents: fee } = pricing;
-    const updated = await db.query(`UPDATE orders SET customer_name=$1,address=$2,neighborhood=$3,notes=$4,scheduled_for=$5,items=$6,subtotal_cents=$7,delivery_fee_cents=$8,discount_cents=$9,coupon_code=$10,combo_discount_cents=$11,total_cents=$12,needs_spoon=$13,spoon_quantity=$14,spoon_cents=$15,updated_at=NOW() WHERE id=$16 RETURNING order_code,status`, [name, address, neighborhood, notes, scheduled, JSON.stringify(normalized), subtotal, fee, discount, couponCode, comboDiscount, total, spoons > 0, spoons, pricing.spoonCents, o.id]);
+    // Estoque por unidade (trufados): devolve o que o pedido tinha reservado e reserva o novo conteúdo, numa só passada (recusa com 409 se não cobrir).
+    const unitSync = await syncUnitStock(client, reservedToMap(o.unit_stock), unitsBySize(normalized));
+    if (unitSync.shortage)
+      return res.status(409).json({ error: shortageMessage(unitSync.shortage) });
+    const updated = await db.query(`UPDATE orders SET customer_name=$1,address=$2,neighborhood=$3,notes=$4,scheduled_for=$5,items=$6,subtotal_cents=$7,delivery_fee_cents=$8,discount_cents=$9,coupon_code=$10,combo_discount_cents=$11,total_cents=$12,needs_spoon=$13,spoon_quantity=$14,spoon_cents=$15,unit_stock=$17::jsonb,updated_at=NOW() WHERE id=$16 RETURNING order_code,status`, [name, address, neighborhood, notes, scheduled, JSON.stringify(normalized), subtotal, fee, discount, couponCode, comboDiscount, total, spoons > 0, spoons, pricing.spoonCents, o.id, JSON.stringify(reservedToObject(unitSync.reserved))]);
     // Se a edição deixou o pedido sem o cupom (ex.: subtotal abaixo do mínimo), o cupom pessoal volta para o cliente.
     if (o.coupon_code && !couponCode)
       await releasePersonalCoupon(client, o.id);
@@ -354,7 +365,11 @@ router.post('/orders/:code/cancel', async (req, res, next) => {
       await client.query('UPDATE options o SET active=CASE WHEN i.auto_disable THEN i.quantity>0 ELSE o.active END FROM inventory_items i WHERE i.id=$1 AND o.id=i.option_id', [movement.inventory_item_id]);
       await client.query("INSERT INTO inventory_movements(inventory_item_id,movement_type,quantity,unit_cost,reason,order_id,idempotency_key) VALUES($1,'devolucao',$2,$3,'Devolução por cancelamento do cliente',$4,$5) ON CONFLICT(idempotency_key) DO NOTHING", [movement.inventory_item_id, movement.quantity, movement.unit_cost, order.id, key]);
     }
-    const updated = await client.query("UPDATE orders SET status='cancelled',updated_at=NOW() WHERE id=$1 RETURNING order_code,customer_name,customer_phone,total_cents", [order.id]);
+    // Estoque por unidade (trufados): o cancelamento devolve as unidades que o pedido tinha reservado.
+    const held = reservedToMap(order.unit_stock);
+    if (held.size)
+      await syncUnitStock(client, held, new Map());
+    const updated = await client.query("UPDATE orders SET status='cancelled',unit_stock='{}'::jsonb,updated_at=NOW() WHERE id=$1 RETURNING order_code,customer_name,customer_phone,total_cents", [order.id]);
     // Cupom pessoal preso a este pedido volta a ficar disponível (sem efeito se o pedido não usou cupom pessoal).
     await releasePersonalCoupon(client, order.id);
     await client.query('COMMIT');

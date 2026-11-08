@@ -225,3 +225,14 @@ A tela chega na 3.3b; por enquanto confira a rota (use o token do painel, que fi
 7. Em **Acompanhe seu pedido**: aparece "Colher: 2 colheres (R$ 0,20)". Em "Editar dados da entrega" dá para mudar a quantidade; o total é recalculado e as colheres continuam no pedido ao editar os itens.
 8. Baixe a planilha (CSV): a última coluna é **Colheres** (quantidade).
 9. Em bancos já existentes, as colunas são criadas sozinhas na próxima inicialização (pedidos antigos feitos com "Sim" viram 1 colher; os demais ficam em 0).
+
+### Estoque por unidade dos trufados
+1. No painel, **Cardápio → Tamanhos**: nos tamanhos de trufado aparece **Em estoque (un.)**. Informe 10 no Ninho com Morango 400 ml e 5 no 500 ml e salve. Abaixo do nome aparece "10 disponíveis".
+2. No site, aba **Açaís Trufados**: nenhum aviso aparece (mais de 3 unidades). Tente adicionar 11 do 400 ml: recusa dizendo que só há 10.
+3. Faça um pedido de 1 do 400 ml. No painel o estoque vira **9**. Faça outro de 6: vira **3** e o site passa a mostrar **Os 3 últimos!** no tamanho e **🔥 Últimas unidades!** no sabor.
+4. Reduza para 1: o aviso vira **Último!**. Zere: o tamanho fica **Esgotado** e não clica; zerando todos os tamanhos do sabor, o card mostra **Esgotado**.
+5. Cancele um pedido (em **Acompanhe seu pedido** ou no painel): as unidades voltam ao estoque. Reative o pedido cancelado no painel: desconta de novo (e recusa se não houver unidades).
+6. Edite um pedido novo trocando 3 por 1: o estoque devolve 2. Tente editar para mais do que existe: recusa com mensagem clara.
+7. Com 1 unidade restante, abra o site em duas abas/aparelhos e finalize o pedido nas duas ao mesmo tempo: só uma conclui; a outra recebe "acabou" e o cardápio é atualizado.
+8. Salve só o preço de um tamanho com a tela aberta há tempo: o estoque **não** é sobrescrito (só vai o campo que foi alterado). Esvazie o campo e salve: volta a "Sem controle de estoque".
+9. Faça backup e restaure em homologação: estoque dos tamanhos e unidades reservadas dos pedidos voltam iguais.
