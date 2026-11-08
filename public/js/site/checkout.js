@@ -366,6 +366,74 @@ $('#apply-coupon').addEventListener('click', async () => {
   }
 });
 $('#coupon-code').addEventListener('input', () => { appliedCoupon = null; $('#coupon-message').textContent = ''; renderCart(); });
+// Aviso em vermelho com tudo o que o cliente esqueceu de preencher no pedido.
+let checkoutAttempted = false;
+function checkoutProblems() {
+  const f = $('#checkout-form'), el = n => f.elements[n];
+  const val = n => String(el(n)?.value || '').trim();
+  const list = [];
+  const add = (node, text) => list.push({ node, text });
+  if (val('customerName').length < 2) add(el('customerName'), 'Seu nome');
+  const digits = val('phone').replace(/\D/g, '');
+  if (!digits) add(el('phone'), 'WhatsApp / telefone (com DDD)');
+  else if (digits.length < 10) add(el('phone'), 'WhatsApp / telefone incompleto (digite o DDD e o número)');
+  if (!isPickup()) {
+    if (val('address').length < 6) add(el('address'), 'Endereço completo (rua, número e complemento)');
+    if (!val('zoneId')) add(el('zoneId'), 'Bairro (para calcular o frete)');
+  }
+  if (!val('paymentMethod')) add(el('paymentMethod'), 'Forma de pagamento');
+  if (val('paymentMethod') === 'Dinheiro') {
+    if (!val('needsChange')) add(el('needsChange'), 'Se precisa de troco');
+    else if (val('needsChange') === 'yes' && !val('changeFor')) add(el('changeFor'), 'Troco para quanto');
+  }
+  if ($('#order-time').value === 'scheduled' && scheduleDays.length) {
+    if (!$('#schedule-day').value) add($('#schedule-day'), 'Dia do agendamento');
+    if (!$('#schedule-time').value) add($('#schedule-time'), 'Horário do agendamento');
+  }
+  return list;
+}
+function showCheckoutProblems(scrollToBox) {
+  const f = $('#checkout-form');
+  let box = $('#checkout-missing');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'checkout-missing';
+    box.className = 'checkout-missing hidden';
+    box.setAttribute('role', 'alert');
+    $('#submit-order').before(box);
+  }
+  f.querySelectorAll('.field-invalid').forEach(n => n.classList.remove('field-invalid'));
+  const problems = checkoutProblems();
+  problems.forEach(p => p.node?.classList.add('field-invalid'));
+  const sig = problems.map(p => p.text).join('|');
+  if (sig !== box.dataset.sig) {
+    box.dataset.sig = sig;
+    box.replaceChildren();
+    if (problems.length) {
+      const title = document.createElement('strong');
+      title.textContent = problems.length === 1 ? 'Falta 1 informação para fazer o pedido:' : `Faltam ${problems.length} informações para fazer o pedido:`;
+      const ul = document.createElement('ul');
+      problems.forEach(p => {
+        const li = document.createElement('li'), b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = p.text;
+        b.addEventListener('click', () => {
+          p.node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          p.node.focus({ preventScroll: true });
+        });
+        li.append(b);
+        ul.append(li);
+      });
+      box.append(title, ul);
+    }
+  }
+  box.classList.toggle('hidden', !problems.length);
+  if (scrollToBox && problems.length) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  return problems;
+}
+// Depois da primeira tentativa, a lista acompanha o cliente: some item por item conforme ele preenche.
+$('#checkout-form').addEventListener('input', () => { if (checkoutAttempted) showCheckoutProblems(false); });
+$('#checkout-form').addEventListener('change', () => { if (checkoutAttempted) showCheckoutProblems(false); });
 $('#checkout-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.currentTarget;
@@ -376,6 +444,8 @@ $('#checkout-form').addEventListener('submit', async (e) => {
     msg.textContent = 'Adicione pelo menos um açaí ao pedido.';
     return;
   }
+  checkoutAttempted = true;
+  if (showCheckoutProblems(true).length) return;
   if ($('#order-time').value === 'scheduled' && !$('#scheduled-for').value) {
     msg.textContent = scheduleDays.length ? 'Escolha o dia e o horário do agendamento.' : 'Não há horários disponíveis para agendar agora. Escolha outra opção ou fale com a loja pelo WhatsApp.';
     return;
@@ -414,6 +484,7 @@ Forma de pagamento: ${order.paymentMethod}${order.pix ? '\nValor do Pix: ' + brl
     showWhatsappStep(msg, order, waUrl);
     // Se o navegador deixou abrir o WhatsApp sozinho, avisa a loja que o cliente chegou lá.
     if (window.open(waUrl, '_blank', 'noopener,noreferrer')) markWhatsappOpened(order.orderCode, order.phone);
+    checkoutAttempted = false;
     form.reset();
     syncFulfillment();
     $('#schedule-label').classList.add('hidden');

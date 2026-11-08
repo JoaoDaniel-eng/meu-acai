@@ -991,3 +991,13 @@ html[data-theme="dark"] .stock-badge-out{background:#2d2038;color:#c9bad3;border
   .tracking-form, .tracking-card, .review-form { padding: 14px; }
   footer { padding: 18px 14px; }
 }
+
+/* ===== Aviso em vermelho: o que faltou preencher no pedido ===== */
+.checkout-missing{margin:4px 0 12px;padding:12px 14px;border:2px solid #c62828;border-radius:12px;background:#fff1f1;color:#b42318;font-size:.88rem}
+.checkout-missing strong{display:block;margin-bottom:6px;font-weight:800}
+.checkout-missing ul{margin:0;padding-left:20px}
+.checkout-missing li{margin:3px 0}
+.checkout-missing button{border:0;background:none;padding:2px 0;color:inherit;font:inherit;font-weight:600;text-align:left;text-decoration:underline;cursor:pointer;min-height:0}
+.field-invalid{border-color:#c62828!important;background:#fff1f1!important;box-shadow:0 0 0 3px rgba(198,40,40,.14)!important}
+html[data-theme="dark"] .checkout-missing{background:#3a1218;border-color:#ef5350;color:#ffb4ab}
+html[data-theme="dark"] .field-invalid{border-color:#ef5350!important;background:#3a1218!important}
