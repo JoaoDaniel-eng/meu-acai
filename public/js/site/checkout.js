@@ -46,16 +46,38 @@ async function load() {
   }
   await loadReviews();
 }
+// Aviso de estoque por unidade no card do sabor: esgotado em todos os tamanhos, ou algum tamanho nas últimas unidades.
+function truffleFlavorBadge(p) {
+  if (p.sizes.every(size => size.soldOut)) return '<em class="stock-badge stock-badge-out">Esgotado</em>';
+  if (p.sizes.some(size => size.stockLabel && !size.soldOut)) return '<em class="stock-badge">🔥 Últimas unidades!</em>';
+  return '';
+}
 function renderTruffledMenu() {
   const products = menu.products.filter(p => p.type === 'truffled' && Array.isArray(p.sizes) && p.sizes.length);
-  $('#truffled-flavors').innerHTML = products.map(p => `<button type="button" class="truffled-flavor-card ${selectedTruffleProduct?.id === p.id ? 'chosen' : ''}" data-truffle-flavor="${p.id}">${p.image_url ? `<img src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}<strong>${esc(p.name)}</strong><span>Escolher tamanho →</span></button>`).join('');
+  $('#truffled-flavors').innerHTML = products.map(p => `<button type="button" class="truffled-flavor-card ${selectedTruffleProduct?.id === p.id ? 'chosen' : ''}" data-truffle-flavor="${p.id}">${truffleFlavorBadge(p)}${p.image_url ? `<img src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}<strong>${esc(p.name)}</strong><span>Escolher tamanho →</span></button>`).join('');
   if (!products.length) $('#truffled-flavors').innerHTML = '<p class="muted">Nenhum sabor trufado disponível no momento.</p>';
 }
 function renderTruffledSizes() {
   const panel = $('#truffled-sizes');
   if (!selectedTruffleProduct || !Array.isArray(selectedTruffleProduct.sizes) || !selectedTruffleProduct.sizes.length) { panel.classList.add('hidden'); return; }
   panel.classList.remove('hidden');
-  panel.innerHTML = `<h3>${esc(selectedTruffleProduct.name)}</h3><p class="muted">Agora escolha o tamanho:</p><div class="size-grid">${selectedTruffleProduct.sizes.map(size => `<button type="button" class="size-card ${size.soldOut ? 'sold-out' : ''}" data-truffle-size="${size.id}" ${size.soldOut ? 'disabled' : ''}><span>${esc(size.name)}</span><strong>${size.soldOut ? 'Esgotado' : brl(size.price)}</strong></button>`).join('')}</div>`;
+  panel.innerHTML = `<h3>${esc(selectedTruffleProduct.name)}</h3><p class="muted">Agora escolha o tamanho:</p><div class="size-grid">${selectedTruffleProduct.sizes.map(size => `<button type="button" class="size-card ${size.soldOut ? 'sold-out' : ''}" data-truffle-size="${size.id}" ${size.soldOut ? 'disabled' : ''}><span>${esc(size.name)}</span><strong>${size.soldOut ? 'Esgotado' : brl(size.price)}</strong>${size.stockLabel && !size.soldOut ? `<em class="stock-badge">${esc(size.stockLabel)}</em>` : ''}</button>`).join('')}</div><p class="form-message" id="truffle-message" role="status"></p>`;
+}
+function truffleMessage(text) {
+  const m = $('#truffle-message');
+  if (!m) return;
+  m.textContent = text || '';
+  m.classList.toggle('error-message', !!text);
+}
+// Depois de um pedido recusado por falta de unidade, atualiza só os trufados (os tradicionais ficam como estão, para não mexer no montador).
+async function refreshTruffleStock() {
+  try {
+    const fresh = await api('/menu');
+    menu.products = menu.products.map(p => p.type === 'truffled' ? (fresh.products.find(f => f.id === p.id) || p) : p);
+    if (selectedTruffleProduct) selectedTruffleProduct = menu.products.find(p => p.id === selectedTruffleProduct.id) || null;
+    renderTruffledMenu(); renderTruffledSizes();
+  }
+  catch { /* sem rede: o servidor continua conferindo na hora do pedido */ }
 }
 document.addEventListener('click', e => {
   const category = e.target.closest('[data-menu-category]');
@@ -82,6 +104,15 @@ document.addEventListener('click', e => {
     const size = selectedTruffleProduct.sizes.find(x => x.id === Number(truffleSize.dataset.truffleSize));
     if (!size || size.soldOut) return;
     const quantity = Number($('#builder-quantity')?.value || 1);
+    // Estoque por unidade: não deixa o carrinho passar do que a loja tem (o servidor confere de novo ao fechar o pedido).
+    if (size.stock !== null && size.stock !== undefined) {
+      const inCart = cart.filter(item => item.sizeId === size.id).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      if (inCart + quantity > size.stock) {
+        truffleMessage(inCart ? `Você já tem ${inCart} no pedido e só temos ${size.stock} unidade${size.stock === 1 ? '' : 's'} desse tamanho.` : `Só temos ${size.stock} unidade${size.stock === 1 ? '' : 's'} desse tamanho. Diminua a quantidade.`);
+        return;
+      }
+    }
+    truffleMessage('');
     cart.push({ sizeId: size.id, product: selectedTruffleProduct.name, size: size.name, quantity, optionIds: [], options: [], unitPriceCents: Number(size.price), lineTotalCents: Number(size.price) * quantity });
     appliedCoupon = null; $('#coupon-message').textContent = ''; renderCart();
     $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -390,6 +421,7 @@ Forma de pagamento: ${order.paymentMethod}${order.pix ? '\nValor do Pix: ' + brl
   }
   catch (err) {
     msg.textContent = err.message;
+    refreshTruffleStock();
   }
   finally {
     button.disabled = false;

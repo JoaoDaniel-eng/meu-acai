@@ -868,3 +868,13 @@ html[data-theme="dark"] .cash-ok{color:#4ade80}html[data-theme="dark"] .cash-ove
 .order-pickup { color: #ffd166; }
 .estimate-note.free-delivery-won{background:#e6f4df;color:#2d6a1b;font-weight:700}
 html[data-theme="dark"] .estimate-note.free-delivery-won{background:#1f3a1a;color:#b9e6a8}
+
+/* Estoque por unidade (trufados): aviso "Os 3 últimos!" */
+.stock-badge{display:inline-block;align-self:flex-start;font-style:normal;font-size:.72rem;font-weight:700;line-height:1;padding:5px 9px;border-radius:999px;background:#fff1d6;color:#9a4a00;border:1px solid #f3cf8f}
+.stock-badge-out{background:#f3eef5;color:#6b5a74;border-color:#ddd1e3}
+html[data-theme="dark"] .stock-badge{background:#4a3410;color:#fbbf24;border-color:#7a5a1d}
+html[data-theme="dark"] .stock-badge-out{background:#2d2038;color:#c9bad3;border-color:#3a2650}
+.size-card .stock-badge{margin-top:2px}
+.stock-row{grid-template-columns:minmax(150px,1fr) 120px 110px 90px auto}
+.stock-row small.stock-hint{display:block;color:var(--muted);font-size:.7rem;margin-top:2px}
+@media(max-width:620px){.stock-row{grid-template-columns:1fr 1fr}.stock-row>span{grid-column:1/-1}}
