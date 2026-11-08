@@ -889,3 +889,6 @@ html[data-theme="dark"] .stock-badge-out{background:#2d2038;color:#c9bad3;border
 .truffle-size label{margin:0;font-size:.75rem}
 .truffle-size input:not([type=checkbox]){padding:8px}
 .truffle-size small.stock-hint{color:var(--muted);font-size:.7rem}
+.truffle-new{margin:0 0 14px;border:1px dashed var(--line);border-radius:12px;padding:10px 12px}
+.truffle-new>summary{cursor:pointer;font-weight:700;padding:4px 0}
+.truffle-new .truffle-card{border:0;padding:10px 0 0}

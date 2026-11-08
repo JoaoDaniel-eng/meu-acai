@@ -2,9 +2,12 @@
 // Para sair sozinho, sem janela de confirmação, o Chrome da loja deve abrir com --kiosk-printing (ver IMPRESSORA.md).
 const AUTO_PRINT_KEY = 'acaiAutoPrint';
 const autoPrintOn = () => localStorage.getItem(AUTO_PRINT_KEY) === '1';
+const COPIES_KEY = 'acaiTwoCopies', VIA_CLIENTE = 'VIA DO CLIENTE', VIA_VENDEDORA = 'VIA DA VENDEDORA';
+// Duas vias vêm ligadas; só desliga se a dona desmarcar neste aparelho.
+const twoCopiesOn = () => localStorage.getItem(COPIES_KEY) !== '0';
 const pad2 = n => String(n).padStart(2, '0');
 const fmtDateTime = d => { const x = new Date(d); return Number.isNaN(x.getTime()) ? '' : `${pad2(x.getDate())}/${pad2(x.getMonth() + 1)}/${x.getFullYear()} ${pad2(x.getHours())}:${pad2(x.getMinutes())}`; };
-function receiptHtml(o) {
+function receiptBody(o, via) {
   const items = (o.items || []).map(i => {
     const product = i.product && !/tradicional/i.test(i.product) ? `<div class="r-opt">${esc(i.product)}</div>` : '';
     const opts = (i.options || []).map(x => esc(x.name) + (Number(x.layers) > 1 ? ` (${Number(x.layers)} camadas)` : '')).join(', ') || 'sem adicionais';
@@ -23,14 +26,20 @@ function receiptHtml(o) {
   if (Number(o.spoon_quantity) > 0)
     lines.push([`Colher${Number(o.spoon_quantity) > 1 ? 'es' : ''} (${Number(o.spoon_quantity)}x)`, brl(o.spoon_cents)]);
   const totals = lines.map(([a, b]) => `<div class="r-row"><span>${esc(a)}</span><span>${esc(b)}</span></div>`).join('');
-  return `<div class="r-title">AÇAÍ DA ROÇA</div><div class="r-code">${esc(o.order_code)}</div><div class="r-center r-small">${esc(fmtDateTime(o.created_at))}</div><hr class="r-line">${when}<hr class="r-line">`
+  return `<div class="r-title">AÇAÍ DA ROÇA</div>${via ? `<div class="r-via">${esc(via)}</div>` : ''}<div class="r-code">${esc(o.order_code)}</div><div class="r-center r-small">${esc(fmtDateTime(o.created_at))}</div><hr class="r-line">${when}<hr class="r-line">`
     + `<div class="r-label">Cliente</div><div class="r-block">${esc(o.customer_name)}<br>${esc(o.customer_phone)}</div>`
     + (o.fulfillment === 'pickup' ? '<div class="r-box">RETIRADA NA LOJA</div>' : `<div class="r-label">Endereço</div><div class="r-block">${esc(o.address)}${o.neighborhood ? '<br>' + esc(o.neighborhood) : ''}</div>`)
     + `<hr class="r-line"><div class="r-label">Pedido</div>${items}<hr class="r-line">`
     + (Number(o.spoon_quantity) > 0 ? `<div class="r-box">${Number(o.spoon_quantity) === 1 ? 'COLHER' : 'COLHERES'}: ${Number(o.spoon_quantity)}</div>` : '<div class="r-center r-small">Sem colher</div>')
     + (o.notes ? `<div class="r-label">Observações</div><div class="r-block">${esc(o.notes)}</div><hr class="r-line">` : '')
     + `${totals}<div class="r-row r-total"><span>TOTAL</span><span>${brl(o.total_cents)}</span></div><hr class="r-line">`
-    + `<div class="r-label">Pagamento</div><div class="r-block">${pay}</div>${change}<div class="r-center r-small">Obrigado pela preferência!</div>`;
+    + `<div class="r-label">Pagamento</div><div class="r-block">${pay}</div>${change}${via === VIA_VENDEDORA ? '' : '<div class="r-center r-small">Obrigado pela preferência!</div>'}`;
+}
+// Duas vias do mesmo pedido na mesma impressão: a do cliente e a da vendedora, em páginas separadas (a impressora corta entre elas).
+function receiptHtml(o) {
+  if (!twoCopiesOn())
+    return receiptBody(o, '');
+  return [VIA_CLIENTE, VIA_VENDEDORA].map(via => `<div class="r-copy">${receiptBody(o, via)}</div>`).join('');
 }
 function printArea() {
   let el = document.getElementById('print-area');
@@ -101,6 +110,10 @@ document.addEventListener('click', e => {
     printOrder({ ...TEST_ORDER, created_at: new Date().toISOString() });
 });
 document.addEventListener('change', e => {
+  if (e.target.id === 'two-copies') {
+    localStorage.setItem(COPIES_KEY, e.target.checked ? '1' : '0');
+    say(e.target.checked ? 'Cada pedido sai em 2 vias: cliente e vendedora.' : 'Cada pedido sai em 1 via.');
+  }
   if (e.target.id === 'auto-print') {
     localStorage.setItem(AUTO_PRINT_KEY, e.target.checked ? '1' : '0');
     say(e.target.checked ? 'Impressão automática ligada neste aparelho.' : 'Impressão automática desligada.');
@@ -111,6 +124,9 @@ function initAutoPrintToggle() {
   const box = document.getElementById('auto-print');
   if (box)
     box.checked = autoPrintOn();
+  const copies = document.getElementById('two-copies');
+  if (copies)
+    copies.checked = twoCopiesOn();
 }
 if (document.readyState === 'loading')
   document.addEventListener('DOMContentLoaded', initAutoPrintToggle);

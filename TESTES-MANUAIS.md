@@ -236,3 +236,8 @@ A tela chega na 3.3b; por enquanto confira a rota (use o token do painel, que fi
 7. Com 1 unidade restante, abra o site em duas abas/aparelhos e finalize o pedido nas duas ao mesmo tempo: só uma conclui; a outra recebe "acabou" e o cardápio é atualizado.
 8. Salve só o preço de um tamanho com a tela aberta há tempo: o estoque **não** é sobrescrito (só vai o campo que foi alterado). Esvazie o campo e salve: volta a "Sem controle de estoque".
 9. Faça backup e restaure em homologação: estoque dos tamanhos e unidades reservadas dos pedidos voltam iguais.
+
+## Novo sabor trufado (painel)
+1. **Cardápio e preços → Produtos → ➕ Novo sabor trufado**: informe o nome (ex.: Ninho com Oreo), os preços de 400 ml e 500 ml e, se quiser, a quantidade pronta (em branco = sem limite). Clique em **Adicionar sabor**.
+2. O sabor aparece como card em Produtos e na aba **Trufados** do site (disponível). Nome já existente é recusado (erro 409).
+3. Excluir continua pelo botão **Excluir** do card. Atenção: os 5 sabores originais são recriados no próximo reinício do servidor se forem excluídos; sabores novos não.
