@@ -16,6 +16,7 @@ import { buildNoOrdersAlert } from '../services/alerts.js';
 import { buildOrderFilter, ordersToCsv } from '../services/orderSearch.js';
 import { validatePixSetting } from '../services/pix.js';
 import { convertConsumptionToStockUnit, convertStockQuantity, stockUnitFactor, defaultConsumptionUnit } from '../services/inventory.js';
+import { parseNewTruffledFlavor } from '../services/truffledFlavor.js';
 import { parseUnitStock, reservedToMap, reservedToObject, syncUnitStock, unitsBySize } from '../services/unitStock.js';
 import {
   releasePersonalCoupon,
@@ -605,6 +606,37 @@ router.delete('/orders/:id', async (req, res, next) => {
   }
   catch (e) {
     next(e);
+  }
+});
+router.post('/menu/truffled', async (req, res, next) => {
+  const parsed = parseNewTruffledFlavor(req.body);
+  if (parsed.error)
+    return res.status(400).json({ error: parsed.error });
+  const { name, imageUrl, sizes } = parsed.value;
+  let client;
+  try {
+    client = await getPool().connect();
+    await client.query('BEGIN');
+    if ((await client.query('SELECT 1 FROM products WHERE LOWER(TRIM(name))=LOWER(TRIM($1))', [name])).rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Já existe um produto com esse nome.' });
+    }
+    // Novo sabor entra no fim da lista dos trufados.
+    const order = (await client.query("SELECT COALESCE(MAX(sort_order),99)+1 AS next FROM products WHERE product_type='truffled'")).rows[0].next;
+    const product = (await client.query("INSERT INTO products(name,description,product_type,image_url,sort_order) VALUES($1,'Receita predefinida de açaí trufado.','truffled',$2,$3) RETURNING *", [name, imageUrl, order])).rows[0];
+    for (const [index, size] of sizes.entries())
+      await client.query('INSERT INTO product_sizes(product_id,name,price_cents,stock_quantity,sort_order) VALUES($1,$2,$3,$4,$5)', [product.id, size.name, size.priceCents, size.stockQuantity, index]);
+    await client.query('COMMIT');
+    res.status(201).json(product);
+  }
+  catch (e) {
+    await client?.query('ROLLBACK').catch(() => { });
+    if (e.code === '23505')
+      return res.status(409).json({ error: 'Já existe um produto com esse nome.' });
+    next(e);
+  }
+  finally {
+    client?.release();
   }
 });
 router.delete('/menu/products/:id', async (req, res, next) => {
