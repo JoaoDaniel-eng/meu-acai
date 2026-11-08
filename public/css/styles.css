@@ -892,3 +892,102 @@ html[data-theme="dark"] .stock-badge-out{background:#2d2038;color:#c9bad3;border
 .truffle-new{margin:0 0 14px;border:1px dashed var(--line);border-radius:12px;padding:10px 12px}
 .truffle-new>summary{cursor:pointer;font-weight:700;padding:4px 0}
 .truffle-new .truffle-card{border:0;padding:10px 0 0}
+
+/* ===== Interface mais compacta (clientes achavam o site grande demais) =====
+   Só layout/tamanhos: cores, tema escuro e regras de pedido não mudam. */
+
+/* Computador e tablet: menos altura desperdiçada */
+@media (min-width: 621px) {
+  .hero { min-height: 400px; padding-top: 44px; padding-bottom: 44px; }
+  .hero-art { height: 300px; }
+  .section { padding-top: 48px; padding-bottom: 48px; }
+  .section-heading { margin-bottom: 26px; }
+  .form-card { padding: 20px; }
+  .acai-gallery { max-width: 1180px; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .acai-gallery-photo { aspect-ratio: 1 / 1; }
+  .acai-gallery-caption { padding: 14px 16px 16px; }
+  .acai-gallery-caption h3 { font-size: 1.05rem; margin: 9px 0 4px; }
+  .acai-gallery-caption p { font-size: .8rem; }
+}
+@media (min-width: 621px) and (max-width: 900px) {
+  .acai-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Celular */
+@media (max-width: 620px) {
+  /* Topo */
+  .site-header { min-height: 56px; padding: 8px 12px 6px; gap: 6px; }
+  .brand { font-size: 1rem; }
+  .brand-mark { font-size: 1.4rem; }
+  .site-header nav { padding-bottom: 5px; }
+
+  /* Início: título e botão aparecem logo na primeira tela */
+  .hero { padding: 18px 16px 8px; gap: 0; }
+  .hero h1 { font-size: clamp(1.9rem, 9vw, 2.4rem); margin: 8px 0 10px; }
+  .hero-copy > p { font-size: .9rem; margin-bottom: 12px; }
+  .hero-note { margin-top: 10px !important; }
+  .hero-art { height: 170px; width: min(100%, 220px); }
+  .sun { width: 170px; height: 170px; }
+
+  /* Faixa do desconto: só título e botão */
+  .promo-ribbon { margin-top: 12px; padding: 14px 16px; gap: 10px; }
+  .promo-ribbon .eyebrow, .promo-ribbon p { display: none; }
+  .promo-ribbon h2 { font-size: 1.05rem; margin: 0; }
+  .promo-ribbon .button { min-height: 40px; padding: 9px 14px; }
+
+  /* Seções mais juntas */
+  .section { padding: 28px 12px; }
+  .section-heading { margin-bottom: 16px; }
+  .section-heading h2 { font-size: 1.45rem; margin: 4px 0; }
+  .section-heading p { font-size: .85rem; margin-bottom: 0; }
+
+  /* Galeria "Nossos Açaís": vira carrossel de deslizar (antes eram 4 telas empilhadas) */
+  .acai-gallery {
+    display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch; padding: 2px 12px 10px; margin: 0 -12px;
+    scrollbar-width: none;
+  }
+  .acai-gallery::-webkit-scrollbar { display: none; }
+  .acai-gallery-card { flex: 0 0 62%; max-width: 250px; scroll-snap-align: center; }
+  .acai-gallery-photo { aspect-ratio: 1 / 1; }
+  .acai-gallery-caption { padding: 10px 12px 12px; }
+  .acai-gallery-caption p, .gallery-tag { display: none; }
+  .acai-gallery-caption h3 { font-size: .98rem; margin: 0 0 8px; }
+  .gallery-order { min-height: 40px; padding: 8px 10px; font-size: .88rem; }
+  .gallery-cta { margin-top: 6px; }
+  .gallery-cta .button { min-height: 42px; }
+
+  /* Montador do pedido */
+  .menu-category-tabs { margin-bottom: 12px; }
+  .builder { gap: 10px; }
+  .builder-main { gap: 10px; }
+  .form-card, .cart-card { padding: 13px; }
+  .form-card h3, .cart-card h3 { margin-bottom: 10px; }
+  .form-card .muted { font-size: .8rem; margin-bottom: 8px; }
+  .size-grid { gap: 7px; }
+  .size-card { min-height: 66px; padding: 10px; gap: 3px; }
+  .option-grid { gap: 6px; }
+  .option-pill { min-height: 40px; padding: 7px 10px; font-size: .84rem; }
+  .truffled-flavor-grid { gap: 8px; margin: 12px 0; }
+  .truffled-flavor-card { padding: 10px; min-height: 0; gap: 6px; }
+  .truffled-flavor-card img { height: 96px; }
+  .builder-actions { padding: 12px; gap: 10px; }
+  .price-large { font-size: 1.2rem; }
+
+  /* Carrinho e dados de entrega */
+  .cart-items { max-height: none; padding: 6px 0; }
+  .cart-item { padding: 9px 0; }
+  form label { margin-bottom: 9px; gap: 4px; font-size: .8rem; }
+  input, select, textarea { padding: 8px 11px; }
+  textarea { min-height: 64px; }
+  .checkout-note { font-size: .72rem; }
+  .estimate-note { padding: 8px 11px; font-size: .78rem; }
+  .spoon-choice { padding: 8px 12px 10px; margin-bottom: 10px; }
+  .coupon-entry { margin-bottom: 6px; }
+
+  /* Faixas e rodapé */
+  .delivery-strip { padding: 14px; margin-bottom: 20px; }
+  .loyalty-promo { padding: 14px; margin-bottom: 22px; gap: 12px; }
+  .tracking-form, .tracking-card, .review-form { padding: 14px; }
+  footer { padding: 18px 14px; }
+}
