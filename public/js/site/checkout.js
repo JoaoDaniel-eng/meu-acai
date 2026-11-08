@@ -207,7 +207,7 @@ function paintCartNote() {
   another?.classList.toggle('hidden', !inCart);
   note.classList.toggle('is-in-cart', inCart);
   note.textContent = inCart
-    ? `✓ No seu pedido: ${draftItem.quantity}× ${draftItem.size} · ${brl(draftItem.lineTotalCents)}. Pode continuar escolhendo, é só tocar em “Ver meu pedido” quando terminar.`
+    ? `✓ No seu pedido: ${draftItem.quantity}× ${draftItem.size} · ${brl(draftItem.lineTotalCents)}. Pode continuar escolhendo e tocar em “Continuar” quando terminar.`
     : 'Escolha o tamanho e os acompanhamentos: seu açaí entra no pedido automaticamente.';
 }
 function resetBuilder() {
@@ -486,6 +486,7 @@ Forma de pagamento: ${order.paymentMethod}${order.pix ? '\nValor do Pix: ' + brl
     if (window.open(waUrl, '_blank', 'noopener,noreferrer')) markWhatsappOpened(order.orderCode, order.phone);
     checkoutAttempted = false;
     form.reset();
+    restoreSavedDetails();
     syncFulfillment();
     $('#schedule-label').classList.add('hidden');
     syncOrderTimeOptions();

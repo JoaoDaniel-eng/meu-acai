@@ -1001,3 +1001,54 @@ html[data-theme="dark"] .stock-badge-out{background:#2d2038;color:#c9bad3;border
 .field-invalid{border-color:#c62828!important;background:#fff1f1!important;box-shadow:0 0 0 3px rgba(198,40,40,.14)!important}
 html[data-theme="dark"] .checkout-missing{background:#3a1218;border-color:#ef5350;color:#ffb4ab}
 html[data-theme="dark"] .field-invalid{border-color:#ef5350!important;background:#3a1218!important}
+
+/* ===== Pedido em passos (Tamanho → Complementos → Entrega e pagamento) ===== */
+.step-off { display: none !important; }
+#builder.is-stepped { grid-template-columns: minmax(0, 1fr); max-width: 760px; margin-left: auto; margin-right: auto; }
+#builder.is-stepped #view-order { display: none; }
+.builder-sr { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.builder-steps { margin: 0 0 4px; }
+.builder-steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.builder-steps button { width: 100%; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; padding: 8px 4px; border: 0; border-radius: 12px; background: none; color: var(--muted); font: inherit; cursor: pointer; }
+.builder-steps button:focus-visible { outline: 3px solid var(--purple2); outline-offset: 2px; }
+.step-num { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #efe6f4; color: var(--purple2); font-weight: 800; font-size: .85rem; }
+.step-label { font-size: .76rem; font-weight: 600; line-height: 1.15; text-align: center; }
+.builder-steps li.is-active button { color: var(--purple); }
+.builder-steps li.is-active .step-num { background: var(--purple2); color: #fff; }
+.builder-steps li.is-done .step-num { background: var(--green); color: #1d3a0d; }
+.builder-progress { height: 6px; margin-top: 4px; border-radius: 999px; background: #eadff0; overflow: hidden; }
+.builder-progress span { display: block; height: 100%; width: 33.33%; border-radius: inherit; background: linear-gradient(90deg, var(--purple2), var(--green)); transition: width .25s ease; }
+/* Barra de baixo: fica grudada no rodapé da tela enquanto o montador está visível. */
+.builder-nav { grid-column: 1 / -1; position: sticky; bottom: 0; z-index: 36; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; background: rgba(255, 255, 255, .97); box-shadow: 0 -8px 24px rgba(43, 10, 61, .10); }
+.builder-nav-row { display: flex; align-items: center; gap: 10px; }
+.builder-nav-info { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.builder-nav-info span { font-size: .74rem; color: var(--muted); }
+.builder-nav-info strong { font-size: 1.05rem; color: var(--purple); }
+.builder-nav .button { min-height: 48px; padding-left: 18px; padding-right: 18px; white-space: nowrap; }
+.builder-nav .button:disabled { opacity: .7; cursor: progress; }
+.builder-step-message { margin: 0 0 8px; min-height: 0; }
+.builder-step-message:empty { display: none; }
+body.in-builder .mobile-cart-bar { display: none !important; }
+/* Frete logo abaixo do bairro */
+.zone-result { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 14px; margin: -2px 0 12px; padding: 10px 12px; border-radius: 12px; background: rgba(124, 194, 66, .16); color: #2c5a14; font-size: .9rem; font-weight: 600; }
+.zone-result.hidden { display: none; }
+/* Quem já pediu: confere os dados em vez de digitar de novo */
+.saved-summary { margin: 0 0 14px; padding: 14px; border-radius: 14px; background: var(--cream); border: 1px solid #f0dfb8; color: var(--ink); }
+.saved-summary strong { display: block; margin-bottom: 6px; }
+.saved-summary p { margin: 2px 0; font-size: .92rem; overflow-wrap: anywhere; }
+.saved-summary-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.saved-summary-actions .button { min-height: 42px; }
+.saved-summary-actions .link-button { display: inline-block; margin: 0; }
+#checkout-form.saved-collapsed .identity-field { display: none; }
+.save-details small { display: block; color: var(--muted); font-weight: 400; }
+html[data-theme="dark"] .builder-nav { background: rgba(42, 24, 56, .97); border-top-color: #4a2d63; }
+html[data-theme="dark"] .builder-nav-info strong { color: #f0e0fa; }
+html[data-theme="dark"] .builder-nav-info span, html[data-theme="dark"] .builder-steps button, html[data-theme="dark"] .save-details small { color: #c9bad3; }
+html[data-theme="dark"] .builder-steps li.is-active button { color: #f0e0fa; }
+html[data-theme="dark"] .step-num { background: #3b2350; color: #e6d4f2; }
+html[data-theme="dark"] .builder-steps li.is-active .step-num { background: #8a3fb8; color: #fff; }
+html[data-theme="dark"] .builder-progress { background: #3b2350; }
+html[data-theme="dark"] .saved-summary { background: #2a1838; border-color: #4a2d63; color: #e6d4f2; }
+html[data-theme="dark"] .zone-result { background: rgba(124, 194, 66, .18); color: #cfeeb0; }
+@media (prefers-reduced-motion: reduce) { .builder-progress span { transition: none; } }
+@media (max-width: 380px) { .builder-nav .button { padding-left: 12px; padding-right: 12px; } .step-label { font-size: .7rem; } }

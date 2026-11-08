@@ -70,6 +70,8 @@ $('#delivery-prefs-form').addEventListener('submit', e => {
   if (data.zoneId)
     $('#zone-select').value = data.zoneId;
   $('#save-customer-details').checked = true;
+  if (typeof paintSavedSummary === 'function')
+    paintSavedSummary();
   msg.classList.remove('error-message');
   msg.textContent = 'Preferências salvas! Elas já aparecem no seu próximo pedido.';
 });
@@ -81,6 +83,8 @@ $('#prefs-clear').addEventListener('click', () => {
   const f = $('#delivery-prefs-form');
   f.reset();
   $('#save-customer-details').checked = false;
+  if (typeof paintSavedSummary === 'function')
+    paintSavedSummary();
   const msg = $('#prefs-message');
   msg.classList.remove('error-message');
   msg.textContent = 'Dados de entrega apagados deste aparelho.';

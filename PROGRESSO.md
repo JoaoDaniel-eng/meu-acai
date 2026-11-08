@@ -309,3 +309,13 @@
 - Os elementos internos (`#favorites-list`, `#favorites-message`) mantêm os mesmos IDs; carregar, adicionar ao pedido e remover favoritos continuam iguais.
 - Cache atualizado para `menu-fix-5`.
 - Falta: conferir no navegador (abrir/fechar, tema escuro, celular). O atalho "Meus favoritos" do menu lateral só rola até a seção; com o painel fechado ele não abre sozinho (mesmo comportamento de "Meus cupons").
+
+## Pedido em passos, dados salvos e frete na hora (08/11/2026)
+- O pedido agora é dividido em 3 passos: **1 Tamanho**, **2 Complementos** (acompanhamentos, calda, adicionais, mousses, quantidade) e **3 Entrega e pagamento** (itens, totais, cupom e formulário). Indicador de progresso no topo e barra fixa embaixo com "Voltar" e "Continuar" (no passo 3 vira "Fazer pedido", com o total).
+- `public/js/site/builder-steps.js` foi reescrito e ligado ao `index.html`. Só controla o que aparece: preço, limites, carrinho e envio do pedido continuam em `core.js` e `checkout.js`. Se o arquivo não carregar, a página volta a mostrar tudo.
+- Atalhos que levavam ao `#pedido` (barra do carrinho no celular, "Meu pedido", repetir pedido, trufados, aviso de loja fechada) abrem o passo 3.
+- Aba **Açaís Trufados**: não usa os passos 1 e 2; ao escolher o tamanho o cliente cai no passo 3, e "Voltar" mostra o cardápio de trufados.
+- **Dados salvos:** a caixa "Salvar meus dados neste aparelho" continua começando desmarcada. Quem já pediu e salvou vê "Confira seus dados" (nome, telefone, endereço, bairro) com "Alterar dados" e "Não sou eu · apagar dados". O resumo só substitui os campos quando os dados salvos estão completos. Os dados ficam só no `localStorage` do aparelho.
+- **Frete na hora:** ao escolher o bairro aparece logo abaixo dele "Frete para X: R$ …" e "Total com entrega: R$ …" (ou "Grátis" quando vale o frete grátis). A barra de baixo mostra o mesmo total.
+- Versão dos arquivos e do cache do PWA atualizada para `20261108-passos`.
+- Validação: `node --check` em todos os JS alterados; teste de fumaça no Chromium (celular, desktop e tema escuro) com API simulada: 48 verificações passaram. Teste real com PostgreSQL/Neon e em aparelhos reais continua pendente.

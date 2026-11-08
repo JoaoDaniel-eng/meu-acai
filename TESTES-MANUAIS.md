@@ -241,3 +241,15 @@ A tela chega na 3.3b; por enquanto confira a rota (use o token do painel, que fi
 1. **Cardápio e preços → Produtos → ➕ Novo sabor trufado**: informe o nome (ex.: Ninho com Oreo), os preços de 400 ml e 500 ml e, se quiser, a quantidade pronta (em branco = sem limite). Clique em **Adicionar sabor**.
 2. O sabor aparece como card em Produtos e na aba **Trufados** do site (disponível). Nome já existente é recusado (erro 409).
 3. Excluir continua pelo botão **Excluir** do card. Atenção: os 5 sabores originais são recriados no próximo reinício do servidor se forem excluídos; sabores novos não.
+
+## Pedido em passos, dados salvos e frete (08/11/2026)
+1. Abrir o site no celular: aparece só o passo 1 (Tamanho), com indicador de progresso e botão "Continuar" visível. O formulário de entrega não aparece.
+2. Continuar → passo 2: acompanhamentos, calda, adicionais, mousses e quantidade. A barra de baixo mostra itens e total e fica fixa ao rolar.
+3. Continuar → passo 3: itens, totais e formulário. "Voltar" retorna ao passo 2 sem perder as escolhas.
+4. Escolher o bairro: logo abaixo aparecem o frete e o total com entrega. Trocar para "Retirar na loja" some com o frete. Com compra acima do mínimo, mostra "Grátis".
+5. Fazer um pedido marcando "Salvar meus dados neste aparelho". Recarregar a página e ir até o passo 3: deve aparecer "Confira seus dados" com nome, telefone, endereço e bairro; "Alterar dados" abre os campos preenchidos.
+6. "Não sou eu · apagar dados" limpa os campos, desmarca a caixa e apaga os dados do aparelho.
+7. Pedido sem marcar a caixa: ao voltar, os campos vêm vazios e a caixa desmarcada.
+8. Aba "Açaís Trufados": escolher sabor e tamanho leva ao passo 3; "Voltar" mostra os trufados; trocar de aba mostra/esconde os passos 1 e 2.
+9. Tocar em "Meu pedido" no topo ou na barra do carrinho (celular) abre o passo 3.
+10. Tema escuro: conferir leitura do indicador, da barra de baixo, do resumo e da linha de frete.
