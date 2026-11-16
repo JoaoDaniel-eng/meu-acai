@@ -14,7 +14,7 @@ settingsModal.addEventListener('click', e => {
   if (e.target.closest('[data-settings-close]'))
     closeSettings();
 });
-function syncSettingsUI() { const t = currentThemePref(); document.querySelectorAll('[name=theme]').forEach(r => r.checked = r.value === t); const f = currentFontScale(); document.querySelectorAll('[name=fontScale]').forEach(r => r.checked = r.value === f); fillPrefsForm(); syncNotifyUI(); syncPwaUI(); }
+function syncSettingsUI() { const t = currentThemePref(); document.querySelectorAll('[name=theme]').forEach(r => r.checked = r.value === t); const f = currentFontScale(); document.querySelectorAll('[name=fontScale]').forEach(r => r.checked = r.value === f); fillPrefsForm(); syncNotifyUI(); syncDailyPushUI(); syncPwaUI(); }
 document.addEventListener('change', e => {
   if (e.target.name === 'theme')
     applyTheme(e.target.value, true);

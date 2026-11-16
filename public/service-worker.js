@@ -14,6 +14,7 @@ const APP_SHELL = [
   '/js/site/theme.js?v=20261108-passos2',
   '/js/site/sidemenu.js?v=20261108-passos2',
   '/js/site/settings.js?v=20261108-passos2',
+  '/js/site/push.js?v=20261108-passos2',
   '/js/site/cart-storage.js?v=20261108-passos2',
   '/js/site/favorites.js?v=20261108-passos2',
   '/js/site/forgot-password.js?v=20261108-passos2',
@@ -64,4 +65,49 @@ self.addEventListener('fetch', event => {
     }
     return response;
   })));
+});
+
+// ===== Notificações push (novo pedido para o administrador, lembrete diário para clientes) =====
+// O servidor manda um JSON { title, body, url, tag, kind, requireInteraction }. Sempre mostramos a notificação:
+// alguns navegadores (Safari/iOS) cancelam a permissão de quem recebe push sem exibir nada.
+self.addEventListener('push', event => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  const options = {
+    body: String(data.body || ''),
+    icon: '/images/icon-192.png',
+    badge: '/images/icon-192.png',
+    lang: 'pt-BR',
+    data: { url: typeof data.url === 'string' ? data.url : '/' },
+    requireInteraction: data.requireInteraction === true
+  };
+  if (data.tag) {
+    options.tag = String(data.tag);
+    options.renotify = true;
+  }
+  event.waitUntil(self.registration.showNotification(String(data.title || 'Açaí da Roça'), options));
+});
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  // Só abre páginas do próprio site, mesmo que o conteúdo do push traga outro endereço.
+  let target = new URL('/', self.location.origin);
+  try {
+    const wanted = new URL(event.notification.data?.url || '/', self.location.origin);
+    if (wanted.origin === self.location.origin) target = wanted;
+  } catch {}
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const open = windows.find(w => new URL(w.url).pathname === target.pathname);
+    if (open) {
+      await open.focus();
+      // Mesma página, só muda o trecho depois do #: não recarrega.
+      try { if (target.hash && new URL(open.url).hash !== target.hash) await open.navigate(target.href); } catch {}
+      return;
+    }
+    await self.clients.openWindow(target.href);
+  })());
 });

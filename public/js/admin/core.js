@@ -22,6 +22,8 @@ function say(message) {
   }, 5000);
 }
 function logout() {
+  // Este aparelho deixa de receber avisos de pedidos ao sair (o painel pode estar em aparelho compartilhado).
+  if (token && typeof adminPushForget === 'function') adminPushForget(token);
   lastOrderId = null;
   token = '';
   localStorage.removeItem('acaiAdminToken');

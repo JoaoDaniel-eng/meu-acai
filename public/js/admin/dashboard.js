@@ -2,6 +2,7 @@ function switchTab(tab) { currentTab = tab; document.querySelectorAll('.tab').fo
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 async function showDashboard() {
   try {
+    if (typeof paintPush === 'function') paintPush();
     await loadStats();
     loadAlerts();
     $('#login-view').classList.add('hidden');
@@ -56,6 +57,8 @@ async function loadTab(tab) {
       await loadInventory();
     if (tab === 'reviews')
       await loadReviews();
+    if (tab === 'marketing')
+      await loadMarketing();
     if (tab === 'settings')
       await loadSettings();
     if (tab === 'reports')
