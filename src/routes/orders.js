@@ -9,6 +9,7 @@ import { buildOrderPix } from '../services/pix.js';
 import { makeOrderCode, ORDER_CODE_PATTERN } from '../services/orderCode.js';
 import { validateScheduledAt } from '../services/schedule.js';
 import { optionalCustomerId } from '../middleware/auth.js';
+import { notifyAdminsNewOrder } from '../services/push.js';
 import { claimPersonalCoupon, couponProblem, findCouponByCode, findCouponForEdit, isPersonalCoupon, releasePersonalCoupon, USED_COUPON_MESSAGE } from '../services/welcomeCoupon.js';
 const router = Router();
 // Retirada na loja: o cliente não informa endereço nem bairro e não paga frete.
@@ -170,6 +171,9 @@ router.post('/orders', async (req, res, next) => {
     ordersByIp.record(ipKey);
     if (phoneKey)
       ordersByPhone.record(phoneKey);
+    // Avisa o celular/computador do administrador (push). Sem await: o pedido já foi gravado e a resposta ao cliente não pode esperar nem falhar por isso.
+    notifyAdminsNewOrder(db, { orderCode, customerName: name, itemCount, totalCents: total, fulfillment, neighborhood: zone.name, paymentMethod, scheduledFor: schedule })
+      .catch(err => console.error('Falha ao avisar o administrador por push:', err.message));
     res.status(201).json({ id: result.rows[0].id, orderCode, fulfillment, freeDelivery: pricing.freeDelivery, createdAt: result.rows[0].created_at, customerName: name, phone: customerPhone, address: addr, neighborhood: zone.name, notes: String(notes).trim(), scheduledFor: schedule, paymentMethod, changeFor: cashChangeFor, items: normalized, subtotalCents: subtotal, discountCents: discount, comboDiscountCents: comboDiscount, couponCode: pricing.couponCode, estimatedMinutesMin: estimatedMin, estimatedMinutesMax: estimatedMax, deliveryFeeCents: fee, needsSpoon: spoons > 0, spoonQuantity: spoons, spoonCents, totalCents: total, whatsappNumber: String(settings.whatsapp_number || '').replace(/\D/g, ''), pix: paymentMethod === 'Pix' ? buildOrderPix(settings, { amountCents: total, orderCode }) : null });
   }
   catch (e) {

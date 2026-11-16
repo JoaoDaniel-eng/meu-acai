@@ -11,6 +11,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
+    "vapid": "node src/tools/generate-vapid-keys.js",
     "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" \"public/js/**/*.js\" eslint.config.js",
     "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.js\" \"public/js/**/*.js\" eslint.config.js",
     "lint": "eslint ."
@@ -20,7 +21,8 @@
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

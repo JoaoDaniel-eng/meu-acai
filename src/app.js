@@ -7,6 +7,7 @@ import orderRoutes from './routes/orders.js';
 import adminRoutes from './routes/admin.js';
 import devRoutes from './routes/dev.js';
 import customerRoutes from './routes/customers.js';
+import pushRoutes from './routes/push.js';
 import { PricingError } from './services/pricing.js';
 import { getPool } from './db/pool.js';
 import { BUILD_ID, stampVersions, stampServiceWorker } from './services/build.js';
@@ -44,6 +45,7 @@ export function createApp() {
   app.use('/api', publicRoutes);
   app.use('/api', orderRoutes);
   app.use('/api', customerRoutes);
+  app.use('/api/push', pushRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/dev', devRoutes);
   // SEO: endereço público do site. Defina SITE_URL no Render (ex.: https://www.seudominio.com.br); sem ela, usa o endereço da própria requisição.

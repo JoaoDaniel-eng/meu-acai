@@ -145,6 +145,23 @@ PROGRESSO.md
 - `SITE_URL`: endereço público do site, sem barra no final (ex.: `https://acai-da-roca.onrender.com` ou o domínio próprio). Usado em canonical, prévia de compartilhamento (og:), `sitemap.xml` e `robots.txt`. Se faltar, o servidor usa o endereço da própria requisição.
 - `CLOUDINARY_URL`: `cloudinary://API_KEY:API_SECRET@CLOUD_NAME`. Com ela, as fotos das avaliações vão para o Cloudinary (plano gratuito) e o banco guarda só o endereço. Sem ela, as fotos continuam sendo guardadas no banco. Depois de definir, abra Painel → Avaliações e use “Mover fotos para o armazenamento” para levar as fotos antigas.
 
+## Notificações push (novo pedido e lembrete diário)
+Dois avisos que chegam no celular/computador **mesmo com o site ou o painel fechados**:
+- **Administrador:** a cada pedido novo, uma notificação com código, primeiro nome, itens, total, entrega/retirada e pagamento (sem telefone nem endereço). Toque abre o `/admin`.
+- **Cliente:** 1 lembrete por dia com uma mensagem para atrair o pedido de açaí. Só vai para quem ativou em **Configurações → Lembrete diário de açaí**. Sai em dia de funcionamento, no horário definido no painel (padrão 16:30; nunca nos 45 min finais antes de fechar), com a loja não pausada, e **não** vai para quem (com a conta aberta) já pediu no dia. As mensagens ficam em `src/services/dailyMessages.js` (rotacionam por dia; as de frete grátis e combo só entram se essas promoções estiverem ligadas).
+
+**Ativar (uma vez):**
+1. `npm install` (novo pacote: `web-push`; isso também atualiza o `package-lock.json`, então envie o lock novo ao repositório).
+2. `npm run vapid` gera o par de chaves. Cadastre no Render (Environment) e no `.env`: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT` (um `mailto:seu-email` ou o `https://` do site; se faltar, usa `SITE_URL` ou `ADMIN_EMAIL`). **A chave privada é segredo**; se trocar as chaves, aparelhos antigos se recadastram sozinhos na próxima abertura do site, mas o administrador precisa religar o botão.
+3. Faça o deploy. No painel `/admin`, no aparelho que deve receber os pedidos, toque em **📲 Avisos no celular** e aceite a permissão: chega uma notificação de teste. Em **Configurações da loja** há o horário do lembrete, o interruptor e o botão **Enviar prévia para o meu celular**.
+
+**Bom saber:**
+- **iPhone/iPad:** o push só funciona com o app instalado na tela inicial (iOS 16.4 ou mais novo). No navegador comum, o iPhone não recebe.
+- O envio diário roda dentro do servidor. No Render gratuito o serviço dorme quando fica sem acessos; mantenha o monitor do UptimeRobot em `/api/health` (intervalo de 5 min) para ele estar acordado no horário. Se acordar depois do horário, o lembrete sai assim que ele acordar, desde que ainda faltem mais de 45 min para fechar.
+- O agendador só consulta o banco 1–2 vezes por dia, então não impede o Neon de dormir.
+- Sem as chaves VAPID, o recurso fica desligado e o resto do site não muda. Assinaturas que o navegador invalida (app desinstalado, dados limpos) são apagadas automaticamente no próximo envio.
+- Ao sair do painel, o aparelho deixa de receber avisos de pedidos. A política de privacidade já cita as notificações.
+
 ## SEO e loja só de entrega
 - A loja não tem endereço público: o JSON-LD da página usa `areaServed` (Teresópolis) e `sameAs` (Instagram). O `/admin` e a `/api` saem do Google (`noindex` e `X-Robots-Tag`). Para aparecer em buscas locais, crie um Perfil da Empresa no Google marcando “só entrega” (sem exibir endereço).
 - Prévia de link (WhatsApp/Instagram) usa `/images/icon-512.png`; troque por uma foto 1200×630 quando houver.

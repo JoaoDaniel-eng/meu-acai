@@ -8,7 +8,9 @@ import cashRouter from './cash.js';
 import { auditMutations, logLogin } from '../services/audit.js';
 import { versionOf } from '../services/sessionVersion.js';
 import { getSettings } from '../services/store.js';
+import { nudgePushScheduler } from '../services/pushScheduler.js';
 import { calculateLoyaltyPoints } from '../services/promotions.js';
+import { sendToSubscriptions } from '../services/push.js';
 import { photoBufferFromDataUrl } from '../services/reviews.js';
 import { getPhotoStorage, uploadPhoto, downloadPhoto, deletePhoto } from '../services/photoStorage.js';
 import { createAttemptLimiter } from '../services/rateLimit.js';
@@ -67,6 +69,71 @@ router.use(requireAdmin);
 // Registra automaticamente toda mutação administrativa concluída (ver services/audit.js).
 router.use(auditMutations('admin'));
 router.use('/cash', cashRouter);
+
+// ===== Marketing: ofertas, segmentação e campanhas =====
+const marketingAudienceWhere = (audience, alias = 'c') => {
+  if (audience === 'recent') return `AND EXISTS (SELECT 1 FROM orders o WHERE o.customer_id=${alias}.id AND o.status<>'cancelled' AND o.created_at >= NOW()-INTERVAL '30 days')`;
+  if (audience === 'inactive') return `AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id=${alias}.id AND o.status<>'cancelled' AND o.created_at >= NOW()-INTERVAL '30 days')`;
+  if (audience === 'frequent') return `AND (SELECT COUNT(*) FROM orders o WHERE o.customer_id=${alias}.id AND o.status<>'cancelled') >= 3`;
+  return '';
+};
+router.get('/marketing/audience', async (req, res, next) => {
+  try {
+    const audience = ['all','recent','inactive','frequent'].includes(req.query.audience) ? req.query.audience : 'all';
+    const db = getPool(), where = marketingAudienceWhere(audience);
+    const [count, customers, push] = await Promise.all([
+      db.query(`SELECT COUNT(*)::int AS count FROM customers c WHERE TRUE ${where}`),
+      db.query(`SELECT c.id,c.name,c.phone FROM customers c WHERE TRUE ${where} ORDER BY c.created_at DESC LIMIT 500`),
+      db.query(`SELECT COUNT(DISTINCT ps.customer_id)::int AS count FROM push_subscriptions ps JOIN customers c ON c.id=ps.customer_id WHERE ps.role='customer' ${where}`)
+    ]);
+    res.json({ count: count.rows[0].count, pushCount: push.rows[0].count, customers: customers.rows });
+  } catch (e) { next(e); }
+});
+router.get('/marketing/campaigns', async (_req, res, next) => {
+  try {
+    const { rows } = await getPool().query('SELECT * FROM marketing_campaigns ORDER BY created_at DESC LIMIT 50');
+    res.json(rows);
+  } catch (e) { next(e); }
+});
+router.post('/marketing/campaigns', async (req, res, next) => {
+  try {
+    const title = String(req.body.title || '').trim().slice(0,120);
+    const message = String(req.body.message || '').trim().slice(0,1000);
+    const offerPrice = String(req.body.offerPrice || '').trim().slice(0,40);
+    const audience = ['all','recent','inactive','frequent'].includes(req.body.audience) ? req.body.audience : 'all';
+    const offerUrl = String(req.body.offerUrl || '/#cardapio').trim().slice(0,300);
+    if (title.length < 3 || message.length < 5) return res.status(400).json({error:'Informe um título e uma mensagem para a oferta.'});
+    if (!offerUrl.startsWith('/') || offerUrl.startsWith('//')) return res.status(400).json({error:'Link da oferta inválido.'});
+    const startsAt = req.body.startsAt ? new Date(req.body.startsAt) : null, endsAt = req.body.endsAt ? new Date(req.body.endsAt) : null;
+    if ((startsAt && !Number.isFinite(+startsAt)) || (endsAt && !Number.isFinite(+endsAt)) || (startsAt && endsAt && endsAt <= startsAt))
+      return res.status(400).json({error:'Confira o período da oferta.'});
+    const { rows } = await getPool().query(`INSERT INTO marketing_campaigns(title,message,offer_price,offer_url,starts_at,ends_at,audience)
+      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [title,message,offerPrice,offerUrl,startsAt,endsAt,audience]);
+    res.status(201).json(rows[0]);
+  } catch (e) { next(e); }
+});
+router.post('/marketing/campaigns/:id/push', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const db = getPool();
+    const campaign = await db.query('SELECT * FROM marketing_campaigns WHERE id=$1', [id]);
+    if (!campaign.rowCount) return res.status(404).json({error:'Campanha não encontrada.'});
+    const c = campaign.rows[0];
+    const now = Date.now();
+    if ((c.starts_at && new Date(c.starts_at).getTime() > now) || (c.ends_at && new Date(c.ends_at).getTime() < now))
+      return res.status(400).json({error:'Esta oferta ainda não começou ou já terminou.'});
+    const where = marketingAudienceWhere(c.audience);
+    const { rows } = await db.query(`SELECT ps.id,ps.endpoint,ps.p256dh,ps.auth,ps.customer_id,c.name
+      FROM push_subscriptions ps JOIN customers c ON c.id=ps.customer_id
+      WHERE ps.role='customer' ${where}`, []);
+    const result = await sendToSubscriptions(db, rows, row => ({
+      title: `🍇 ${c.title}`, body: `${row.name ? row.name.split(/\s+/)[0] + ', ' : ''}${c.message}`,
+      url: c.offer_url || '/#cardapio', tag: `marketing-${c.id}-${c.id}`, kind:'offer'
+    }), {ttl: 6*3600});
+    await db.query('UPDATE marketing_campaigns SET push_sent=push_sent+$1 WHERE id=$2',[result.sent,id]);
+    res.json({...result, targeted:rows.length});
+  } catch (e) { next(e); }
+});
 router.get('/stats', async (_req, res, next) => {
   try {
     const db = getPool();
@@ -728,7 +795,7 @@ router.patch('/settings', async (req, res, next) => {
     const minEstimate = Number(req.body.estimated_minutes_min ?? currentSettings.estimated_minutes_min ?? 35), maxEstimate = Number(req.body.estimated_minutes_max ?? currentSettings.estimated_minutes_max ?? 55);
     if (Number.isFinite(minEstimate) && Number.isFinite(maxEstimate) && minEstimate > maxEstimate)
       return res.status(400).json({ error: 'O tempo mínimo não pode ser maior que o máximo.' });
-    const allowed = ['manual_closed', 'store_name', 'whatsapp_number', 'opening_days', 'opening_time', 'closing_time', 'minimum_schedule_minutes', 'max_free_toppings', 'combo_min_items', 'combo_discount_percent', 'free_delivery_min', 'estimated_minutes_min', 'estimated_minutes_max', 'pix_key', 'pix_name', 'pix_city'];
+    const allowed = ['manual_closed', 'store_name', 'whatsapp_number', 'opening_days', 'opening_time', 'closing_time', 'minimum_schedule_minutes', 'max_free_toppings', 'combo_min_items', 'combo_discount_percent', 'free_delivery_min', 'estimated_minutes_min', 'estimated_minutes_max', 'pix_key', 'pix_name', 'pix_city', 'push_daily_enabled', 'push_daily_time'];
     const db = getPool();
     const mergedPix = { ...currentSettings, ...Object.fromEntries(['pix_key', 'pix_name', 'pix_city'].filter(k => req.body[k] !== undefined).map(k => [k, String(req.body[k]).trim()])) };
     if (String(mergedPix.pix_key || '').trim() && !(String(mergedPix.pix_name || '').trim() && String(mergedPix.pix_city || '').trim()))
@@ -745,7 +812,9 @@ router.patch('/settings', async (req, res, next) => {
       }
       if (key === 'manual_closed' && !['true', 'false'].includes(value))
         return res.status(400).json({ error: 'Valor de fechamento inválido.' });
-      if (key === 'opening_time' || key === 'closing_time') {
+      if (key === 'push_daily_enabled' && !['true', 'false'].includes(value))
+        return res.status(400).json({ error: 'Valor do lembrete diário inválido.' });
+      if (key === 'opening_time' || key === 'closing_time' || key === 'push_daily_time') {
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value))
           return res.status(400).json({ error: 'Horário inválido.' });
       }
@@ -775,6 +844,7 @@ router.patch('/settings', async (req, res, next) => {
         return res.status(400).json({ error: 'Nome da loja inválido.' });
       await db.query('INSERT INTO settings(key,value,updated_at) VALUES($1,$2,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()', [key, value]);
     }
+    nudgePushScheduler();
     const saved = await getSettings();
     if (Number(saved.estimated_minutes_min || 35) > Number(saved.estimated_minutes_max || 55))
       return res.status(400).json({ error: 'O tempo mínimo não pode ser maior que o máximo.' });

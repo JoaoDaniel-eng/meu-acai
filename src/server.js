@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { createApp } from './app.js';
 import { initializeDatabase } from './db/init.js';
+import { startPushScheduler } from './services/pushScheduler.js';
 const PORT = Number(process.env.PORT || 3000);
 const app = createApp();
 async function start() {
@@ -17,5 +18,8 @@ async function start() {
   else
     console.warn('DATABASE_URL ausente: APIs de dados não estarão disponíveis. Configure o .env.');
   app.listen(PORT, () => console.log(`Açaí da Roça disponível na porta ${PORT}`));
+  // Lembrete diário por push (só liga se houver banco e chaves VAPID).
+  if (process.env.DATABASE_URL)
+    startPushScheduler();
 }
 start();

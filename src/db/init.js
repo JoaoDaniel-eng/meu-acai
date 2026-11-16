@@ -121,6 +121,25 @@ CREATE TABLE IF NOT EXISTS cash_movements (
   created_by VARCHAR(254) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS cash_movements_session_idx ON cash_movements(session_id,created_at);
+-- Aparelhos que aceitaram notificações push. Cliente: a linha existir já significa "quero o lembrete diário" (apagar = desligar).
+-- O mesmo aparelho pode ter uma linha de cliente e uma de administrador (por isso a chave é endpoint + papel).
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id BIGSERIAL PRIMARY KEY, endpoint TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL,
+  role VARCHAR(10) NOT NULL CHECK(role IN ('admin','customer')),
+  admin_id INTEGER REFERENCES admins(id) ON DELETE CASCADE,
+  customer_id BIGINT REFERENCES customers(id) ON DELETE CASCADE,
+  last_daily_date DATE, user_agent VARCHAR(300),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(endpoint, role)
+);
+CREATE INDEX IF NOT EXISTS push_subscriptions_role_idx ON push_subscriptions(role);
+CREATE TABLE IF NOT EXISTS marketing_campaigns (
+ id BIGSERIAL PRIMARY KEY, title VARCHAR(120) NOT NULL, message TEXT NOT NULL,
+ offer_price VARCHAR(40) NOT NULL DEFAULT '', offer_url TEXT NOT NULL DEFAULT '/#cardapio',
+ starts_at TIMESTAMPTZ, ends_at TIMESTAMPTZ, audience VARCHAR(30) NOT NULL DEFAULT 'all',
+ push_sent INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS marketing_campaigns_created_idx ON marketing_campaigns(created_at DESC);
 `;
 const products = [
   { name: 'Açaí tradicional', description: 'Monte do seu jeito com acompanhamentos e caldas.', sizes: [['300 ml', 1200], ['400 ml', 1600], ['500 ml', 1900], ['700 ml', 2300], ['Pote de 1 litro', 3800], ['1 copo especial', 3500]] }
@@ -234,7 +253,8 @@ export async function initializeDatabase() {
   for (const [key, value] of Object.entries({
     manual_closed: 'false', store_name: 'Açaí da Roça', whatsapp_number: process.env.WHATSAPP_NUMBER || '5521969081157',
     timezone: 'America/Sao_Paulo', opening_days: '2,3,4,5,6,0', opening_time: '13:30', closing_time: '22:00',
-    minimum_schedule_minutes: '30', max_free_toppings: '5', combo_min_items: '2', combo_discount_percent: '0', free_delivery_min: '0', estimated_minutes_min: '35', estimated_minutes_max: '55'
+    minimum_schedule_minutes: '30', max_free_toppings: '5', combo_min_items: '2', combo_discount_percent: '0', free_delivery_min: '0', estimated_minutes_min: '35', estimated_minutes_max: '55',
+    push_daily_enabled: 'true', push_daily_time: '16:30'
   }))
     await db.query('INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO NOTHING', [key, value]);
   // A loja não quer o desconto de combo: desliga uma única vez (0%). Se ela quiser religar depois, é só definir no painel: esta regra não roda de novo.
