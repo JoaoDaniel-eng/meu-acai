@@ -64,3 +64,6 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:Poppins,system-u
 .q-done-note{background:#effae4;border-radius:12px;padding:12px;font-size:.9rem;margin:12px 0}
 @media(min-width:520px){.q-grid{grid-template-columns:repeat(3,1fr)}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+
+.q-half-toggle{display:flex;align-items:center;gap:10px;font-weight:600;font-size:.92rem;cursor:pointer;min-height:44px}
+.q-half-toggle input{width:22px;height:22px;accent-color:#5b1a7a}

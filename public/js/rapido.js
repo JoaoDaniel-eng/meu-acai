@@ -6,7 +6,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const LAYER_DISCOUNT_CENTS = 100, MAX_LAYERS = 20;
 const CATEGORY_LABEL = { traditional: '🥣 Açaís Tradicionais', truffled: '🍫 Açaís Trufados', ice_cream: '🍦 Sorvetes' };
 const FLAVOR_TITLE = { truffled: 'Escolha o sabor do trufado', ice_cream: 'Escolha o sabor do sorvete' };
-let store = null, menu = null, category = 'traditional', product = null, size = null, submitting = false;
+let store = null, menu = null, category = 'traditional', product = null, size = null, submitting = false, halfOn = false, halfProduct = null;
 const chosen = new Set(), layers = new Map();
 let cart = [];
 
@@ -33,6 +33,8 @@ function currentProduct() {
 }
 function resetBuilder() {
   size = null;
+  halfOn = false;
+  halfProduct = null;
   chosen.clear();
   layers.clear();
   builderMessage('');
@@ -42,6 +44,20 @@ function renderTabs() {
   const tabs = $('#q-tabs');
   tabs.classList.toggle('hidden', cats.length < 2);
   tabs.innerHTML = cats.map(c => `<button type="button" class="q-tab" role="tab" data-category="${c}" aria-selected="${c === category}">${CATEGORY_LABEL[c]}</button>`).join('');
+}
+const iceName = name => String(name || '').replace(/^Sorvete de\s+/i, '');
+function renderHalf() {
+  const list = productsOf('ice_cream').filter(p => !p.sizes.every(s => s.soldOut)), show = category === 'traditional' && !!size && list.length > 0;
+  $('#q-half-card').classList.toggle('hidden', !show);
+  if (!show) {
+    halfOn = false;
+    halfProduct = null;
+    return;
+  }
+  $('#q-half-toggle').checked = halfOn;
+  const box = $('#q-half-flavors');
+  box.classList.toggle('hidden', !halfOn);
+  box.innerHTML = halfOn ? list.map(p => `<button type="button" class="q-choice ${halfProduct?.id === p.id ? 'chosen' : ''}" data-half="${p.id}" role="radio" aria-checked="${halfProduct?.id === p.id}"><strong>${esc(iceName(p.name))}</strong></button>`).join('') : '';
 }
 function renderBuilder() {
   const flavorCard = $('#q-flavor-card'), withFlavors = category !== 'traditional';
@@ -63,6 +79,7 @@ function renderBuilder() {
   $('#q-extras-cards').classList.toggle('hidden', !showExtras);
   if (showExtras)
     renderOptions();
+  renderHalf();
   $('#q-add-bar').classList.toggle('hidden', !size);
   $('#q-unit-price').textContent = brl(unitPrice());
 }
@@ -128,11 +145,14 @@ function renderCart() {
 function addToCart() {
   if (!size)
     return builderMessage('Escolha o tamanho antes de adicionar.');
+  if (halfOn && !halfProduct)
+    return builderMessage('Escolha o sabor do sorvete da outra metade.');
   const quantity = Math.min(20, Math.max(1, Number($('#q-quantity').value) || 1));
   const opts = hasOptions() ? [...chosen].map(optionById).filter(Boolean) : [];
   const optionLayers = Object.fromEntries(opts.filter(isLayered).map(o => [o.id, layerCount(o.id)]).filter(([, n]) => n > 1));
-  const optionsText = opts.map(o => o.name + (optionLayers[o.id] ? ` (${optionLayers[o.id]} camadas)` : '')).join(', ');
-  cart.push({ sizeId: size.id, quantity, optionIds: opts.map(o => o.id), optionLayers, productName: currentProduct()?.name || size.product_name || 'Açaí', sizeName: size.name, optionsText, unitCents: unitPrice() });
+  const half = halfOn && halfProduct ? halfProduct : null;
+  const optionsText = (half ? `½ açaí + ½ sorvete de ${iceName(half.name)}` + (opts.length ? ' · ' : '') : '') + opts.map(o => o.name + (optionLayers[o.id] ? ` (${optionLayers[o.id]} camadas)` : '')).join(', ');
+  cart.push({ sizeId: size.id, quantity, optionIds: opts.map(o => o.id), optionLayers, halfIceCreamId: half ? half.id : null, productName: currentProduct()?.name || size.product_name || 'Açaí', sizeName: size.name, optionsText, unitCents: unitPrice() });
   resetBuilder();
   if (category !== 'traditional')
     product = null;
@@ -158,7 +178,7 @@ async function submitOrder(e) {
   btn.disabled = true;
   btn.textContent = 'Enviando…';
   try {
-    const order = await api('/quick-orders', { method: 'POST', body: JSON.stringify({ customerName: name, notes: $('#q-notes').value.trim(), items: cart.map(({ sizeId, quantity, optionIds, optionLayers }) => ({ sizeId, quantity, optionIds, optionLayers })) }) });
+    const order = await api('/quick-orders', { method: 'POST', body: JSON.stringify({ customerName: name, notes: $('#q-notes').value.trim(), items: cart.map(({ sizeId, quantity, optionIds, optionLayers, halfIceCreamId }) => ({ sizeId, quantity, optionIds, optionLayers, ...(halfIceCreamId ? { halfIceCreamId } : {}) })) }) });
     showDone(order);
   }
   catch (err) {
@@ -177,7 +197,7 @@ function showDone(order) {
   $('#q-done').classList.remove('hidden');
   $('#q-done-name').textContent = `${order.customerName}, recebemos seu pedido.`;
   $('#q-done-code').textContent = order.orderCode;
-  $('#q-done-items').innerHTML = (order.items || []).map(i => `<div class="q-cart-line"><div><b>${esc(i.quantity)}× ${esc(i.product)} — ${esc(i.size)}</b>${(i.options || []).length ? `<small>${esc(i.options.map(o => o.name + (Number(o.layers) > 1 ? ` (${o.layers} camadas)` : '')).join(', '))}</small>` : ''}</div><strong>${brl(i.lineTotalCents)}</strong></div>`).join('');
+  $('#q-done-items').innerHTML = (order.items || []).map(i => `<div class="q-cart-line"><div><b>${esc(i.quantity)}× ${esc(i.product)} — ${esc(i.size)}</b>${i.halfIceCream ? `<small>½ açaí + ½ sorvete de ${esc(iceName(i.halfIceCream.name))}</small>` : ''}${(i.options || []).length ? `<small>${esc(i.options.map(o => o.name + (Number(o.layers) > 1 ? ` (${o.layers} camadas)` : '')).join(', '))}</small>` : ''}</div><strong>${brl(i.lineTotalCents)}</strong></div>`).join('');
   $('#q-done-total').textContent = brl(order.totalCents);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -213,7 +233,7 @@ async function loadMenu() {
   renderCart();
 }
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-category],[data-product],[data-size],[data-option],[data-remove],#q-add,#q-again');
+  const t = e.target.closest('[data-category],[data-half],[data-product],[data-size],[data-option],[data-remove],#q-add,#q-again');
   if (!t || !menu)
     return;
   if (t.dataset.category) {
@@ -222,6 +242,11 @@ document.addEventListener('click', e => {
     resetBuilder();
     renderTabs();
     renderBuilder();
+  }
+  else if (t.dataset.half) {
+    halfProduct = productsOf('ice_cream').find(p => p.id === Number(t.dataset.half)) || null;
+    builderMessage('');
+    renderHalf();
   }
   else if (t.dataset.product) {
     product = productsOf(category).find(p => p.id === Number(t.dataset.product)) || null;
@@ -245,6 +270,14 @@ document.addEventListener('click', e => {
     newOrder();
 });
 document.addEventListener('change', e => {
+  if (e.target.id === 'q-half-toggle') {
+    halfOn = e.target.checked;
+    if (!halfOn)
+      halfProduct = null;
+    builderMessage('');
+    renderHalf();
+    return;
+  }
   if (e.target.matches('[data-layers]')) {
     const n = Math.min(5, Math.max(1, Math.trunc(Number(e.target.value)) || 1));
     layers.set(Number(e.target.dataset.layers), n);
