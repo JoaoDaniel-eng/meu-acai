@@ -83,3 +83,36 @@ window.addEventListener('load', async () => {
   }
   catch { }
 });
+
+// Convite flutuante: aparece poucos segundos depois que o cliente abre o site. A opção existe em Configurações, mas quase ninguém abre lá.
+// Só aparece para quem ainda não decidiu. Usa o mesmo interruptor das Configurações (mesma lógica de permissão e cadastro).
+// Não chama a permissão do navegador sozinho (o Chrome esconde esse pedido e o iPhone bloqueia): o pedido nativo só abre depois do toque em \"Quero receber\".
+// \"Agora não\" esconde o convite por 7 dias.
+(function pushInvite() {
+  const KEY = 'acaiPushInviteDismissed', HIDE_MS = 7 * 86400000, SHOW_AFTER_MS = 3000;
+  if (!pushSupported() || isIosBrowserTab()) return;
+  try { if (Date.now() - Number(localStorage.getItem(KEY) || 0) < HIDE_MS || localStorage.getItem('acaiDailyPush') === '1') return; } catch { return; }
+  if (Notification.permission !== 'default') return;
+  dailyPushGetConfig().then(config => {
+    if (!config.enabled) return;
+    const box = document.createElement('div');
+    box.className = 'push-invite push-invite-float';
+    box.setAttribute('role', 'region');
+    box.setAttribute('aria-label', 'Receber promoções');
+    box.innerHTML = '<p><strong>🔔 Quer receber nossas promoções?</strong><br><span class="muted">Avisamos no seu celular das ofertas e lembramos de você no fim da tarde. Você desliga quando quiser.</span></p><div class="push-invite-actions"><button type="button" class="button button-green button-small" id="push-invite-yes">Quero receber</button><button type="button" class="button button-outline button-small" id="push-invite-no">Agora não</button></div><p class="form-message" id="push-invite-msg" role="status"></p>';
+    setTimeout(() => { if (document.body.dataset.pushInviteShown) return; document.body.dataset.pushInviteShown = '1'; document.body.appendChild(box); }, SHOW_AFTER_MS);
+    $('#push-invite-no').addEventListener('click', () => { try { localStorage.setItem(KEY, String(Date.now())); } catch { } box.remove(); });
+    $('#push-invite-yes').addEventListener('click', async () => {
+      const toggle = $('#daily-push-toggle'), msg = $('#push-invite-msg'), btn = $('#push-invite-yes');
+      if (!toggle) return;
+      btn.disabled = true;
+      toggle.checked = true;
+      toggle.dispatchEvent(new Event('change', { bubbles: true }));
+      // O interruptor cuida da permissão e do cadastro; aqui só espera o resultado para mostrar no convite.
+      for (let i = 0; i < 40 && toggle.disabled; i++) await new Promise(r => setTimeout(r, 250));
+      await new Promise(r => setTimeout(r, 100));
+      if (localStorage.getItem('acaiDailyPush') === '1') { box.innerHTML = '<p><strong>✅ Pronto!</strong> Você vai receber nossas promoções.</p>'; setTimeout(() => box.remove(), 4000); }
+      else { btn.disabled = false; msg.textContent = $('#daily-push-message')?.textContent || 'Não foi possível ativar agora.'; msg.classList.add('error-message'); }
+    });
+  }).catch(() => { });
+})();

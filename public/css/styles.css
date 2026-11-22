@@ -1059,3 +1059,14 @@ html[data-theme="dark"] .zone-result { background: rgba(124, 194, 66, .18); colo
 .half-ice-card .muted{margin:.5rem 0 0}
 .half-ice-card #half-ice-flavors{margin-top:.9rem}
 .half-ice-line{font-weight:700}
+
+/* Convite para receber promoções (push) */
+.push-invite{margin:1rem auto;max-width:640px;padding:1rem 1.1rem;border-radius:16px;background:var(--cream,#fff4dc);border:1px solid rgba(91,26,122,.25);color:#2b0a3d}
+.push-invite .muted{color:#4a3a55}
+.push-invite p{margin:0 0 .6rem}
+.push-invite-actions{display:flex;flex-wrap:wrap;gap:.5rem}
+
+/* Convite de promoções flutuante (aparece ao abrir o site) */
+.push-invite-float{position:fixed;left:12px;right:12px;bottom:calc(5.5rem + env(safe-area-inset-bottom,0px));margin:0 auto;max-width:420px;z-index:70;box-shadow:0 10px 30px rgba(43,10,61,.35);animation:push-invite-in .35s ease-out}
+@keyframes push-invite-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.push-invite-float{animation:none}}
