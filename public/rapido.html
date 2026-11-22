@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="build" content="__BUILD_ID__"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#321047"><title>Pedido rápido | Açaí da Roça</title><link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32.png?v=3"><link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=3"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/css/rapido.css?v=20261122-rapido1"><script src="/js/rapido.js?v=20261122-rapido1" defer></script></head>
+<body>
+<header class="q-header"><span class="q-brand">🍇 Açaí da <strong>Roça</strong></span><span class="q-badge">⚡ Pedido rápido</span></header>
+<main class="q-main">
+  <p class="q-notice" id="q-status" role="status">Carregando cardápio…</p>
+
+  <section id="q-order" class="hidden">
+    <div class="q-intro"><h1>Peça sem fila</h1><p>Escolha seu açaí, coloque seu nome e envie. Vamos te chamar pelo nome quando estiver pronto. O pagamento é no balcão.</p></div>
+
+    <nav class="q-tabs hidden" id="q-tabs" aria-label="Categorias do cardápio"></nav>
+
+    <div class="q-card hidden" id="q-flavor-card"><h2 id="q-flavor-title">Escolha o sabor</h2><div class="q-grid" id="q-flavors"></div></div>
+    <div class="q-card" id="q-size-card"><h2>Escolha o tamanho</h2><div class="q-grid" id="q-sizes"></div></div>
+    <div id="q-extras-cards" class="hidden">
+      <div class="q-card"><h2>Acompanhamentos grátis <span class="q-counter" id="q-topping-counter">0/5</span></h2><div class="q-pills" id="q-toppings"></div></div>
+      <div class="q-card"><h2>Calda grátis</h2><div class="q-pills" id="q-syrups"></div></div>
+      <div class="q-card" id="q-paid-card"><h2>Adicionais pagos</h2><p class="q-hint">Cada camada a mais custa R$ 1,00 a menos que a primeira.</p><div class="q-pills" id="q-extras"></div><div class="q-pills" id="q-mousses"></div></div>
+    </div>
+
+    <div class="q-add hidden" id="q-add-bar">
+      <div class="q-add-info"><span class="q-muted">Valor de cada</span><strong id="q-unit-price">R$ 0,00</strong></div>
+      <label class="q-qty">Quantidade<select id="q-quantity"></select></label>
+      <button type="button" class="q-btn q-btn-green" id="q-add">+ Adicionar ao pedido</button>
+    </div>
+    <p class="q-error" id="q-builder-msg" role="alert"></p>
+
+    <section class="q-card q-cart" id="q-cart-card" aria-live="polite">
+      <h2>Seu pedido</h2>
+      <div id="q-cart-items"><p class="q-muted">Nada por aqui ainda. Escolha um item acima e toque em “Adicionar ao pedido”.</p></div>
+      <div class="q-total-row hidden" id="q-combo-row"><span>Desconto do combo (estimado)</span><strong id="q-combo">- R$ 0,00</strong></div>
+      <div class="q-total-row q-grand"><span>Total</span><strong id="q-total">R$ 0,00</strong></div>
+      <p class="q-muted">Pagamento no balcão, na hora de retirar.</p>
+    </section>
+
+    <form id="q-form" class="q-card" novalidate>
+      <label>Seu nome
+        <input name="customerName" id="q-name" required minlength="2" maxlength="60" autocomplete="given-name" placeholder="Como devemos te chamar?">
+      </label>
+      <label>Observações (opcional)
+        <textarea name="notes" id="q-notes" rows="3" maxlength="300" placeholder="Ex.: sem granola, calda à parte…"></textarea>
+      </label>
+      <button class="q-btn q-btn-primary q-btn-full" type="submit" id="q-submit">Enviar pedido</button>
+      <p class="q-error" id="q-form-msg" role="alert"></p>
+    </form>
+  </section>
+
+  <section id="q-done" class="q-card q-done hidden" aria-live="polite">
+    <div class="q-done-mark" aria-hidden="true">✅</div>
+    <h1>Pedido enviado!</h1>
+    <p class="q-done-name" id="q-done-name"></p>
+    <p class="q-muted">Código do pedido</p>
+    <p class="q-code" id="q-done-code"></p>
+    <div id="q-done-items" class="q-done-items"></div>
+    <div class="q-total-row q-grand"><span>Total</span><strong id="q-done-total"></strong></div>
+    <p class="q-done-note">Fique por perto: vamos te chamar pelo nome. O pagamento é feito no balcão.</p>
+    <button type="button" class="q-btn q-btn-outline q-btn-full" id="q-again">Fazer outro pedido</button>
+  </section>
+</main>
+</body></html>

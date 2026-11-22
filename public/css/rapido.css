@@ -1,0 +1,66 @@
+/* Pedido rápido (QR code na loja): tela própria, leve e pensada para o celular. */
+:root{--purple:#2b0a3d;--purple2:#5b1a7a;--green:#4f9a1f;--green-bg:#7cc242;--bg:#faf7fb;--ink:#24162b;--muted:#6b6070;--line:#e2d8e8;--white:#fff;--danger:#c62828}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Poppins,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.45}
+.hidden{display:none!important}
+.q-header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:#321047;color:#fff}
+.q-brand{font-size:1.05rem}.q-brand strong{color:#c9f29b}
+.q-badge{background:#c9f29b;color:#1d3a05;border-radius:999px;padding:5px 11px;font-size:.78rem;font-weight:700;white-space:nowrap}
+.q-main{max-width:640px;margin:0 auto;padding:16px 14px 40px}
+.q-intro h1{margin:6px 0 4px;font-size:1.55rem;color:var(--purple)}
+.q-intro p{margin:0 0 14px;color:var(--muted);font-size:.92rem}
+.q-notice{margin:12px 0;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.q-notice.q-off{border-color:#ef9a9a;background:#fff1f1;color:#7a1b1b;font-weight:600}
+.q-card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 12px;box-shadow:0 6px 20px rgba(43,10,61,.05)}
+.q-card h2{margin:0 0 10px;font-size:1.02rem;color:var(--purple);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.q-counter{font-size:.8rem;font-weight:600;background:#f1e8f6;color:var(--purple2);border-radius:999px;padding:2px 10px}
+.q-hint,.q-muted{color:var(--muted);font-size:.82rem;margin:0 0 8px}
+.q-tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;-webkit-overflow-scrolling:touch}
+.q-tab{flex:0 0 auto;border:1px solid var(--line);background:#fff;color:var(--purple);border-radius:999px;padding:10px 16px;font:600 .88rem Poppins,sans-serif;cursor:pointer;min-height:44px}
+.q-tab[aria-selected=true]{background:var(--purple);border-color:var(--purple);color:#fff}
+.q-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.q-choice{position:relative;display:flex;flex-direction:column;gap:3px;border:2px solid var(--line);border-radius:14px;padding:12px;background:#fff;cursor:pointer;min-height:64px;text-align:left;font:inherit;color:inherit}
+.q-choice strong{font-size:.92rem}
+.q-choice span{font-size:.8rem;color:var(--muted)}
+.q-choice .q-price{color:var(--purple2);font-weight:700;font-size:.9rem}
+.q-choice.chosen{border-color:var(--purple2);background:#f6edfb}
+.q-choice.sold-out{opacity:.5;cursor:not-allowed}
+.q-pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.q-pill{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--line);background:#fff;border-radius:999px;padding:9px 14px;font:500 .86rem Poppins,sans-serif;cursor:pointer;min-height:42px;color:var(--ink)}
+.q-pill small{color:var(--muted);font-size:.74rem}
+.q-pill.chosen{border-color:var(--purple2);background:#f6edfb;font-weight:600}
+.q-pill-wrap{display:inline-flex;align-items:center;gap:6px}
+.q-layers{width:62px;border:1px solid var(--line);border-radius:10px;padding:8px 6px;font:inherit;font-size:.82rem;background:#fff}
+.q-add{position:sticky;bottom:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:0 0 10px;box-shadow:0 -6px 20px rgba(43,10,61,.08)}
+.q-add-info{display:flex;flex-direction:column;flex:1 1 90px}
+.q-add-info strong{font-size:1.25rem;color:var(--purple)}
+.q-qty{display:flex;flex-direction:column;font-size:.74rem;color:var(--muted);gap:2px}
+.q-qty select{padding:9px 8px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:.95rem;background:#fff;color:var(--ink)}
+.q-btn{border:0;border-radius:12px;padding:13px 18px;font:700 .92rem Poppins,sans-serif;cursor:pointer;min-height:46px}
+.q-btn:disabled{opacity:.6;cursor:wait}
+.q-btn-green{background:var(--green-bg);color:#183a00}
+.q-btn-primary{background:var(--purple2);color:#fff}
+.q-btn-outline{background:#fff;color:var(--purple2);border:2px solid var(--purple2)}
+.q-btn-full{width:100%}
+.q-error{color:var(--danger);font-weight:600;font-size:.86rem;margin:6px 2px}
+.q-error:empty{display:none}
+.q-cart-line{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.q-cart-line:last-of-type{border-bottom:0}
+.q-cart-line b{display:block;font-size:.92rem}
+.q-cart-line small{display:block;color:var(--muted);font-size:.78rem}
+.q-remove{border:0;background:#fbeaea;color:var(--danger);border-radius:10px;padding:8px 11px;font:600 .78rem Poppins,sans-serif;cursor:pointer;min-height:36px}
+.q-total-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:.92rem}
+.q-grand{font-size:1.15rem;border-top:2px solid var(--line);margin-top:6px;padding-top:10px;color:var(--purple)}
+#q-form label{display:block;font-weight:600;font-size:.88rem;margin-bottom:12px}
+#q-form input,#q-form textarea{display:block;width:100%;margin-top:6px;border:1px solid var(--line);border-radius:12px;padding:13px;font:inherit;font-size:1rem;background:#fff;color:var(--ink)}
+#q-form input:focus,#q-form textarea:focus,.q-choice:focus-visible,.q-pill:focus-visible,.q-tab:focus-visible,.q-btn:focus-visible{outline:3px solid #b98bd6;outline-offset:2px}
+.q-done{text-align:center;padding:26px 18px}
+.q-done h1{margin:4px 0;color:var(--purple)}
+.q-done-mark{font-size:2.6rem}
+.q-done-name{font-size:1.05rem;margin:4px 0 12px}
+.q-code{display:inline-block;margin:0 0 14px;padding:10px 20px;border:2px dashed var(--purple2);border-radius:14px;font-size:1.7rem;font-weight:800;letter-spacing:1px;color:var(--purple2)}
+.q-done-items{text-align:left;margin:0 0 6px}
+.q-done-note{background:#effae4;border-radius:12px;padding:12px;font-size:.9rem;margin:12px 0}
+@media(min-width:520px){.q-grid{grid-template-columns:repeat(3,1fr)}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}

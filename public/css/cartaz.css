@@ -1,0 +1,16 @@
+.poster-body{background:#efe7f3}
+.poster-tools{max-width:210mm;margin:16px auto;padding:0 14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.poster-tools p{margin:0;flex:1 1 240px}
+.poster{width:210mm;max-width:100%;min-height:297mm;margin:0 auto 30px;background:#fff;padding:18mm 14mm;text-align:center;box-shadow:0 10px 30px rgba(43,10,61,.15)}
+.poster-brand{font-size:1.5rem;margin:0;color:#2b0a3d}.poster-brand strong{color:#4f9a1f}
+.poster h1{font-size:3rem;line-height:1.1;margin:12mm 0 8mm;color:#2b0a3d}.poster h1 span{color:#5b1a7a}
+.poster-qr{display:inline-block;padding:6mm;border:3mm solid #2b0a3d;border-radius:8mm;background:#fff}
+.poster-qr svg{display:block;width:min(105mm,68vw);height:auto;aspect-ratio:1}
+.poster-link{font-size:.95rem;color:#6b6070;margin:5mm 0 8mm;word-break:break-all}
+.poster-steps{display:inline-block;text-align:left;font-size:1.25rem;line-height:1.7;margin:0;padding-left:1.4em;color:#24162b}
+@media print{
+  @page{size:A4;margin:0}
+  .poster-body{background:#fff}
+  .poster-tools{display:none}
+  .poster{box-shadow:none;margin:0;width:210mm;min-height:297mm}
+}

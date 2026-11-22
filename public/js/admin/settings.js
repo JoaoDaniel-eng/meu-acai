@@ -1,8 +1,34 @@
+// QR code dos pedidos rápidos: endereço do próprio site + /rapido (gerado aqui, sem serviço externo).
+const quickUrl = () => location.origin + '/rapido';
+function paintQuickQr() {
+  const box = $('#quick-qr'), link = $('#quick-link');
+  if (!box || !link)
+    return;
+  link.textContent = quickUrl();
+  try {
+    box.innerHTML = qrSvg(quickUrl(), 5);
+  }
+  catch {
+    box.textContent = 'Não foi possível gerar o QR code.';
+  }
+}
+$('#quick-copy')?.addEventListener('click', async () => {
+  const msg = $('#quick-copy-msg');
+  try {
+    await navigator.clipboard.writeText(quickUrl());
+    msg.textContent = 'Link copiado.';
+  }
+  catch {
+    msg.textContent = 'Copie manualmente: ' + quickUrl();
+  }
+});
 async function loadSettings() {
   const s = await api('/settings'), f = $('#settings-form');
   for (const key of ['store_name', 'whatsapp_number', 'opening_time', 'closing_time', 'minimum_schedule_minutes', 'max_free_toppings', 'combo_min_items', 'combo_discount_percent', 'free_delivery_min', 'estimated_minutes_min', 'estimated_minutes_max', 'pix_key', 'pix_name', 'pix_city', 'push_daily_time'])
     f.elements[key].value = s[key] || '';
   f.elements.manual_closed.checked = s.manual_closed === 'true';
+  f.elements.quick_orders_enabled.checked = s.quick_orders_enabled === 'true';
+  paintQuickQr();
   f.elements.push_daily_enabled.checked = s.push_daily_enabled !== 'false';
   f.elements.push_daily_time.value = s.push_daily_time || '16:30';
   if (typeof paintPush === 'function') paintPush();
@@ -17,6 +43,7 @@ $('#settings-form').addEventListener('submit', async (e) => {
   for (const key of ['store_name', 'whatsapp_number', 'opening_time', 'closing_time', 'minimum_schedule_minutes', 'max_free_toppings', 'combo_min_items', 'combo_discount_percent', 'free_delivery_min', 'estimated_minutes_min', 'estimated_minutes_max', 'pix_key', 'pix_name', 'pix_city', 'push_daily_time'])
     body[key] = fd.get(key);
   body.manual_closed = f.elements.manual_closed.checked ? 'true' : 'false';
+  body.quick_orders_enabled = f.elements.quick_orders_enabled.checked ? 'true' : 'false';
   body.push_daily_enabled = f.elements.push_daily_enabled.checked ? 'true' : 'false';
   body.opening_days = openingDays.join(',');
   try {

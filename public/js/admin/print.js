@@ -14,24 +14,24 @@ function receiptBody(o, via) {
     const half = i.halfIceCream ? `<div class="r-opt"><strong>1/2 ACAI + 1/2 SORVETE DE ${esc(String(i.halfIceCream.name || '').replace(/^Sorvete de\s+/i, '').toUpperCase())}</strong></div>` : '';
     return `<div class="r-item r-row"><span>${esc(i.quantity)}x ${esc(i.size)}</span><span>${brl(i.lineTotalCents)}</span></div>${product}${half}<div class="r-opt">${opts}</div>`;
   }).join('');
-  const when = o.scheduled_for ? `<div class="r-box">AGENDADO: ${esc(fmtDateTime(o.scheduled_for))}</div>` : `<div class="r-center r-small">${o.fulfillment === 'pickup' ? 'Retirada agora' : 'Entrega agora'}</div>`;
-  const pay = o.payment_method === 'Pix' ? 'PIX (conferir comprovante)' : esc(o.payment_method || 'A combinar');
+  const when = o.scheduled_for ? `<div class="r-box">AGENDADO: ${esc(fmtDateTime(o.scheduled_for))}</div>` : `<div class="r-center r-small">${o.fulfillment === 'quick' ? 'Pedido rápido (na loja)' : o.fulfillment === 'pickup' ? 'Retirada agora' : 'Entrega agora'}</div>`;
+  const pay = o.fulfillment === 'quick' ? 'PAGAR NO BALCAO' : o.payment_method === 'Pix' ? 'PIX (conferir comprovante)' : esc(o.payment_method || 'A combinar');
   const change = o.change_for ? `<div class="r-block">Troco para R$ ${esc(o.change_for)}</div>` : '';
   const lines = [['Subtotal', brl(o.subtotal_cents)]];
   if (Number(o.combo_discount_cents) > 0)
     lines.push(['Desconto combo', `-${brl(o.combo_discount_cents)}`]);
   if (Number(o.discount_cents) > 0)
     lines.push([`Cupom ${o.coupon_code || ''}`.trim(), `-${brl(o.discount_cents)}`]);
-  if (o.fulfillment !== 'pickup')
+  if (o.fulfillment !== 'pickup' && o.fulfillment !== 'quick')
     lines.push([`Entrega${o.neighborhood ? ' (' + o.neighborhood + ')' : ''}`, brl(o.delivery_fee_cents)]);
   if (Number(o.spoon_quantity) > 0)
     lines.push([`Colher${Number(o.spoon_quantity) > 1 ? 'es' : ''} (${Number(o.spoon_quantity)}x)`, brl(o.spoon_cents)]);
   const totals = lines.map(([a, b]) => `<div class="r-row"><span>${esc(a)}</span><span>${esc(b)}</span></div>`).join('');
   return `<div class="r-title">AÇAÍ DA ROÇA</div>${via ? `<div class="r-via">${esc(via)}</div>` : ''}<div class="r-code">${esc(o.order_code)}</div><div class="r-center r-small">${esc(fmtDateTime(o.created_at))}</div><hr class="r-line">${when}<hr class="r-line">`
-    + `<div class="r-label">Cliente</div><div class="r-block">${esc(o.customer_name)}<br>${esc(o.customer_phone)}</div>`
-    + (o.fulfillment === 'pickup' ? '<div class="r-box">RETIRADA NA LOJA</div>' : `<div class="r-label">Endereço</div><div class="r-block">${esc(o.address)}${o.neighborhood ? '<br>' + esc(o.neighborhood) : ''}</div>`)
+    + `<div class="r-label">Cliente</div><div class="r-block">${esc(o.customer_name)}${o.customer_phone ? '<br>' + esc(o.customer_phone) : ''}</div>`
+    + (o.fulfillment === 'quick' ? '<div class="r-box">PEDIDO RÁPIDO - NA LOJA</div>' : o.fulfillment === 'pickup' ? '<div class="r-box">RETIRADA NA LOJA</div>' : `<div class="r-label">Endereço</div><div class="r-block">${esc(o.address)}${o.neighborhood ? '<br>' + esc(o.neighborhood) : ''}</div>`)
     + `<hr class="r-line"><div class="r-label">Pedido</div>${items}<hr class="r-line">`
-    + (Number(o.spoon_quantity) > 0 ? `<div class="r-box">${Number(o.spoon_quantity) === 1 ? 'COLHER' : 'COLHERES'}: ${Number(o.spoon_quantity)}</div>` : '<div class="r-center r-small">Sem colher</div>')
+    + (Number(o.spoon_quantity) > 0 ? `<div class="r-box">${Number(o.spoon_quantity) === 1 ? 'COLHER' : 'COLHERES'}: ${Number(o.spoon_quantity)}</div>` : o.fulfillment === 'quick' ? '' : '<div class="r-center r-small">Sem colher</div>')
     + (o.notes ? `<div class="r-label">Observações</div><div class="r-block">${esc(o.notes)}</div><hr class="r-line">` : '')
     + `${totals}<div class="r-row r-total"><span>TOTAL</span><span>${brl(o.total_cents)}</span></div><hr class="r-line">`
     + `<div class="r-label">Pagamento</div><div class="r-block">${pay}</div>${change}${via === VIA_VENDEDORA ? '' : '<div class="r-center r-small">Obrigado pela preferência!</div>'}`;

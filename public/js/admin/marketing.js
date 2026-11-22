@@ -17,3 +17,23 @@ $('#marketing-form').addEventListener('submit',async e=>{
 });
 $('#marketing-form [name="audience"]').addEventListener('change',()=>loadMarketing().catch(e=>say(e.message)));
 $('#marketing-refresh').addEventListener('click',()=>loadMarketing().catch(e=>say(e.message)));
+
+// Salvar e enviar numa tacada só (o botão 📲 Enviar push da lista de campanhas continua existindo para reenviar depois).
+$('#marketing-send-now').addEventListener('click', async e => {
+  const form = $('#marketing-form'), btn = e.currentTarget;
+  if (!form.reportValidity()) return;
+  const stats = document.querySelector('#marketing-stats strong:nth-of-type(1)');
+  if (!confirm('Salvar esta oferta e enviar agora para os clientes que ativaram as notificações?')) return;
+  btn.disabled = true;
+  let saved = null;
+  try {
+    saved = await api('/marketing/campaigns', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(form).entries())) });
+    const r = await api(`/marketing/campaigns/${saved.id}/push`, { method: 'POST' });
+    say(r.targeted ? `📲 Oferta enviada: ${r.sent} notificação(ões) entregue(s)${r.failed ? `, ${r.failed} falharam` : ''}.` : 'Campanha salva, mas ainda não há aparelhos com notificações ativadas para receber.');
+    form.reset();
+    form.querySelector('[name="offerUrl"]').value = '/#cardapio';
+    await loadMarketing();
+  }
+  catch (err) { say(saved ? `Campanha salva, mas o envio falhou: ${err.message}` : err.message); if (saved) await loadMarketing().catch(() => { }); }
+  finally { btn.disabled = false; }
+});
