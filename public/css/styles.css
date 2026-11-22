@@ -1052,3 +1052,10 @@ html[data-theme="dark"] .saved-summary { background: #2a1838; border-color: #4a2
 html[data-theme="dark"] .zone-result { background: rgba(124, 194, 66, .18); color: #cfeeb0; }
 @media (prefers-reduced-motion: reduce) { .builder-progress span { transition: none; } }
 @media (max-width: 380px) { .builder-nav .button { padding-left: 12px; padding-right: 12px; } .step-label { font-size: .7rem; } }
+
+/* Metade sorvete, metade açaí (aba de açaí tradicional) */
+.half-ice-toggle{display:flex;align-items:center;gap:.6rem;font-weight:700;cursor:pointer}
+.half-ice-toggle input{width:1.25rem;height:1.25rem;accent-color:var(--purple,#5b21b6);flex:none}
+.half-ice-card .muted{margin:.5rem 0 0}
+.half-ice-card #half-ice-flavors{margin-top:.9rem}
+.half-ice-line{font-weight:700}

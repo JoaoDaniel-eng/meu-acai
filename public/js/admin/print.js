@@ -11,7 +11,8 @@ function receiptBody(o, via) {
   const items = (o.items || []).map(i => {
     const product = i.product && !/tradicional/i.test(i.product) ? `<div class="r-opt">${esc(i.product)}</div>` : '';
     const opts = (i.options || []).map(x => esc(x.name) + (Number(x.layers) > 1 ? ` (${Number(x.layers)} camadas)` : '')).join(', ') || 'sem adicionais';
-    return `<div class="r-item r-row"><span>${esc(i.quantity)}x ${esc(i.size)}</span><span>${brl(i.lineTotalCents)}</span></div>${product}<div class="r-opt">${opts}</div>`;
+    const half = i.halfIceCream ? `<div class="r-opt"><strong>1/2 ACAI + 1/2 SORVETE DE ${esc(String(i.halfIceCream.name || '').replace(/^Sorvete de\s+/i, '').toUpperCase())}</strong></div>` : '';
+    return `<div class="r-item r-row"><span>${esc(i.quantity)}x ${esc(i.size)}</span><span>${brl(i.lineTotalCents)}</span></div>${product}${half}<div class="r-opt">${opts}</div>`;
   }).join('');
   const when = o.scheduled_for ? `<div class="r-box">AGENDADO: ${esc(fmtDateTime(o.scheduled_for))}</div>` : `<div class="r-center r-small">${o.fulfillment === 'pickup' ? 'Retirada agora' : 'Entrega agora'}</div>`;
   const pay = o.payment_method === 'Pix' ? 'PIX (conferir comprovante)' : esc(o.payment_method || 'A combinar');

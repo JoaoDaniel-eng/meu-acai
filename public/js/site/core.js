@@ -2,7 +2,7 @@
 const $ = s => document.querySelector(s);
 const brl = c => (Number(c || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let store = null, menu = null, cart = [], selectedSize = null, appliedCoupon = null, selectedTruffleProduct = null;
+let store = null, menu = null, cart = [], selectedSize = null, appliedCoupon = null, selectedTruffleProduct = null, builderCategory = 'traditional', selectedIceCream = null, halfIceOn = false, selectedHalfIce = null;
 const selected = new Set();
 const selectedLayers = new Map();
 async function api(path, opts = {}) {
@@ -52,10 +52,43 @@ function renderOptions(category, target) {
     return isLayered(o) && selected.has(o.id) ? `<div class="option-row has-layers">${pill}${layersField(o)}</div>` : pill;
   }).join('') || '<p class="muted">Nenhuma opção disponível.</p>';
 }
-function traditionalProduct() { return menu.products.find(p => p.type !== 'truffled'); }
+function traditionalProduct() { return menu.products.find(p => (p.type || 'traditional') === 'traditional'); }
+// Sorvete: o montador é o mesmo do açaí, mas o cliente escolhe o sabor (cada sabor é um produto, com seus tamanhos).
+const iceCreamProducts = () => menu.products.filter(p => p.type === 'ice_cream' && Array.isArray(p.sizes) && p.sizes.length);
+// Produto que o montador está usando agora: o açaí tradicional ou o sabor de sorvete escolhido (null enquanto não escolher).
+function builderProduct() {
+  if (builderCategory !== 'ice_cream')
+    return traditionalProduct();
+  return iceCreamProducts().find(p => p.id === selectedIceCream?.id) || null;
+}
+// Metade sorvete (só no açaí tradicional): o cliente liga a opção e escolhe o sabor de sorvete da outra metade. O preço é o do tamanho.
+const halfIceProduct = () => halfIceOn && builderCategory === 'traditional' ? iceCreamProducts().find(p => p.id === selectedHalfIce?.id && !p.sizes.every(s => s.soldOut)) || null : null;
+const halfPending = () => halfIceOn && builderCategory === 'traditional' && !halfIceProduct();
+const iceFlavorName = name => String(name || '').replace(/^Sorvete de\s+/i, '');
+const halfLabel = h => h ? `½ açaí + ½ sorvete de ${iceFlavorName(h.name)}` : '';
+const needSizeMessage = () => builderCategory === 'ice_cream' && !builderProduct() ? 'Escolha o sabor do sorvete para continuar.' : (selectedSize && halfPending() ? 'Escolha o sabor do sorvete da outra metade para continuar.' : 'Escolha um tamanho para continuar.');
+function renderHalfIce() {
+  const card = $('#half-ice-card');
+  if (!card) return;
+  const list = iceCreamProducts(), show = builderCategory === 'traditional' && list.length > 0;
+  card.classList.toggle('hidden', !show);
+  if (!show) return;
+  if (selectedHalfIce && !list.some(p => p.id === selectedHalfIce.id && !p.sizes.every(s => s.soldOut))) selectedHalfIce = null;
+  $('#half-ice-toggle').checked = halfIceOn;
+  const box = $('#half-ice-flavors');
+  box.classList.toggle('hidden', !halfIceOn);
+  box.innerHTML = halfIceOn ? list.map(p => { const out = p.sizes.every(s => s.soldOut), chosen = selectedHalfIce?.id === p.id; return `<label class="size-card ${chosen ? 'chosen' : ''}${out ? ' sold-out' : ''}"><input type="radio" name="half-ice-flavor" data-half-flavor="${p.id}" ${chosen ? 'checked' : ''}${out ? ' disabled' : ''}><span>${esc(iceFlavorName(p.name))}</span>${out ? '<strong>Esgotado</strong>' : ''}</label>`; }).join('') : '';
+}
+function renderIceFlavors() {
+  const list = iceCreamProducts();
+  $('#ice-flavors').innerHTML = list.map(p => { const out = p.sizes.every(s => s.soldOut), chosen = selectedIceCream?.id === p.id; return `<label class="size-card ${chosen ? 'chosen' : ''}${out ? ' sold-out' : ''}"><input type="radio" name="ice-flavor" data-ice-flavor="${p.id}" ${chosen ? 'checked' : ''}${out ? ' disabled' : ''}><span>${esc(p.name.replace(/^Sorvete de /i, ''))}</span>${out ? '<strong>Esgotado</strong>' : ''}</label>`; }).join('') || '<p class="muted">Nenhum sabor de sorvete disponível no momento.</p>';
+}
 function renderBuilder() {
-  const product = traditionalProduct();
-  if (!product) {
+  const ice = builderCategory === 'ice_cream', product = builderProduct();
+  $('#ice-flavor-card')?.classList.toggle('hidden', !ice);
+  if (ice) renderIceFlavors();
+  renderHalfIce();
+  if (!product && !ice) {
     selectedSize = null;
     $('#sizes').innerHTML = '<p class="muted">A categoria de açaís tradicionais não está disponível no momento.</p>';
     ['#toppings', '#syrups', '#extras', '#mousses'].forEach(target => { $(target).innerHTML = '<p class="muted">Opção indisponível.</p>'; });
@@ -63,10 +96,10 @@ function renderBuilder() {
     $('#unit-price').textContent = brl(0);
     return;
   }
-  const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  const sizes = product && Array.isArray(product.sizes) ? product.sizes : [];
   if (selectedSize && sizes.find(x => x.id === selectedSize.id)?.soldOut)
     selectedSize = null;
-  $('#sizes').innerHTML = sizes.length ? sizes.map(s => `<label class="size-card ${selectedSize?.id === s.id ? 'chosen' : ''}${s.soldOut ? ' sold-out' : ''}"><input type="radio" name="size" data-size="${s.id}" ${selectedSize?.id === s.id ? 'checked' : ''}${s.soldOut ? ' disabled' : ''}><span>${esc(s.name)}</span><strong>${s.soldOut ? 'Esgotado' : brl(s.price)}</strong></label>`).join('') : '<p class="muted">Nenhum tamanho tradicional disponível no momento.</p>';
+  $('#sizes').innerHTML = sizes.length ? sizes.map(s => `<label class="size-card ${selectedSize?.id === s.id ? 'chosen' : ''}${s.soldOut ? ' sold-out' : ''}"><input type="radio" name="size" data-size="${s.id}" ${selectedSize?.id === s.id ? 'checked' : ''}${s.soldOut ? ' disabled' : ''}><span>${esc(s.name)}</span><strong>${s.soldOut ? 'Esgotado' : brl(s.price)}</strong></label>`).join('') : '<p class="muted">' + (ice ? (product ? 'Nenhum tamanho disponível para este sabor no momento.' : 'Escolha o sabor do sorvete para ver os tamanhos.') : 'Nenhum tamanho tradicional disponível no momento.') + '</p>';
   renderOptions('topping', '#toppings');
   renderOptions('syrup', '#syrups');
   renderOptions('extra', '#extras');
@@ -79,7 +112,7 @@ const spoonPriceCents = () => Number((typeof store !== 'undefined' && store?.spo
 const maxSpoons = () => Number((typeof store !== 'undefined' && store?.maxSpoons) || 10);
 const spoonCount = () => { const n = Math.floor(Number($('#spoon-quantity')?.value || 0)); return Number.isFinite(n) ? Math.min(maxSpoons(), Math.max(0, n)) : 0; };
 const spoonText = (qty, cents) => Number(qty) > 0 ? `${qty} ${Number(qty) === 1 ? 'colher' : 'colheres'} (${brl(cents)})` : 'Não';
-function renderCart() { const count = cart.reduce((n, i) => n + i.quantity, 0), subtotal = cart.reduce((n, i) => n + i.lineTotalCents, 0), comboDiscount = store && count >= store.comboMinItems ? Math.floor(subtotal * store.comboDiscountPercent / 100) : 0, couponDiscount = appliedCoupon?.discountCents || 0; $('#cart-count').textContent = count; $('#cart-count-side').textContent = `${count} ${count === 1 ? 'item' : 'itens'}`; $('#cart-subtotal').textContent = brl(subtotal); const zoneFee = selectedZoneFee(), spoons = cart.length ? spoonCount() : 0, spoon = spoons * spoonPriceCents(), productsPaid = Math.max(0, subtotal - comboDiscount - couponDiscount), freeMin = Number(store?.freeDeliveryMinCents) || 0, freeShip = freeMin > 0 && !isPickup() && cart.length > 0 && productsPaid >= freeMin, fee = freeShip && zoneFee ? 0 : zoneFee, grand = productsPaid + (fee || 0) + spoon; const freeHint = $('#free-delivery-hint'); if (freeHint) { const show = freeMin > 0 && !isPickup() && cart.length > 0; freeHint.classList.toggle('hidden', !show); freeHint.classList.toggle('free-delivery-won', freeShip); freeHint.textContent = freeShip ? '🎉 Você ganhou frete grátis!' : `🛵 Faltam ${brl(Math.max(0, freeMin - productsPaid))} para ganhar frete grátis (compras a partir de ${brl(freeMin)}).`; }  $('#spoon-row').classList.toggle('hidden', spoon <= 0); $('#spoon-fee').textContent = brl(spoon); $('#spoon-price-label').textContent = `(${brl(spoonPriceCents())} cada)`; $('#spoon-label').textContent = spoons > 1 ? `Colheres (${spoons}×)` : 'Colher'; $('#spoon-hint').textContent = spoonCount() > 0 ? `${spoonCount()} ${spoonCount() === 1 ? 'colher' : 'colheres'} · ${brl(spoonCount() * spoonPriceCents())}` : 'Nenhuma colher'; $('#delivery-fee-row').classList.toggle('hidden', fee === null || !cart.length || isPickup()); $('#delivery-fee').textContent = freeShip && zoneFee ? 'Grátis' : brl(fee || 0); $('#cart-final-label').textContent = isPickup() ? 'Total (retirada na loja)' : fee === null ? 'Total (sem entrega)' : 'Total com entrega'; $('#cart-final-total').textContent = brl(grand); $('#combo-discount-row').classList.toggle('hidden', comboDiscount <= 0); $('#combo-discount').textContent = '- ' + brl(comboDiscount); $('#coupon-discount-row').classList.toggle('hidden', couponDiscount <= 0); $('#coupon-discount').textContent = '- ' + brl(couponDiscount); $('#cart-items').innerHTML = cart.length ? cart.map((item, index) => `<article class="cart-item"><div><strong>${item.quantity}× ${esc(item.product || 'Açaí tradicional')} — ${esc(item.size)}</strong><p>${item.options.length ? item.options.map(o => esc(o.name) + layersText(item.optionLayers?.[o.id])).join(', ') : 'Sem adicionais'}</p><b>${brl(item.lineTotalCents)}</b></div><button class="remove-item" data-remove="${index}" aria-label="Remover item">×</button></article>`).join('') : '<p class="muted">Seu carrinho ainda está vazio.</p>'; $('#mobile-cart-bar').classList.toggle('hidden', count === 0); $('#mobile-cart-count').textContent = `${count} ${count === 1 ? 'item' : 'itens'}`; $('#mobile-cart-total').textContent = brl(grand); saveCart(); }
+function renderCart() { const count = cart.reduce((n, i) => n + i.quantity, 0), subtotal = cart.reduce((n, i) => n + i.lineTotalCents, 0), comboDiscount = store && count >= store.comboMinItems ? Math.floor(subtotal * store.comboDiscountPercent / 100) : 0, couponDiscount = appliedCoupon?.discountCents || 0; $('#cart-count').textContent = count; $('#cart-count-side').textContent = `${count} ${count === 1 ? 'item' : 'itens'}`; $('#cart-subtotal').textContent = brl(subtotal); const zoneFee = selectedZoneFee(), spoons = cart.length ? spoonCount() : 0, spoon = spoons * spoonPriceCents(), productsPaid = Math.max(0, subtotal - comboDiscount - couponDiscount), freeMin = Number(store?.freeDeliveryMinCents) || 0, freeShip = freeMin > 0 && !isPickup() && cart.length > 0 && productsPaid >= freeMin, fee = freeShip && zoneFee ? 0 : zoneFee, grand = productsPaid + (fee || 0) + spoon; const freeHint = $('#free-delivery-hint'); if (freeHint) { const show = freeMin > 0 && !isPickup() && cart.length > 0; freeHint.classList.toggle('hidden', !show); freeHint.classList.toggle('free-delivery-won', freeShip); freeHint.textContent = freeShip ? '🎉 Você ganhou frete grátis!' : `🛵 Faltam ${brl(Math.max(0, freeMin - productsPaid))} para ganhar frete grátis (compras a partir de ${brl(freeMin)}).`; }  $('#spoon-row').classList.toggle('hidden', spoon <= 0); $('#spoon-fee').textContent = brl(spoon); $('#spoon-price-label').textContent = `(${brl(spoonPriceCents())} cada)`; $('#spoon-label').textContent = spoons > 1 ? `Colheres (${spoons}×)` : 'Colher'; $('#spoon-hint').textContent = spoonCount() > 0 ? `${spoonCount()} ${spoonCount() === 1 ? 'colher' : 'colheres'} · ${brl(spoonCount() * spoonPriceCents())}` : 'Nenhuma colher'; $('#delivery-fee-row').classList.toggle('hidden', fee === null || !cart.length || isPickup()); $('#delivery-fee').textContent = freeShip && zoneFee ? 'Grátis' : brl(fee || 0); $('#cart-final-label').textContent = isPickup() ? 'Total (retirada na loja)' : fee === null ? 'Total (sem entrega)' : 'Total com entrega'; $('#cart-final-total').textContent = brl(grand); $('#combo-discount-row').classList.toggle('hidden', comboDiscount <= 0); $('#combo-discount').textContent = '- ' + brl(comboDiscount); $('#coupon-discount-row').classList.toggle('hidden', couponDiscount <= 0); $('#coupon-discount').textContent = '- ' + brl(couponDiscount); $('#cart-items').innerHTML = cart.length ? cart.map((item, index) => `<article class="cart-item"><div><strong>${item.quantity}× ${esc(item.product || 'Açaí tradicional')} — ${esc(item.size)}</strong>${item.halfIceCream ? `<p class="half-ice-line">🍦 ${esc(halfLabel(item.halfIceCream))}</p>` : ''}<p>${item.options.length ? item.options.map(o => esc(o.name) + layersText(item.optionLayers?.[o.id])).join(', ') : 'Sem adicionais'}</p><b>${brl(item.lineTotalCents)}</b></div><button class="remove-item" data-remove="${index}" aria-label="Remover item">×</button></article>`).join('') : '<p class="muted">Seu carrinho ainda está vazio.</p>'; $('#mobile-cart-bar').classList.toggle('hidden', count === 0); $('#mobile-cart-count').textContent = `${count} ${count === 1 ? 'item' : 'itens'}`; $('#mobile-cart-total').textContent = brl(grand); saveCart(); }
 function updateZones() {
   const z = $('#zone-select');
   z.innerHTML = '<option value="">Selecione seu bairro</option>' + menu.zones.map(x => `<option value="${x.id}">${esc(x.name)} — ${brl(x.fee)}</option>`).join('');

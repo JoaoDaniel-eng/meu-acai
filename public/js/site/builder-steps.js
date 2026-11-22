@@ -11,7 +11,7 @@
   const pedido = () => $('#pedido');
   const nextBtn = () => $('#builder-next');
   const backBtn = () => $('#builder-back');
-  // Aba "Açaís Trufados" ativa: o montador tradicional fica escondido e os passos 1 e 2 não se aplicam.
+  // Aba "Açaís Trufados" ou "Sorvetes" ativa: o montador tradicional fica escondido e os passos 1 e 2 não se aplicam.
   const traditionalMode = () => !!main() && !main().classList.contains('hidden');
   const itemCount = () => cart.reduce((n, i) => n + i.quantity, 0);
 
@@ -44,14 +44,14 @@
       $('#builder-nav-label').textContent = $('#cart-final-label').textContent;
       $('#builder-nav-total').textContent = $('#cart-final-total').textContent;
       const submit = $('#submit-order');
-      if (!cart.length) { next.textContent = 'Montar meu açaí'; next.disabled = false; }
+      if (!cart.length) { next.textContent = builderCategory === 'ice_cream' ? 'Montar meu sorvete' : 'Montar meu açaí'; next.disabled = false; }
       else {
         next.disabled = !!submit?.disabled;
         next.textContent = submit?.disabled ? submit.textContent.trim() : 'Fazer pedido';
       }
     } else {
       const chosen = traditional && selectedSize;
-      $('#builder-nav-label').textContent = count ? `🛒 ${count} ${count === 1 ? 'item' : 'itens'}` : (chosen ? `Seu açaí: ${selectedSize.name}` : 'Seu pedido');
+      $('#builder-nav-label').textContent = count ? `🛒 ${count} ${count === 1 ? 'item' : 'itens'}` : (chosen ? `Seu ${builderCategory === 'ice_cream' ? 'sorvete' : 'açaí'}: ${selectedSize.name}` : 'Seu pedido');
       $('#builder-nav-total').textContent = count ? $('#cart-final-total').textContent : (chosen ? brl(priceForBuilder()) : 'R$ 0,00');
       next.disabled = false;
       next.textContent = traditional ? 'Continuar' : 'Ver meu pedido →';
@@ -69,7 +69,7 @@
     el.classList.toggle('step-off', step === LAST);
     pedido().classList.toggle('step-off', step !== LAST);
     $('#menu-category-tabs')?.classList.toggle('step-off', step === LAST);
-    $('#truffled-menu')?.classList.toggle('step-off', step === LAST);
+    document.querySelectorAll('.flavor-menu').forEach(m => m.classList.toggle('step-off', step === LAST));
     $('#builder-steps').classList.toggle('step-off', !traditional);
     document.querySelectorAll('#builder-steps li').forEach((li, i) => {
       const n = i + 1, btn = li.querySelector('button');
@@ -93,11 +93,11 @@
     n = Math.min(Math.max(Number(n) || 1, 1), LAST);
     let msg = '';
     if (!force) {
-      if (n === 2 && !selectedSize) { msg = 'Escolha um tamanho para continuar.'; n = 1; }
+      if (n === 2 && (!selectedSize || halfPending())) { msg = needSizeMessage(); n = 1; }
       else if (n === LAST) {
         // O açaí em montagem já entra no pedido sozinho; isto só garante isso antes de abrir a entrega.
         if (!cart.length && selectedSize) syncDraft();
-        if (!cart.length) { msg = traditionalMode() ? 'Escolha um tamanho para continuar.' : 'Adicione um açaí ao pedido para continuar.'; n = 1; }
+        if (!cart.length) { msg = traditionalMode() ? needSizeMessage() : 'Adicione um açaí ao pedido para continuar.'; n = 1; }
       }
     }
     say(msg);

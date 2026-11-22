@@ -8,29 +8,25 @@ async function load() {
     if (!menu.products.length)
       throw new Error('O cardápio está indisponível.');
     const traditional = traditionalProduct();
-    const truffled = menu.products.filter(p => p.type === 'truffled');
     const hasTraditional = Boolean(traditional && Array.isArray(traditional.sizes) && traditional.sizes.length);
-    const hasTruffled = truffled.some(p => Array.isArray(p.sizes) && p.sizes.length);
-    if (!hasTraditional && !hasTruffled)
+    const available = ['traditional', 'truffled', 'ice_cream'].filter(type => type === 'traditional' ? hasTraditional : type === 'ice_cream' ? iceCreamProducts().length : flavorProducts(type).length);
+    if (!available.length)
       throw new Error('Nenhum produto com tamanho disponível foi encontrado.');
     selectedSize = hasTraditional ? traditional.sizes.find(size => !size.soldOut) || traditional.sizes[0] : null;
     $('#menu-status').classList.add('hidden');
     $('#builder').classList.remove('hidden');
     renderBuilder();
     renderTruffledMenu();
-    const traditionalTab = $('[data-menu-category="traditional"]');
-    const truffledTab = $('[data-menu-category="truffled"]');
-    traditionalTab.classList.toggle('hidden', !hasTraditional);
-    truffledTab.classList.toggle('hidden', !hasTruffled);
-    $('#menu-category-tabs').classList.toggle('hidden', !(hasTraditional && hasTruffled));
-    $('.builder-main').classList.toggle('hidden', !hasTraditional);
-    $('#truffled-menu').classList.toggle('hidden', hasTraditional || !hasTruffled);
-    if (!hasTraditional && hasTruffled) {
-      truffledTab.classList.add('button-primary');
-      truffledTab.classList.remove('button-outline');
-      truffledTab.setAttribute('aria-selected', 'true');
-      traditionalTab.setAttribute('aria-selected', 'false');
-    }
+    // Mostra as abas só quando há mais de uma categoria; abre na primeira disponível (o açaí tradicional, se existir).
+    document.querySelectorAll('[data-menu-category]').forEach(tab => {
+      const type = tab.dataset.menuCategory, active = type === available[0];
+      tab.classList.toggle('hidden', !available.includes(type));
+      tab.classList.toggle('button-primary', active);
+      tab.classList.toggle('button-outline', !active);
+      tab.setAttribute('aria-selected', String(active));
+    });
+    $('#menu-category-tabs').classList.toggle('hidden', available.length < 2);
+    showMenuCategory(available[0]);
     updateZones();
     restoreSavedDetails();
     restoreCart();
@@ -52,16 +48,43 @@ function truffleFlavorBadge(p) {
   if (p.sizes.some(size => size.stockLabel && !size.soldOut)) return '<em class="stock-badge">🔥 Últimas unidades!</em>';
   return '';
 }
+// Categorias de "sabor + tamanho" com receita pronta e sem adicionais (trufados). O sorvete usa o montador do açaí.
+const FLAVOR_CATEGORIES = {
+  truffled: { menu: '#truffled-menu', flavors: '#truffled-flavors', sizes: '#truffled-sizes', empty: 'Nenhum sabor trufado disponível no momento.' }
+};
+const isFlavorProduct = p => Object.hasOwn(FLAVOR_CATEGORIES, p.type);
+const flavorProducts = type => menu.products.filter(p => p.type === type && Array.isArray(p.sizes) && p.sizes.length);
+// Troca a categoria visível: o montador (açaí tradicional ou sorvete) ou o cardápio de sabores prontos.
+function showMenuCategory(type) {
+  const builderType = type === 'traditional' || type === 'ice_cream';
+  if (builderType) setBuilderCategory(type);
+  $('.builder-main').classList.toggle('hidden', !builderType);
+  for (const [key, cfg] of Object.entries(FLAVOR_CATEGORIES))
+    $(cfg.menu).classList.toggle('hidden', key !== type);
+  if (!builderType) renderTruffledMenu();
+}
+// Troca entre açaí e sorvete no montador: o que estava sendo montado continua no pedido e o montador recomeça em branco.
+function setBuilderCategory(type) {
+  if (builderCategory === type) return;
+  builderCategory = type;
+  selectedIceCream = null;
+  const product = builderProduct();
+  selectedSize = product ? product.sizes.find(size => !size.soldOut) || product.sizes[0] : null;
+  resetBuilder();
+}
 function renderTruffledMenu() {
-  const products = menu.products.filter(p => p.type === 'truffled' && Array.isArray(p.sizes) && p.sizes.length);
-  $('#truffled-flavors').innerHTML = products.map(p => `<button type="button" class="truffled-flavor-card ${selectedTruffleProduct?.id === p.id ? 'chosen' : ''}" data-truffle-flavor="${p.id}">${truffleFlavorBadge(p)}${p.image_url ? `<img src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}<strong>${esc(p.name)}</strong><span>Escolher tamanho →</span></button>`).join('');
-  if (!products.length) $('#truffled-flavors').innerHTML = '<p class="muted">Nenhum sabor trufado disponível no momento.</p>';
+  for (const [type, cfg] of Object.entries(FLAVOR_CATEGORIES)) {
+    const products = flavorProducts(type);
+    $(cfg.flavors).innerHTML = products.length ? products.map(p => `<button type="button" class="truffled-flavor-card ${selectedTruffleProduct?.id === p.id ? 'chosen' : ''}" data-truffle-flavor="${p.id}">${truffleFlavorBadge(p)}${p.image_url ? `<img src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}<strong>${esc(p.name)}</strong><span>Escolher tamanho →</span></button>`).join('') : `<p class="muted">${cfg.empty}</p>`;
+  }
 }
 function renderTruffledSizes() {
-  const panel = $('#truffled-sizes');
-  if (!selectedTruffleProduct || !Array.isArray(selectedTruffleProduct.sizes) || !selectedTruffleProduct.sizes.length) { panel.classList.add('hidden'); return; }
-  panel.classList.remove('hidden');
-  panel.innerHTML = `<h3>${esc(selectedTruffleProduct.name)}</h3><p class="muted">Agora escolha o tamanho:</p><div class="size-grid">${selectedTruffleProduct.sizes.map(size => `<button type="button" class="size-card ${size.soldOut ? 'sold-out' : ''}" data-truffle-size="${size.id}" ${size.soldOut ? 'disabled' : ''}><span>${esc(size.name)}</span><strong>${size.soldOut ? 'Esgotado' : brl(size.price)}</strong>${size.stockLabel && !size.soldOut ? `<em class="stock-badge">${esc(size.stockLabel)}</em>` : ''}</button>`).join('')}</div><p class="form-message" id="truffle-message" role="status"></p>`;
+  for (const [type, cfg] of Object.entries(FLAVOR_CATEGORIES)) {
+    const panel = $(cfg.sizes), product = selectedTruffleProduct;
+    if (!product || product.type !== type || !Array.isArray(product.sizes) || !product.sizes.length) { panel.classList.add('hidden'); panel.innerHTML = ''; continue; }
+    panel.classList.remove('hidden');
+    panel.innerHTML = `<h3>${esc(product.name)}</h3><p class="muted">Agora escolha o tamanho:</p><div class="size-grid">${product.sizes.map(size => `<button type="button" class="size-card ${size.soldOut ? 'sold-out' : ''}" data-truffle-size="${size.id}" ${size.soldOut ? 'disabled' : ''}><span>${esc(size.name)}</span><strong>${size.soldOut ? 'Esgotado' : brl(size.price)}</strong>${size.stockLabel && !size.soldOut ? `<em class="stock-badge">${esc(size.stockLabel)}</em>` : ''}</button>`).join('')}</div><p class="form-message" id="truffle-message" role="status"></p>`;
+  }
 }
 function truffleMessage(text) {
   const m = $('#truffle-message');
@@ -69,11 +92,11 @@ function truffleMessage(text) {
   m.textContent = text || '';
   m.classList.toggle('error-message', !!text);
 }
-// Depois de um pedido recusado por falta de unidade, atualiza só os trufados (os tradicionais ficam como estão, para não mexer no montador).
+// Depois de um pedido recusado por falta de unidade, atualiza só os de sabor pronto (trufados e sorvetes; os tradicionais ficam como estão, para não mexer no montador).
 async function refreshTruffleStock() {
   try {
     const fresh = await api('/menu');
-    menu.products = menu.products.map(p => p.type === 'truffled' ? (fresh.products.find(f => f.id === p.id) || p) : p);
+    menu.products = menu.products.map(p => isFlavorProduct(p) ? (fresh.products.find(f => f.id === p.id) || p) : p);
     if (selectedTruffleProduct) selectedTruffleProduct = menu.products.find(p => p.id === selectedTruffleProduct.id) || null;
     renderTruffledMenu(); renderTruffledSizes();
   }
@@ -82,16 +105,13 @@ async function refreshTruffleStock() {
 document.addEventListener('click', e => {
   const category = e.target.closest('[data-menu-category]');
   if (category) {
-    const traditional = category.dataset.menuCategory === 'traditional';
     document.querySelectorAll('[data-menu-category]').forEach(b => {
       const active = b === category;
       b.classList.toggle('button-primary', active);
       b.classList.toggle('button-outline', !active);
       b.setAttribute('aria-selected', String(active));
     });
-    $('.builder-main').classList.toggle('hidden', !traditional);
-    $('#truffled-menu').classList.toggle('hidden', traditional);
-    if (!traditional) renderTruffledMenu();
+    showMenuCategory(category.dataset.menuCategory);
     return;
   }
   const flavor = e.target.closest('[data-truffle-flavor]');
@@ -120,7 +140,29 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('change', e => {
   if (e.target.matches('[data-size]')) {
-    selectedSize = traditionalProduct().sizes.find(s => s.id === Number(e.target.dataset.size));
+    selectedSize = builderProduct()?.sizes.find(s => s.id === Number(e.target.dataset.size)) || null;
+    renderBuilder();
+    syncDraft();
+  }
+  if (e.target.matches('[data-ice-flavor]')) {
+    selectedIceCream = iceCreamProducts().find(p => p.id === Number(e.target.dataset.iceFlavor)) || null;
+    // Mantém o mesmo tamanho (pelo nome) quando o novo sabor também o tem; senão o cliente escolhe de novo.
+    const keep = selectedSize && selectedIceCream?.sizes.find(x => x.name === selectedSize.name && !x.soldOut);
+    selectedSize = keep || null;
+    builderMessage('');
+    renderBuilder();
+    syncDraft();
+  }
+  if (e.target.matches('#half-ice-toggle')) {
+    halfIceOn = e.target.checked;
+    if (!halfIceOn) selectedHalfIce = null;
+    builderMessage(halfIceOn ? 'Escolha o sabor do sorvete da outra metade.' : '');
+    renderBuilder();
+    syncDraft();
+  }
+  if (e.target.matches('[data-half-flavor]')) {
+    selectedHalfIce = iceCreamProducts().find(p => p.id === Number(e.target.dataset.halfFlavor)) || null;
+    builderMessage('');
     renderBuilder();
     syncDraft();
   }
@@ -203,15 +245,18 @@ const draftInCart = () => !!draftItem && cart.includes(draftItem);
 function paintCartNote() {
   const note = $('#builder-cart-note'), another = $('#another-acai');
   if (!note) return;
-  const inCart = draftInCart();
+  const inCart = draftInCart(), what = builderCategory === 'ice_cream' ? 'sorvete' : 'açaí';
+  if (another) another.textContent = `+ Montar outro ${what}`;
   another?.classList.toggle('hidden', !inCart);
   note.classList.toggle('is-in-cart', inCart);
   note.textContent = inCart
-    ? `✓ No seu pedido: ${draftItem.quantity}× ${draftItem.size} · ${brl(draftItem.lineTotalCents)}. Pode continuar escolhendo e tocar em “Continuar” quando terminar.`
-    : 'Escolha o tamanho e os acompanhamentos: seu açaí entra no pedido automaticamente.';
+    ? `✓ No seu pedido: ${draftItem.quantity}× ${draftItem.product} ${draftItem.size} · ${brl(draftItem.lineTotalCents)}. Pode continuar escolhendo e tocar em “Continuar” quando terminar.`
+    : (builderCategory === 'ice_cream' ? 'Escolha o sabor, o tamanho e os acompanhamentos: seu sorvete entra no pedido automaticamente.' : 'Escolha o tamanho e os acompanhamentos: seu açaí entra no pedido automaticamente.');
 }
 function resetBuilder() {
   draftItem = null;
+  halfIceOn = false;
+  selectedHalfIce = null;
   selected.clear();
   selectedLayers.clear();
   const q = $('#builder-quantity');
@@ -220,7 +265,7 @@ function resetBuilder() {
   paintCartNote();
 }
 function syncDraft() {
-  if (!menu || !selectedSize) {
+  if (!menu || !selectedSize || halfPending()) {
     if (draftInCart()) { cart.splice(cart.indexOf(draftItem), 1); renderCart(); }
     draftItem = null;
     paintCartNote();
@@ -229,7 +274,8 @@ function syncDraft() {
   const opts = [...selected].map(id => menu.options.find(o => o.id === id)).filter(Boolean);
   const unit = priceForBuilder(), quantity = Math.max(1, Number($('#builder-quantity').value || 1));
   const optionLayers = layersObject(opts.filter(isLayered).map(o => o.id), layerCountOf);
-  const data = { sizeId: selectedSize.id, product: traditionalProduct().name, size: selectedSize.name, quantity, optionIds: opts.map(o => o.id), optionLayers, options: opts, unitPriceCents: unit, lineTotalCents: unit * quantity };
+  const half = halfIceProduct();
+  const data = { sizeId: selectedSize.id, product: builderProduct().name, halfIceCreamId: half ? half.id : null, halfIceCream: half ? { id: half.id, name: half.name } : null, size: selectedSize.name, quantity, optionIds: opts.map(o => o.id), optionLayers, options: opts, unitPriceCents: unit, lineTotalCents: unit * quantity };
   if (draftInCart())
     Object.assign(draftItem, data);
   else {
@@ -248,14 +294,14 @@ function syncDraft() {
 $('#view-order').addEventListener('click', () => {
   // Quem gostou do açaí que já está na tela e não mexeu em nada: entra no pedido ao tocar em "Ver meu pedido".
   if (!cart.length) syncDraft();
-  if (!cart.length) { builderMessage('Escolha um tamanho para continuar.'); return; }
+  if (!cart.length) { builderMessage(needSizeMessage()); return; }
   builderMessage('');
   $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 $('#another-acai').addEventListener('click', () => {
   // Fecha o açaí atual (ele continua no pedido) e começa um novo, em branco.
   resetBuilder();
-  builderMessage('Pronto! O açaí anterior está no pedido. Monte o próximo.');
+  builderMessage(`Pronto! O ${builderCategory === 'ice_cream' ? 'sorvete' : 'açaí'} anterior está no pedido. Monte o próximo.`);
   $('#builder').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 $('#zone-select').addEventListener('change', renderCart);
@@ -451,13 +497,13 @@ $('#checkout-form').addEventListener('submit', async (e) => {
     return;
   }
   const fd = new FormData(form);
-  const payload = { customerName: fd.get('customerName'), phone: fd.get('phone'), fulfillment: fd.get('fulfillment') === 'pickup' ? 'pickup' : 'delivery', address: fd.get('address'), zoneId: Number(fd.get('zoneId')), notes: fd.get('notes'), paymentMethod: fd.get('paymentMethod'), needsChange: fd.get('needsChange') || 'no', changeFor: fd.get('changeFor') || '', spoonQuantity: spoonCount(), scheduledFor: fd.get('orderTime') === 'scheduled' ? fd.get('scheduledFor') : null, couponCode: appliedCoupon?.code || '', items: cart.map(i => ({ sizeId: i.sizeId, quantity: i.quantity, optionIds: i.optionIds, optionLayers: i.optionLayers || {} })) };
+  const payload = { customerName: fd.get('customerName'), phone: fd.get('phone'), fulfillment: fd.get('fulfillment') === 'pickup' ? 'pickup' : 'delivery', address: fd.get('address'), zoneId: Number(fd.get('zoneId')), notes: fd.get('notes'), paymentMethod: fd.get('paymentMethod'), needsChange: fd.get('needsChange') || 'no', changeFor: fd.get('changeFor') || '', spoonQuantity: spoonCount(), scheduledFor: fd.get('orderTime') === 'scheduled' ? fd.get('scheduledFor') : null, couponCode: appliedCoupon?.code || '', items: cart.map(i => ({ sizeId: i.sizeId, quantity: i.quantity, optionIds: i.optionIds, optionLayers: i.optionLayers || {}, ...(i.halfIceCreamId ? { halfIceCreamId: i.halfIceCreamId } : {}) })) };
   const button = $('#submit-order');
   button.disabled = true;
   button.textContent = 'Registrando pedido…';
   try {
     const order = await api('/orders', { method: 'POST', body: JSON.stringify(payload) });
-    const lines = order.items.map(i => `• ${i.quantity}x ${i.product} (${i.size})\n  ${i.options.map(o => o.name + layersText(o.layers)).join(', ') || 'Sem adicionais'} — ${brl(i.lineTotalCents)}`).join('\n');
+    const lines = order.items.map(i => `• ${i.quantity}x ${i.product} (${i.size})${i.halfIceCream ? '\n  🍦 ' + halfLabel(i.halfIceCream) : ''}\n  ${i.options.map(o => o.name + layersText(o.layers)).join(', ') || 'Sem adicionais'} — ${brl(i.lineTotalCents)}`).join('\n');
     const pickupOrder = order.fulfillment === 'pickup';
     const scheduled = order.scheduledFor ? `\nAgendamento: ${new Date(order.scheduledFor).toLocaleString('pt-BR')}` : (order.fulfillment === 'pickup' ? '\nRetirada: agora' : '\nEntrega: agora');
     const text = `Olá! Quero confirmar o pedido ${order.orderCode} no Açaí da Roça.\n\n${lines}\n\nSubtotal: ${brl(order.subtotalCents)}${order.comboDiscountCents ? `\nDesconto combo: -${brl(order.comboDiscountCents)}` : ''}${order.discountCents ? `\nCupom ${order.couponCode}: -${brl(order.discountCents)}` : ''}${pickupOrder ? '\nRETIRADA NA LOJA (sem taxa de entrega)' : `\nEntrega (${order.neighborhood}): ${order.freeDelivery ? 'GRÁTIS 🎉' : brl(order.deliveryFeeCents)}`}\nColher: ${spoonText(order.spoonQuantity, order.spoonCents)}\nTOTAL: ${brl(order.totalCents)}\nPrevisão estimada: ${order.estimatedMinutesMin} a ${order.estimatedMinutesMax} minutos\n\nNome: ${order.customerName}\nTelefone: ${order.phone}${pickupOrder ? '' : `\nEndereço: ${order.address}`}

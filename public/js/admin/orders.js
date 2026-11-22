@@ -39,7 +39,8 @@ const itemLine = i => {
   const opts = (i.options || []).map(x => esc(x.name) + (Number(x.layers) > 1 ? ` (${Number(x.layers)} camadas)` : '')).join(', ');
   const isTraditional = /tradicional/i.test(product);
   const detail = opts || (isTraditional ? 'sem adicionais' : '');
-  return `<small><strong>${esc(i.quantity)}× ${esc(product)}</strong> — ${esc(i.size)}${detail ? ' — ' + detail : ''}</small>`;
+  const half = i.halfIceCream ? ` — 🍦 ½ açaí + ½ sorvete de ${esc(String(i.halfIceCream.name || '').replace(/^Sorvete de\s+/i, ''))}` : '';
+  return `<small><strong>${esc(i.quantity)}× ${esc(product)}</strong> — ${esc(i.size)}${half}${detail ? ' — ' + detail : ''}</small>`;
 };
 async function loadOrders(silent = false) {
   const all = await api('/orders?' + orderQuery({ limit: ordersLimit + 1 })), hasMore = all.length > ordersLimit, rows = all.slice(0, ordersLimit);
