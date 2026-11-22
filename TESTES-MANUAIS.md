@@ -114,7 +114,7 @@ Considere o teste aprovado somente quando o fluxo terminar sem erro, os valores 
 - [ ] Logado: o menu ☰ e "Minha conta" mostram os pontos do Clube da Roça; marcar um pedido como Entregue no admin e ver o saldo subir em até 30 s.
 - [ ] Logado: "Salvar este açaí como favorito" salva; em Minha conta → Meus favoritos, "Adicionar ao pedido" põe no carrinho e "Remover" apaga. Visitante não vê o botão.
 - [ ] Admin → Clientes: buscar cliente, "Redefinir senha", copiar/enviar a senha temporária. O cliente entra com ela e é levado a criar nova senha (Configurações → Segurança).
-- [ ] Tela de login: "Esqueci minha senha" abre o WhatsApp da loja com mensagem pronta.
+- [ ] Tela de login: "Esqueci minha senha" abre um formulário (celular, nova senha, confirmar). Senhas diferentes → erro; celular inexistente → erro; sucesso → mensagem e entra com a nova senha. Após 5 tentativas por celular na hora, bloqueia.
 - [ ] Acompanhar pedido: mudar o status no admin e ver a tela do cliente atualizar sozinha em até 20 s, sem perder edições em andamento.
 - [ ] Carrinho: adicionar itens, recarregar a página (F5) e conferir que continuam lá; após finalizar o pedido o carrinho salvo some.
 - [ ] Faixa no topo: aberto = verde com horário; fechado = lilás com "abrimos…" e botão "Agendar meu pedido" que já marca "Agendar para depois".

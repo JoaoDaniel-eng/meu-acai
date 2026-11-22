@@ -7,6 +7,8 @@ import { issueWelcomeCoupon, presentWelcomeCoupon, WELCOME_KIND } from '../servi
 const router = Router();
 // Entrada de cliente: 10 senhas erradas por IP e por celular a cada 15 min.
 const custLoginByIp = createAttemptLimiter({ max: 10, windowMs: 15 * 60 * 1000 }), custLoginByPhone = createAttemptLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
+// Esqueci minha senha (sem código): 5 tentativas por celular e 15 por IP a cada hora.
+const resetByIp = createAttemptLimiter({ max: 15, windowMs: 60 * 60 * 1000 }), resetByPhone = createAttemptLimiter({ max: 5, windowMs: 60 * 60 * 1000 });
 const normalizePhone = value => String(value || '').replace(/\D/g, '');
 function tokenFor(customer) { return jwt.sign({ sub: String(customer.id), type: 'customer' }, process.env.JWT_SECRET, { expiresIn: '30d' }); }
 function auth(req, res, next) {
@@ -75,6 +77,32 @@ router.post('/customers/login', async (req, res, next) => {
     custLoginByIp.reset(ip);
     custLoginByPhone.reset(phone);
     res.json({ token: tokenFor(c), customer: { name: c.name, phone: c.phone }, mustChangePassword: !!c.must_change_password });
+  }
+  catch (e) {
+    next(e);
+  }
+});
+router.post('/customers/reset-password', async (req, res, next) => {
+  try {
+    const phone = normalizePhone(req.body.phone), newPassword = String(req.body.newPassword || ''), confirmPassword = String(req.body.confirmPassword || ''), ip = String(req.ip || 'unknown');
+    if (phone.length < 10 || phone.length > 15)
+      return res.status(400).json({ error: 'Informe o celular cadastrado, com DDD.' });
+    const wait = Math.max(resetByIp.retryAfterSeconds(ip), resetByPhone.retryAfterSeconds(phone));
+    if (wait > 0) {
+      res.set('Retry-After', String(wait));
+      return res.status(429).json({ error: `Muitas tentativas de redefinir a senha. Aguarde ${Math.ceil(wait / 60)} minuto(s) e tente novamente.` });
+    }
+    if (newPassword.length < 8 || newPassword.length > 72)
+      return res.status(400).json({ error: 'A nova senha deve ter entre 8 e 72 caracteres.' });
+    if (newPassword !== confirmPassword)
+      return res.status(400).json({ error: 'A confirmação da senha não confere com a nova senha.' });
+    resetByIp.record(ip);
+    resetByPhone.record(phone);
+    const r = await getPool().query('UPDATE customers SET password_hash=$1,must_change_password=FALSE,updated_at=NOW() WHERE phone=$2 RETURNING id', [await bcrypt.hash(newPassword, 12), phone]);
+    if (!r.rowCount)
+      return res.status(404).json({ error: 'Não encontramos uma conta com esse celular.' });
+    custLoginByPhone.reset(phone);
+    res.json({ message: 'Senha redefinida! Agora é só entrar com a nova senha.' });
   }
   catch (e) {
     next(e);
