@@ -124,3 +124,9 @@ test('runDailyPush sem ninguém para avisar não envia nada', async () => {
   assert.deepEqual(r, { claimed: 0, sent: 0, failed: 0, removed: 0 });
   assert.equal(called, false);
 });
+
+test('buildNewOrderPayload: pedido rápido avisa que é da loja e não mostra bairro nem endereço', () => {
+  const p = buildNewOrderPayload({ orderCode: 'AR-QUICK1', customerName: 'Joana', itemCount: 1, totalCents: 1800, fulfillment: 'quick', neighborhood: 'Na loja', paymentMethod: 'A combinar', scheduledFor: null });
+  assert.match(p.body, /Pedido rápido/);
+  assert.doesNotMatch(p.body, /Entrega:/);
+});

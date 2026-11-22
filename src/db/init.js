@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS orders (
   id BIGSERIAL PRIMARY KEY, customer_id BIGINT REFERENCES customers(id) ON DELETE SET NULL, order_code VARCHAR(20) NOT NULL UNIQUE, customer_name VARCHAR(120) NOT NULL,
   customer_phone VARCHAR(30) NOT NULL, address TEXT NOT NULL, neighborhood VARCHAR(120) NOT NULL,
-  notes TEXT NOT NULL DEFAULT '', scheduled_for TIMESTAMPTZ, fulfillment VARCHAR(20) NOT NULL DEFAULT 'delivery' CHECK(fulfillment IN ('delivery','pickup')),
+  notes TEXT NOT NULL DEFAULT '', scheduled_for TIMESTAMPTZ, fulfillment VARCHAR(20) NOT NULL DEFAULT 'delivery' CHECK(fulfillment IN ('delivery','pickup','quick')),
   items JSONB NOT NULL, subtotal_cents INTEGER NOT NULL CHECK(subtotal_cents >= 0), delivery_fee_cents INTEGER NOT NULL CHECK(delivery_fee_cents >= 0),
   total_cents INTEGER NOT NULL CHECK(total_cents >= 0), status VARCHAR(30) NOT NULL DEFAULT 'new' CHECK(status IN ('new','preparing','out_for_delivery','delivered','cancelled')),
   whatsapp_opened BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -246,6 +246,13 @@ export async function initializeDatabase() {
     IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='orders'::regclass AND contype='c' AND pg_get_constraintdef(oid) LIKE '%fulfillment%' AND pg_get_constraintdef(oid) NOT LIKE '%pickup%') THEN
       ALTER TABLE orders DROP CONSTRAINT orders_fulfillment_check;
       ALTER TABLE orders ADD CONSTRAINT orders_fulfillment_check CHECK(fulfillment IN ('delivery','pickup'));
+    END IF;
+  END $$`);
+  // Pedido rápido (QR code na loja): bancos que ainda não aceitam 'quick' ganham a regra nova uma única vez.
+  await db.query(`DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='orders'::regclass AND contype='c' AND pg_get_constraintdef(oid) LIKE '%fulfillment%' AND pg_get_constraintdef(oid) NOT LIKE '%quick%') THEN
+      ALTER TABLE orders DROP CONSTRAINT orders_fulfillment_check;
+      ALTER TABLE orders ADD CONSTRAINT orders_fulfillment_check CHECK(fulfillment IN ('delivery','pickup','quick'));
     END IF;
   END $$`);
   // Pedidos feitos quando a colher era só Sim/Não (1 colher) passam a ter quantidade 1.

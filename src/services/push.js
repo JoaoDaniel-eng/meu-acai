@@ -102,7 +102,7 @@ export async function sendToSubscriptions(db, rows, buildPayload, { ttl = 3600, 
 // ===== Aviso de novo pedido para o administrador =====
 export function buildNewOrderPayload({ orderCode, customerName, itemCount, totalCents, fulfillment, neighborhood, paymentMethod, scheduledFor }) {
   const items = Number(itemCount) || 0;
-  const how = fulfillment === 'pickup' ? 'Retirada' : `Entrega: ${neighborhood}`;
+  const how = fulfillment === 'quick' ? '⚡ Pedido rápido (na loja)' : fulfillment === 'pickup' ? 'Retirada' : `Entrega: ${neighborhood}`;
   const parts = [firstName(customerName) || String(customerName || 'Cliente').split(/\s+/)[0], `${items} ${items === 1 ? 'item' : 'itens'}`, money(totalCents), how, paymentMethod];
   if (scheduledFor) {
     const when = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(scheduledFor));

@@ -16,6 +16,9 @@ const router = Router();
 const PICKUP_ADDRESS = 'Retirada na loja', PICKUP_ZONE = 'Retirada';
 // Anti-spam de pedidos: no máximo 20 pedidos por IP e 6 por telefone a cada hora (só pedidos criados contam).
 const ordersByIp = createAttemptLimiter({ max: 20, windowMs: 60 * 60 * 1000 }), ordersByPhone = createAttemptLimiter({ max: 6, windowMs: 60 * 60 * 1000 });
+// Pedido rápido (QR code na loja): todo mundo usa o mesmo Wi-Fi, então o limite por IP é bem mais folgado e não há limite por telefone (não há telefone).
+const QUICK_ADDRESS = 'Pedido rápido (na loja)', QUICK_ZONE = 'Na loja';
+const quickByIp = createAttemptLimiter({ max: 150, windowMs: 60 * 60 * 1000 });
 // Só o pedido ainda "Recebido" (new) pode ser editado/cancelado pelo cliente. Depois que a loja começa o preparo,
 // o estoque já foi baixado e o açaí está sendo feito: mudanças passam a ser combinadas pelo WhatsApp.
 const EDITABLE_STATUSES = ['new'];
@@ -37,17 +40,28 @@ function lookupFail(req, code) {
   if (code)
     lookupByCode.record(code);
 }
-router.post('/orders', async (req, res, next) => {
+// `quick` = pedido rápido da loja (POST /api/quick-orders): só nome, itens e observações. Sem telefone, endereço, bairro, frete, pagamento, cupom, colher ou agendamento.
+// O pagamento fica "A combinar" (acerta no balcão) e o pedido segue o mesmo caminho dos outros: estoque, preço no servidor, painel, impressão e aviso push.
+async function createOrder(req, res, next, { quick = false } = {}) {
   try {
-    const { customerName, phone, address: rawAddress, zoneId, fulfillment: rawFulfillment = 'delivery', notes = '', scheduledFor = null, paymentMethod, needsChange = 'no', changeFor = '', needsSpoon, spoonQuantity, couponCode = '', items } = req.body || {};
-    const name = String(customerName || '').trim(), customerPhone = String(phone || '').trim(), fulfillment = rawFulfillment === 'pickup' ? 'pickup' : 'delivery', isPickup = fulfillment === 'pickup', addr = isPickup ? PICKUP_ADDRESS : String(rawAddress || '').trim();
+    const body = req.body || {};
+    const { customerName, phone, address: rawAddress, zoneId, fulfillment: rawFulfillment = 'delivery', notes = '', scheduledFor: rawScheduledFor = null, paymentMethod: rawPayment, needsChange = 'no', changeFor = '', needsSpoon, spoonQuantity, couponCode: rawCoupon = '', items } = body;
+    const scheduledFor = quick ? null : rawScheduledFor, couponCode = quick ? '' : rawCoupon, paymentMethod = quick ? 'A combinar' : rawPayment;
+    const name = String(customerName || '').trim(), customerPhone = quick ? '' : String(phone || '').trim(), fulfillment = quick ? 'quick' : rawFulfillment === 'pickup' ? 'pickup' : 'delivery', isPickup = fulfillment === 'pickup', addr = quick ? QUICK_ADDRESS : isPickup ? PICKUP_ADDRESS : String(rawAddress || '').trim();
     const ipKey = String(req.ip || 'unknown'), phoneKey = customerPhone.replace(/\D/g, '');
-    const wait = Math.max(ordersByIp.retryAfterSeconds(ipKey), phoneKey ? ordersByPhone.retryAfterSeconds(phoneKey) : 0);
+    const wait = quick ? quickByIp.retryAfterSeconds(ipKey) : Math.max(ordersByIp.retryAfterSeconds(ipKey), phoneKey ? ordersByPhone.retryAfterSeconds(phoneKey) : 0);
     if (wait > 0) {
       res.set('Retry-After', String(wait));
       return res.status(429).json({ error: 'Muitos pedidos em pouco tempo. Aguarde alguns minutos ou fale com a loja pelo WhatsApp.' });
     }
-    if (name.length < 2 || name.length > 120 || customerPhone.replace(/\D/g, '').length < 10 || customerPhone.replace(/\D/g, '').length > 15 || addr.length < 6 || !['Pix', 'Dinheiro', 'Cartão de crédito', 'Cartão de débito'].includes(paymentMethod) || !Array.isArray(items) || items.length < 1 || items.length > 30)
+    if (quick) {
+      // A loja liga e desliga o pedido rápido no painel (Funcionamento): com o QR code desligado, ninguém consegue pedir por aqui.
+      if ((await getSettings()).quick_orders_enabled !== 'true')
+        return res.status(403).json({ error: 'Os pedidos rápidos estão desligados no momento. Faça seu pedido no balcão.' });
+      if (name.length < 2 || name.length > 60 || !Array.isArray(items) || items.length < 1 || items.length > 30)
+        return res.status(400).json({ error: 'Informe seu nome e escolha pelo menos um item.' });
+    }
+    else if (name.length < 2 || name.length > 120 || customerPhone.replace(/\D/g, '').length < 10 || customerPhone.replace(/\D/g, '').length > 15 || addr.length < 6 || !['Pix', 'Dinheiro', 'Cartão de crédito', 'Cartão de débito'].includes(paymentMethod) || !Array.isArray(items) || items.length < 1 || items.length > 30)
       return res.status(400).json({ error: 'Confira nome, telefone, endereço, pagamento e itens do pedido.' });
     const cashChangeFor = paymentMethod === 'Dinheiro' && needsChange === 'yes' ? String(changeFor).trim() : null;
     if (paymentMethod === 'Dinheiro' && !['yes', 'no'].includes(needsChange))
@@ -55,18 +69,18 @@ router.post('/orders', async (req, res, next) => {
     if (paymentMethod === 'Dinheiro' && needsChange === 'yes' && (!/^\d{1,6}(?:[.,]\d{1,2})?$/.test(cashChangeFor) || Number(cashChangeFor.replace(',', '.')) <= 0))
       return res.status(400).json({ error: 'Informe um valor válido para o troco.' });
     // Colheres (R$ 0,10 cada): inteiro de 0 a MAX_SPOONS. Qualquer outra coisa é recusada.
-    const spoons = parseSpoonQuantity(spoonQuantity, needsSpoon);
+    const spoons = quick ? 0 : parseSpoonQuantity(spoonQuantity, needsSpoon);
     if (spoons === null)
       return res.status(400).json({ error: `Quantidade de colheres inválida (de 0 a ${MAX_SPOONS}).` });
     const db = getPool(), settings = await getSettings();
-    const accountId = optionalCustomerId(req);
+    const accountId = quick ? null : optionalCustomerId(req);
     if (accountId) {
       const account = await db.query('SELECT phone FROM customers WHERE id=$1', [accountId]);
       if (!account.rowCount || account.rows[0].phone !== customerPhone.replace(/\D/g, ''))
         return res.status(400).json({ error: 'O telefone do pedido precisa ser o mesmo da sua conta.' });
     }
-    let zone = { name: PICKUP_ZONE, fee_cents: 0 };
-    if (!isPickup) {
+    let zone = { name: quick ? QUICK_ZONE : PICKUP_ZONE, fee_cents: 0 };
+    if (!isPickup && !quick) {
       if (!Number.isInteger(Number(zoneId)) || Number(zoneId) < 1)
         return res.status(400).json({ error: 'Selecione um bairro válido.' });
       const zoneResult = await db.query('SELECT id,name,fee_cents FROM delivery_zones WHERE id=$1 AND active=true', [Number(zoneId)]);
@@ -82,7 +96,7 @@ router.post('/orders', async (req, res, next) => {
         return res.status(400).json({ error: problem });
       schedule = new Date(scheduledFor);
     }
-    else if (settings.manual_closed === 'true' || !isOpenAt(new Date(), settings))
+    else if (!quick && (settings.manual_closed === 'true' || !isOpenAt(new Date(), settings)))
       return res.status(409).json({ error: 'A loja está fechada para pedidos imediatos. Você pode agendar para outro horário.' });
     if (!items.every(item => item && typeof item === 'object' && !Array.isArray(item)))
       return res.status(400).json({ error: 'Formato de item inválido.' });
@@ -164,7 +178,7 @@ router.post('/orders', async (req, res, next) => {
         return res.status(409).json({ error: shortageMessage(unitSync.shortage) });
       }
       result = await client.query(`INSERT INTO orders(customer_id,order_code,customer_name,customer_phone,address,neighborhood,notes,scheduled_for,fulfillment,payment_method,change_for,coupon_code,discount_cents,combo_discount_cents,estimated_minutes_min,estimated_minutes_max,items,subtotal_cents,delivery_fee_cents,total_cents,needs_spoon,spoon_quantity,spoon_cents,unit_stock)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb) RETURNING id,order_code,created_at`, [accountId, orderCode, name, customerPhone, addr, zone.name, String(notes).trim().slice(0, 1000), schedule, fulfillment, paymentMethod, cashChangeFor, pricing.couponCode, discount, comboDiscount, estimatedMin, estimatedMax, JSON.stringify(normalized), subtotal, fee, total, spoons > 0, spoons, spoonCents, JSON.stringify(reservedToObject(unitSync.reserved))]);
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb) RETURNING id,order_code,created_at`, [accountId, orderCode, name, customerPhone, addr, zone.name, String(notes).trim().slice(0, quick ? 300 : 1000), schedule, fulfillment, paymentMethod, cashChangeFor, pricing.couponCode, discount, comboDiscount, estimatedMin, estimatedMax, JSON.stringify(normalized), subtotal, fee, total, spoons > 0, spoons, spoonCents, JSON.stringify(reservedToObject(unitSync.reserved))]);
       if (isPersonalCoupon(couponRow) && !(await claimPersonalCoupon(client, { couponId: couponRow.id, customerId: accountId, orderId: result.rows[0].id }))) {
         await client.query('ROLLBACK');
         return res.status(409).json({ error: USED_COUPON_MESSAGE });
@@ -178,18 +192,24 @@ router.post('/orders', async (req, res, next) => {
     finally {
       client.release();
     }
-    ordersByIp.record(ipKey);
-    if (phoneKey)
-      ordersByPhone.record(phoneKey);
+    if (quick)
+      quickByIp.record(ipKey);
+    else {
+      ordersByIp.record(ipKey);
+      if (phoneKey)
+        ordersByPhone.record(phoneKey);
+    }
     // Avisa o celular/computador do administrador (push). Sem await: o pedido já foi gravado e a resposta ao cliente não pode esperar nem falhar por isso.
     notifyAdminsNewOrder(db, { orderCode, customerName: name, itemCount, totalCents: total, fulfillment, neighborhood: zone.name, paymentMethod, scheduledFor: schedule })
       .catch(err => console.error('Falha ao avisar o administrador por push:', err.message));
-    res.status(201).json({ id: result.rows[0].id, orderCode, fulfillment, freeDelivery: pricing.freeDelivery, createdAt: result.rows[0].created_at, customerName: name, phone: customerPhone, address: addr, neighborhood: zone.name, notes: String(notes).trim(), scheduledFor: schedule, paymentMethod, changeFor: cashChangeFor, items: normalized, subtotalCents: subtotal, discountCents: discount, comboDiscountCents: comboDiscount, couponCode: pricing.couponCode, estimatedMinutesMin: estimatedMin, estimatedMinutesMax: estimatedMax, deliveryFeeCents: fee, needsSpoon: spoons > 0, spoonQuantity: spoons, spoonCents, totalCents: total, whatsappNumber: String(settings.whatsapp_number || '').replace(/\D/g, ''), pix: paymentMethod === 'Pix' ? buildOrderPix(settings, { amountCents: total, orderCode }) : null });
+    res.status(201).json({ id: result.rows[0].id, orderCode, fulfillment, freeDelivery: pricing.freeDelivery, createdAt: result.rows[0].created_at, customerName: name, phone: customerPhone, address: addr, neighborhood: zone.name, notes: String(notes).trim().slice(0, quick ? 300 : 1000), scheduledFor: schedule, paymentMethod, changeFor: cashChangeFor, items: normalized, subtotalCents: subtotal, discountCents: discount, comboDiscountCents: comboDiscount, couponCode: pricing.couponCode, estimatedMinutesMin: estimatedMin, estimatedMinutesMax: estimatedMax, deliveryFeeCents: fee, needsSpoon: spoons > 0, spoonQuantity: spoons, spoonCents, totalCents: total, whatsappNumber: String(settings.whatsapp_number || '').replace(/\D/g, ''), pix: paymentMethod === 'Pix' ? buildOrderPix(settings, { amountCents: total, orderCode }) : null });
   }
   catch (e) {
     next(e);
   }
-});
+}
+router.post('/orders', (req, res, next) => createOrder(req, res, next));
+router.post('/quick-orders', (req, res, next) => createOrder(req, res, next, { quick: true }));
 // O cliente tocou no WhatsApp depois de registrar o pedido. É só um aviso para a loja (não dá para saber se a mensagem foi enviada).
 router.post('/orders/:code/whatsapp-opened', async (req, res, next) => {
   try {

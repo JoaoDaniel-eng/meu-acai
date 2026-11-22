@@ -61,7 +61,7 @@ export function createApp() {
     }
   };
   app.get(['/', '/index.html'], sendIndex);
-  app.get('/robots.txt', (req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${siteUrl(req)}/sitemap.xml\n`));
+  app.get('/robots.txt', (req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /rapido\nDisallow: /cartaz-rapido.html\nDisallow: /api/\n\nSitemap: ${siteUrl(req)}/sitemap.xml\n`));
   app.get('/sitemap.xml', (req, res) => res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${siteUrl(req)}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n  <url><loc>${siteUrl(req)}/privacidade.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>\n</urlset>\n`));
   // Painel e service worker também recebem o identificador da versão (cache novo a cada deploy, sem trocar números à mão).
   let adminHtml = null, devHtml = null, swJs = null;
@@ -78,6 +78,17 @@ export function createApp() {
     try {
       devHtml ??= stampVersions((await readFile(path.join(__dirname, '..', 'public', 'dev.html'), 'utf8')).replaceAll('__BUILD_ID__', BUILD_ID));
       res.type('html').set('Cache-Control', 'no-store').send(devHtml);
+    }
+    catch (err) {
+      next(err);
+    }
+  });
+  // Pedido rápido (QR code na loja): página própria, sempre atualizada (o painel liga/desliga pelo servidor).
+  let quickHtml = null;
+  app.get(['/rapido', '/rapido/'], async (_req, res, next) => {
+    try {
+      quickHtml ??= stampVersions((await readFile(path.join(__dirname, '..', 'public', 'rapido.html'), 'utf8')).replaceAll('__BUILD_ID__', BUILD_ID));
+      res.type('html').set('Cache-Control', 'no-cache').send(quickHtml);
     }
     catch (err) {
       next(err);

@@ -478,7 +478,8 @@ router.patch('/orders/:id/status', async (req, res, next) => {
     const r = await client.query('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,order_code,status,total_cents,delivery_fee_cents,spoon_cents,customer_phone', [status, order.id]);
     if (status === 'delivered') {
       const points = calculateLoyaltyPoints(Math.max(0, Number(r.rows[0].total_cents) - Number(r.rows[0].delivery_fee_cents) - Number(r.rows[0].spoon_cents || 0)));
-      if (points > 0)
+      // Pedido rápido não tem telefone: não há para quem creditar pontos.
+      if (points > 0 && String(r.rows[0].customer_phone || '').trim())
         await client.query('INSERT INTO loyalty_points(order_id,customer_phone,points) VALUES($1,$2,$3) ON CONFLICT(order_id) DO NOTHING', [r.rows[0].id, r.rows[0].customer_phone, points]);
     }
     await client.query('COMMIT');
@@ -799,7 +800,7 @@ router.patch('/settings', async (req, res, next) => {
     const minEstimate = Number(req.body.estimated_minutes_min ?? currentSettings.estimated_minutes_min ?? 35), maxEstimate = Number(req.body.estimated_minutes_max ?? currentSettings.estimated_minutes_max ?? 55);
     if (Number.isFinite(minEstimate) && Number.isFinite(maxEstimate) && minEstimate > maxEstimate)
       return res.status(400).json({ error: 'O tempo mínimo não pode ser maior que o máximo.' });
-    const allowed = ['manual_closed', 'store_name', 'whatsapp_number', 'opening_days', 'opening_time', 'closing_time', 'minimum_schedule_minutes', 'max_free_toppings', 'combo_min_items', 'combo_discount_percent', 'free_delivery_min', 'estimated_minutes_min', 'estimated_minutes_max', 'pix_key', 'pix_name', 'pix_city', 'push_daily_enabled', 'push_daily_time'];
+    const allowed = ['manual_closed', 'store_name', 'whatsapp_number', 'opening_days', 'opening_time', 'closing_time', 'minimum_schedule_minutes', 'max_free_toppings', 'combo_min_items', 'combo_discount_percent', 'free_delivery_min', 'estimated_minutes_min', 'estimated_minutes_max', 'pix_key', 'pix_name', 'pix_city', 'push_daily_enabled', 'push_daily_time', 'quick_orders_enabled'];
     const db = getPool();
     const mergedPix = { ...currentSettings, ...Object.fromEntries(['pix_key', 'pix_name', 'pix_city'].filter(k => req.body[k] !== undefined).map(k => [k, String(req.body[k]).trim()])) };
     if (String(mergedPix.pix_key || '').trim() && !(String(mergedPix.pix_name || '').trim() && String(mergedPix.pix_city || '').trim()))
@@ -816,6 +817,8 @@ router.patch('/settings', async (req, res, next) => {
       }
       if (key === 'manual_closed' && !['true', 'false'].includes(value))
         return res.status(400).json({ error: 'Valor de fechamento inválido.' });
+      if (key === 'quick_orders_enabled' && !['true', 'false'].includes(value))
+        return res.status(400).json({ error: 'Valor dos pedidos rápidos inválido.' });
       if (key === 'push_daily_enabled' && !['true', 'false'].includes(value))
         return res.status(400).json({ error: 'Valor do lembrete diário inválido.' });
       if (key === 'opening_time' || key === 'closing_time' || key === 'push_daily_time') {
