@@ -84,7 +84,9 @@ router.get('/marketing/audience', async (req, res, next) => {
     const [count, customers, push] = await Promise.all([
       db.query(`SELECT COUNT(*)::int AS count FROM customers c WHERE TRUE ${where}`),
       db.query(`SELECT c.id,c.name,c.phone FROM customers c WHERE TRUE ${where} ORDER BY c.created_at DESC LIMIT 500`),
-      db.query(`SELECT COUNT(DISTINCT ps.customer_id)::int AS count FROM push_subscriptions ps JOIN customers c ON c.id=ps.customer_id WHERE ps.role='customer' ${where}`)
+      audience === 'all'
+        ? db.query("SELECT COUNT(*)::int AS count FROM push_subscriptions WHERE role='customer'")
+        : db.query(`SELECT COUNT(DISTINCT ps.customer_id)::int AS count FROM push_subscriptions ps JOIN customers c ON c.id=ps.customer_id WHERE ps.role='customer' ${where}`)
     ]);
     res.json({ count: count.rows[0].count, pushCount: push.rows[0].count, customers: customers.rows });
   } catch (e) { next(e); }
@@ -123,8 +125,10 @@ router.post('/marketing/campaigns/:id/push', async (req, res, next) => {
     if ((c.starts_at && new Date(c.starts_at).getTime() > now) || (c.ends_at && new Date(c.ends_at).getTime() < now))
       return res.status(400).json({error:'Esta oferta ainda não começou ou já terminou.'});
     const where = marketingAudienceWhere(c.audience);
+    // Público "todos": qualquer aparelho que ativou os avisos (mesmo sem conta). Segmentos (recentes, inativos, frequentes) dependem do histórico, então só contas.
+    const join = c.audience === 'all' ? 'LEFT JOIN' : 'JOIN';
     const { rows } = await db.query(`SELECT ps.id,ps.endpoint,ps.p256dh,ps.auth,ps.customer_id,c.name
-      FROM push_subscriptions ps JOIN customers c ON c.id=ps.customer_id
+      FROM push_subscriptions ps ${join} customers c ON c.id=ps.customer_id
       WHERE ps.role='customer' ${where}`, []);
     const result = await sendToSubscriptions(db, rows, row => ({
       title: `🍇 ${c.title}`, body: `${row.name ? row.name.split(/\s+/)[0] + ', ' : ''}${c.message}`,
