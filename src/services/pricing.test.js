@@ -265,3 +265,13 @@ test('frete grátis: lê o mínimo das configurações (reais, com vírgula ou p
   assert.equal(freeDeliveryMinCents({}), 0);
   assert.equal(freeDeliveryMinCents({ free_delivery_min: 'abc' }), 0);
 });
+
+test('buildOrderItem: metade sorvete guarda o sabor e não muda o preço', () => {
+  const size = { id: 1, name: '500ml', price_cents: 2000, product_name: 'Açaí tradicional' };
+  const plain = buildOrderItem({ size, options: [], quantity: 2 });
+  const half = buildOrderItem({ size, options: [], quantity: 2, halfIceCream: { id: 9, name: 'Sorvete de Morango', extra: 'x' } });
+  assert.equal(plain.halfIceCream, undefined);
+  assert.deepEqual(half.halfIceCream, { id: 9, name: 'Sorvete de Morango' });
+  assert.equal(half.unitPriceCents, plain.unitPriceCents);
+  assert.equal(half.lineTotalCents, 4000);
+});

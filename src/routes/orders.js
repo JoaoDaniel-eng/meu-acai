@@ -97,6 +97,13 @@ router.post('/orders', async (req, res, next) => {
     if (options.length !== optionIds.length)
       return res.status(400).json({ error: 'Um dos adicionais não está disponível.' });
     const optionMap = new Map(options.map(o => [o.id, o]));
+    // Metade sorvete: o item pode trazer o id de um sabor de sorvete (produto ativo do tipo ice_cream) para a outra metade do açaí tradicional.
+    const halfIds = [...new Set(items.filter(i => i.halfIceCreamId !== undefined && i.halfIceCreamId !== null && i.halfIceCreamId !== '').map(i => Number(i.halfIceCreamId)))];
+    if (halfIds.some(id => !Number.isInteger(id) || id < 1))
+      return res.status(400).json({ error: 'Sabor de sorvete inválido.' });
+    const halfRows = halfIds.length ? (await db.query("SELECT id,name FROM products WHERE id=ANY($1::int[]) AND active=true AND product_type='ice_cream'", [halfIds])).rows : [];
+    if (halfRows.length !== halfIds.length)
+      return res.status(400).json({ error: 'O sabor de sorvete escolhido não está disponível.' });
     const maxToppings = Number(settings.max_free_toppings || 5);
     const normalized = [];
     for (const item of items) {
@@ -110,7 +117,10 @@ router.post('/orders', async (req, res, next) => {
       const layers = parseOptionLayers(item.optionLayers);
       if (layers === null)
         return res.status(400).json({ error: 'Quantidade de camadas inválida.' });
-      normalized.push(buildOrderItem({ size, options: ids.map(id => optionMap.get(id)), quantity: qty, maxToppings, layers }));
+      const halfIceCream = item.halfIceCreamId ? halfRows.find(h => h.id === Number(item.halfIceCreamId)) : null;
+      if (halfIceCream && size.product_type !== 'traditional')
+        return res.status(400).json({ error: 'A opção metade sorvete só vale para o açaí tradicional.' });
+      normalized.push(buildOrderItem({ size, options: ids.map(id => optionMap.get(id)), quantity: qty, maxToppings, layers, halfIceCream }));
     }
     const { subtotalCents: subtotal, itemCount } = summarizeItems(normalized);
     // Estoque: se o ingrediente cadastrado por tamanho (ex.: açaí) não cobre o pedido inteiro, não aceita. A baixa só ocorre em "Preparando".
@@ -265,7 +275,9 @@ router.patch('/orders/:code/customer', async (req, res, next) => {
         continue;
       const size = sizeRows.find(z => z.id === x.sizeId);
       const selected = x.optionIds.map(id => optionRows.find(opt => opt.id === id));
-      normalized.push(buildOrderItem({ size, options: selected, quantity: x.qty, maxToppings, layers: x.layers }));
+      // A edição do cliente não muda o sabor da metade sorvete: mantém o que o pedido já tinha (só em açaí tradicional).
+      const keepHalf = old[x.idx]?.halfIceCream && size.product_type === 'traditional' ? old[x.idx].halfIceCream : null;
+      normalized.push(buildOrderItem({ size, options: selected, quantity: x.qty, maxToppings, layers: x.layers, halfIceCream: keepHalf }));
     }
     if (!normalized.length)
       return res.status(400).json({ error: 'O pedido precisa ter pelo menos um item.' });

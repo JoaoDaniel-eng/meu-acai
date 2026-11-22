@@ -3,7 +3,7 @@ import { getPool } from './pool.js';
 const schema = `
 CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY, name VARCHAR(120) NOT NULL, description TEXT NOT NULL DEFAULT '',
-  product_type VARCHAR(20) NOT NULL DEFAULT 'traditional' CHECK(product_type IN ('traditional','truffled')),
+  product_type VARCHAR(20) NOT NULL DEFAULT 'traditional' CHECK(product_type IN ('traditional','truffled','ice_cream')),
   image_url TEXT,
   active BOOLEAN NOT NULL DEFAULT TRUE, sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -168,6 +168,13 @@ export async function initializeDatabase() {
   await db.query("ALTER TABLE admin_audit_logs ADD COLUMN IF NOT EXISTS actor VARCHAR(10) NOT NULL DEFAULT 'admin'");
   await db.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS product_type VARCHAR(20) NOT NULL DEFAULT 'traditional'");
   await db.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT');
+  // Sorvetes: bancos antigos só aceitavam 'traditional' e 'truffled'. Troca a regra só se ela ainda não conhecer 'ice_cream'.
+  await db.query(`DO $$ DECLARE c RECORD; BEGIN
+    FOR c IN SELECT conname FROM pg_constraint WHERE conrelid='products'::regclass AND contype='c' AND pg_get_constraintdef(oid) LIKE '%product_type%' AND pg_get_constraintdef(oid) NOT LIKE '%ice_cream%' LOOP
+      EXECUTE format('ALTER TABLE products DROP CONSTRAINT %I', c.conname);
+      ALTER TABLE products ADD CONSTRAINT products_product_type_check CHECK(product_type IN ('traditional','truffled','ice_cream'));
+    END LOOP;
+  END $$`);
   await db.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo TEXT');
   // Fotos novas ficam no armazenamento de arquivos (Cloudinary); o banco guarda só o endereço.
   await db.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo_url TEXT');
@@ -278,6 +285,21 @@ export async function initializeDatabase() {
       await db.query("UPDATE products SET product_type='truffled' WHERE id=$1", [productId]);
     for (const [sizeName, price] of [['400 ml', 2000], ['500 ml', 2500]])
       await db.query('INSERT INTO product_sizes(product_id,name,price_cents,sort_order) VALUES($1,$2,$3,$4) ON CONFLICT(product_id,name) DO NOTHING', [productId, sizeName, price, sizeName === '400 ml' ? 0 : 1]);
+  }
+  // Sorvetes: sabores são produtos próprios (como os trufados), com os mesmos tamanhos e preços do açaí tradicional.
+  // Só são criados uma vez (marcador em settings): depois disso o painel manda, e um sabor excluído não volta no reinício.
+  const iceCreamSeed = await db.query("INSERT INTO settings(key,value) VALUES('ice_cream_seed_v1','1') ON CONFLICT(key) DO NOTHING RETURNING key");
+  if (iceCreamSeed.rowCount) {
+    const baseProduct = (await db.query("SELECT id FROM products WHERE product_type='traditional' ORDER BY sort_order,id LIMIT 1")).rows[0]?.id;
+    for (const [index, flavor] of ['Sorvete de Pistache', 'Sorvete de Flocos', 'Sorvete de Ninho Trufado'].entries()) {
+      if ((await db.query('SELECT 1 FROM products WHERE LOWER(TRIM(name))=LOWER(TRIM($1))', [flavor])).rowCount)
+        continue;
+      const productId = (await db.query("INSERT INTO products(name,description,product_type,sort_order) VALUES($1,$2,'ice_cream',$3) RETURNING id", [flavor, 'Sorvete cremoso, no tamanho que você quiser.', 200 + index])).rows[0].id;
+      if (baseProduct)
+        await db.query(`INSERT INTO product_sizes(product_id,name,price_cents,active,sort_order)
+          SELECT $1,name,price_cents,active,(ROW_NUMBER() OVER (ORDER BY sort_order,id))-1 FROM product_sizes WHERE product_id=$2
+          ON CONFLICT(product_id,name) DO NOTHING`, [productId, baseProduct]);
+    }
   }
   for (const item of options)
     await db.query('INSERT INTO options(name,category,price_cents,sort_order) VALUES($1,$2,$3,$4) ON CONFLICT(name,category) DO NOTHING', [item.name, item.category, item.price, item.sort]);

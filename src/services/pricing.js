@@ -84,7 +84,7 @@ export function freeDeliveryMinCents(settings = {}) {
 // Monta uma linha do pedido a partir do tamanho e dos adicionais já carregados do banco.
 // `size`: { id, name, price_cents, product_name }. `options`: lista de { id, name, category, price_cents }
 // (um elemento undefined/null significa que o adicional escolhido não existe mais).
-export function buildOrderItem({ size, options, quantity, maxToppings = 5, layers = {} }) {
+export function buildOrderItem({ size, options, quantity, maxToppings = 5, layers = {}, halfIceCream = null }) {
   if (options.some(option => !option)) throw new PricingError('Adicional inválido.');
   if (options.filter(option => option.category === 'topping').length > maxToppings) {
     throw new PricingError(`Escolha no máximo ${maxToppings} acompanhamentos por açaí.`);
@@ -106,6 +106,8 @@ export function buildOrderItem({ size, options, quantity, maxToppings = 5, layer
   const unitPriceCents = toCents(size.price_cents) + priced.reduce((sum, p) => sum + p.priceCents, 0);
   return {
     product: size.product_name,
+    // Açaí "metade sorvete, metade açaí": só guarda qual sabor de sorvete é a outra metade (o preço continua o do tamanho escolhido).
+    ...(halfIceCream ? { halfIceCream: { id: halfIceCream.id, name: halfIceCream.name } } : {}),
     sizeId: size.id,
     size: size.name,
     quantity,
