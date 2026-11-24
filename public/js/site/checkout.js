@@ -37,8 +37,20 @@ async function load() {
     showPendingWhatsappBanner();
   }
   catch (e) {
-    $('#menu-status').textContent = e.message + ' Confira a configuração do banco de dados e tente novamente.';
-    $('#menu-status').classList.add('error-message');
+    const status = $('#menu-status');
+    const message = document.createElement('span');
+    message.textContent = e.message + ' Confira a configuração do banco de dados e tente novamente.';
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'button button-primary';
+    retry.textContent = 'Tentar novamente';
+    retry.addEventListener('click', () => {
+      retry.disabled = true;
+      retry.textContent = 'Tentando novamente…';
+      load();
+    }, { once: true });
+    status.replaceChildren(message, retry);
+    status.classList.add('error-message');
   }
   await loadReviews();
 }
