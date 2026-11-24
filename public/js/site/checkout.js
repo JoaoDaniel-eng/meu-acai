@@ -305,8 +305,8 @@ function paintCartNote() {
   const count = cart.reduce((n, i) => n + i.quantity, 0), ice = builderCategory === 'ice_cream';
   note.classList.toggle('is-in-cart', count > 0);
   note.textContent = count
-    ? `🛒 Seu pedido já tem ${count} ${count === 1 ? 'item' : 'itens'}. Toque em “Adicionar ao pedido” para incluir ${ice ? 'este sorvete' : 'este açaí'} ou em “Finalizar pedido” para fechar a compra.`
-    : `Escolha ${ice ? 'o sabor, o tamanho' : 'o tamanho'} e os acompanhamentos e toque em “Adicionar ao pedido”. Dá para juntar açaí, trufado e sorvete no mesmo pedido.`;
+    ? `🛒 ${count} ${count === 1 ? 'item' : 'itens'} no pedido. Adicione mais ou toque em “Finalizar pedido”.`
+    : `Monte ${ice ? 'o seu sorvete' : 'o seu açaí'} e toque em “Adicionar ao pedido”.`;
 }
 function resetBuilder() {
   draftTouched = false;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acai-da-roca-v20261124-redesign6';
+const CACHE_NAME = 'acai-da-roca-v20261124-redesign7';
 const APP_SHELL = [
   '/',
   '/index.html',
