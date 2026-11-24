@@ -51,7 +51,7 @@ function paintStoreBanner() {
   $('#store-banner-schedule').classList.remove('hidden');
   $('#store-status').textContent = store.openNow ? '🟢 Aberto para pedidos imediatos · ' + store.openingTime + ' às ' + store.closingTime : '🟣 No momento estamos fechados para pedidos imediatos. Você pode agendar.';
 }
-$('#store-banner-schedule').addEventListener('click', () => { const t = $('#order-time'); t.value = 'scheduled'; t.dispatchEvent(new Event('change')); $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+$('#store-banner-schedule').addEventListener('click', () => { const t = $('#order-time'); t.value = 'scheduled'; t.dispatchEvent(new Event('change')); scrollRespectingMotion($('#pedido'), { behavior: 'smooth', block: 'start' }); });
 setInterval(async () => {
   if (document.hidden || !store)
     return;

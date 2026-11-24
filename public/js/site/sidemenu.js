@@ -33,7 +33,7 @@ function goTo(selector, focusSel) {
   setTimeout(() => {
     const el = $(selector);
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrollRespectingMotion(el, { behavior: 'smooth', block: 'start' });
       if (focusSel) {
         const f = $(focusSel);
         if (f)

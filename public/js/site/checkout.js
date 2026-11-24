@@ -1,4 +1,5 @@
 // Carregamento do cardápio, carrinho, cupom, envio do pedido, passo do WhatsApp e Pix.
+let truffleQuantity = 1;
 async function load() {
   try {
     [store, menu] = await Promise.all([api('/store'), api('/menu')]);
@@ -13,6 +14,7 @@ async function load() {
     if (!available.length)
       throw new Error('Nenhum produto com tamanho disponível foi encontrado.');
     selectedSize = hasTraditional ? traditional.sizes.find(size => !size.soldOut) || traditional.sizes[0] : null;
+    $('#menu-status').classList.remove('error-message');
     $('#menu-status').classList.add('hidden');
     $('#builder').classList.remove('hidden');
     renderBuilder();
@@ -23,7 +25,7 @@ async function load() {
       tab.classList.toggle('hidden', !available.includes(type));
       tab.classList.toggle('button-primary', active);
       tab.classList.toggle('button-outline', !active);
-      tab.setAttribute('aria-selected', String(active));
+      tab.setAttribute('aria-pressed', String(active));
     });
     $('#menu-category-tabs').classList.toggle('hidden', available.length < 2);
     showMenuCategory(available[0]);
@@ -39,7 +41,7 @@ async function load() {
   catch (e) {
     const status = $('#menu-status');
     const message = document.createElement('span');
-    message.textContent = e.message + ' Confira a configuração do banco de dados e tente novamente.';
+    message.textContent = e.message + ' Confira a conexão e tente novamente.';
     const retry = document.createElement('button');
     retry.type = 'button';
     retry.className = 'button button-primary';
@@ -95,7 +97,8 @@ function renderTruffledSizes() {
     const panel = $(cfg.sizes), product = selectedTruffleProduct;
     if (!product || product.type !== type || !Array.isArray(product.sizes) || !product.sizes.length) { panel.classList.add('hidden'); panel.innerHTML = ''; continue; }
     panel.classList.remove('hidden');
-    panel.innerHTML = `<h3>${esc(product.name)}</h3><p class="muted">Agora escolha o tamanho:</p><div class="size-grid">${product.sizes.map(size => `<button type="button" class="size-card ${size.soldOut ? 'sold-out' : ''}" data-truffle-size="${size.id}" ${size.soldOut ? 'disabled' : ''}><span>${esc(size.name)}</span><strong>${size.soldOut ? 'Esgotado' : brl(size.price)}</strong>${size.stockLabel && !size.soldOut ? `<em class="stock-badge">${esc(size.stockLabel)}</em>` : ''}</button>`).join('')}</div><p class="form-message" id="truffle-message" role="status"></p>`;
+    const quantityOptions = Array.from({ length: 20 }, (_, i) => i + 1).map(n => `<option value="${n}" ${n === truffleQuantity ? 'selected' : ''}>${n}</option>`).join('');
+    panel.innerHTML = `<h3>${esc(product.name)}</h3><div class="truffled-quantity-row"><label for="truffle-quantity">Quantidade</label><select id="truffle-quantity">${quantityOptions}</select></div><p class="muted">Agora escolha o tamanho:</p><div class="size-grid">${product.sizes.map(size => `<button type="button" class="size-card ${size.soldOut ? 'sold-out' : ''}" data-truffle-size="${size.id}" ${size.soldOut ? 'disabled' : ''}><span>${esc(size.name)}</span><strong>${size.soldOut ? 'Esgotado' : brl(size.price)}</strong>${size.stockLabel && !size.soldOut ? `<em class="stock-badge">${esc(size.stockLabel)}</em>` : ''}</button>`).join('')}</div><p class="form-message" id="truffle-message" role="status"></p>`;
   }
 }
 function truffleMessage(text) {
@@ -121,7 +124,7 @@ document.addEventListener('click', e => {
       const active = b === category;
       b.classList.toggle('button-primary', active);
       b.classList.toggle('button-outline', !active);
-      b.setAttribute('aria-selected', String(active));
+      b.setAttribute('aria-pressed', String(active));
     });
     showMenuCategory(category.dataset.menuCategory);
     return;
@@ -135,7 +138,7 @@ document.addEventListener('click', e => {
   if (truffleSize && selectedTruffleProduct) {
     const size = selectedTruffleProduct.sizes.find(x => x.id === Number(truffleSize.dataset.truffleSize));
     if (!size || size.soldOut) return;
-    const quantity = Number($('#builder-quantity')?.value || 1);
+    const quantity = Number($('#truffle-quantity')?.value || truffleQuantity || 1);
     // Estoque por unidade: não deixa o carrinho passar do que a loja tem (o servidor confere de novo ao fechar o pedido).
     if (size.stock !== null && size.stock !== undefined) {
       const inCart = cart.filter(item => item.sizeId === size.id).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -147,10 +150,14 @@ document.addEventListener('click', e => {
     truffleMessage('');
     cart.push({ sizeId: size.id, product: selectedTruffleProduct.name, size: size.name, quantity, optionIds: [], options: [], unitPriceCents: Number(size.price), lineTotalCents: Number(size.price) * quantity });
     appliedCoupon = null; $('#coupon-message').textContent = ''; renderCart();
-    $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollRespectingMotion($('#pedido'), { behavior: 'smooth', block: 'start' });
   }
 });
 document.addEventListener('change', e => {
+  if (e.target.matches('#truffle-quantity')) {
+    truffleQuantity = Math.min(20, Math.max(1, Math.trunc(Number(e.target.value) || 1)));
+    return;
+  }
   if (e.target.matches('[data-size]')) {
     selectedSize = builderProduct()?.sizes.find(s => s.id === Number(e.target.dataset.size)) || null;
     renderBuilder();
@@ -308,13 +315,13 @@ $('#view-order').addEventListener('click', () => {
   if (!cart.length) syncDraft();
   if (!cart.length) { builderMessage(needSizeMessage()); return; }
   builderMessage('');
-  $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  scrollRespectingMotion($('#pedido'), { behavior: 'smooth', block: 'start' });
 });
 $('#another-acai').addEventListener('click', () => {
   // Fecha o açaí atual (ele continua no pedido) e começa um novo, em branco.
   resetBuilder();
   builderMessage(`Pronto! O ${builderCategory === 'ice_cream' ? 'sorvete' : 'açaí'} anterior está no pedido. Monte o próximo.`);
-  $('#builder').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  scrollRespectingMotion($('#builder'), { behavior: 'smooth', block: 'start' });
 });
 $('#zone-select').addEventListener('change', renderCart);
 // Entrega x retirada: na retirada some endereço e bairro (não são obrigatórios) e o frete é zero.
@@ -476,7 +483,7 @@ function showCheckoutProblems(scrollToBox) {
         b.type = 'button';
         b.textContent = p.text;
         b.addEventListener('click', () => {
-          p.node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          scrollRespectingMotion(p.node, { behavior: 'smooth', block: 'center' });
           p.node.focus({ preventScroll: true });
         });
         li.append(b);
@@ -486,7 +493,7 @@ function showCheckoutProblems(scrollToBox) {
     }
   }
   box.classList.toggle('hidden', !problems.length);
-  if (scrollToBox && problems.length) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (scrollToBox && problems.length) scrollRespectingMotion(box, { behavior: 'smooth', block: 'center' });
   return problems;
 }
 // Depois da primeira tentativa, a lista acompanha o cliente: some item por item conforme ele preenche.
@@ -634,7 +641,7 @@ function showWhatsappStep(anchor, order, url) {
   if (order.pix) box.append(pixBlock(order.pix));
   box.append(a);
   anchor.insertAdjacentElement('afterend', box);
-  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  scrollRespectingMotion(box, { behavior: 'smooth', block: 'center' });
 }
 // Bloco "Pague com Pix": valor, código copia e cola e botão de copiar.
 function pixBlock(pix) {

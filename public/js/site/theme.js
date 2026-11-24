@@ -1,6 +1,6 @@
 // Tema claro/escuro e tamanho da fonte.
 // ===== Menu lateral, estado de login no topo e configurações =====
-const THEME_COLORS = { light: '#321047', dark: '#1a0a24' };
+const THEME_COLORS = { light: '#2a1034', dark: '#170a1d' };
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 function applyTheme(pref, persist) {
   if (!['light', 'dark', 'auto'].includes(pref))

@@ -68,7 +68,7 @@ $('#customer-login-form').addEventListener('submit', async (e) => {
     customerMessage('#customer-login-message', '');
     form.reset();
     await loadCustomerAccount();
-    $('#minha-conta').scrollIntoView({ behavior: 'smooth' });
+    scrollRespectingMotion($('#minha-conta'), { behavior: 'smooth' });
   }
   catch (err) {
     customerMessage('#customer-login-message', err.message, true);
@@ -86,7 +86,7 @@ $('#customer-register-form').addEventListener('submit', async (e) => {
     customerMessage('#customer-register-message', '');
     await loadCustomerAccount();
     showWelcomeCoupon(data.welcomeCoupon);
-    $('#minha-conta').scrollIntoView({ behavior: 'smooth' });
+    scrollRespectingMotion($('#minha-conta'), { behavior: 'smooth' });
   }
   catch (err) {
     customerMessage('#customer-register-message', err.message, true);
@@ -132,7 +132,7 @@ document.addEventListener('click', e => {
   $('#tracking-form [name=code]').value = b.dataset.orderCode;
   $('#tracking-form [name=phone]').value = b.dataset.orderPhone;
   $('#tracking-form').requestSubmit();
-  $('#acompanhar').scrollIntoView({ behavior: 'smooth' });
+  scrollRespectingMotion($('#acompanhar'), { behavior: 'smooth' });
 });
 
 // Cupom de boas-vindas: aviso mostrado logo após o cadastro (o cupom em si fica em "Meus cupons").
@@ -163,7 +163,7 @@ function useCouponInOrder(code, messageSelector) {
   else {
     customerMessage(messageSelector, 'Cupom guardado no campo do pedido. Escolha seu açaí e toque em "Aplicar cupom".');
   }
-  $('#cardapio').scrollIntoView({ behavior: 'smooth' });
+  scrollRespectingMotion($('#cardapio'), { behavior: 'smooth' });
 }
 async function copyCouponCode(code, messageSelector) {
   try {

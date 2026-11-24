@@ -5,6 +5,12 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 let store = null, menu = null, cart = [], selectedSize = null, appliedCoupon = null, selectedTruffleProduct = null, builderCategory = 'traditional', selectedIceCream = null, halfIceOn = false, selectedHalfIce = null;
 const selected = new Set();
 const selectedLayers = new Map();
+function scrollRespectingMotion(element, options = {}) {
+  if (!element)
+    return;
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  return element.scrollIntoView({ ...options, behavior: reduceMotion ? 'auto' : (options.behavior || 'auto') });
+}
 async function api(path, opts = {}) {
   const token = localStorage.getItem('acaiCustomerToken');
   const r = await fetch('/api' + path, { headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(opts.headers || {}) }, ...opts });

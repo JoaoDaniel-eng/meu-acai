@@ -55,7 +55,7 @@ function showEditWhatsappStep(updated, text) {
   a.textContent = 'Enviar alteração no WhatsApp';
   box.append(a);
   card.prepend(box);
-  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  scrollRespectingMotion(box, { behavior: 'smooth', block: 'center' });
   return url;
 }
 function renderTracking(o) {
@@ -213,7 +213,7 @@ document.addEventListener('click', async (e) => {
     $('#coupon-message').textContent = '';
     renderCart();
     message.textContent = repeated.length < (trackedOrder.items || []).length ? 'Alguns itens não estão mais disponíveis e não foram adicionados.' : 'Itens adicionados novamente ao carrinho!';
-    $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollRespectingMotion($('#pedido'), { behavior: 'smooth', block: 'start' });
     return;
   }
   if (e.target.id !== 'cancel-customer-order' || !trackedOrder)

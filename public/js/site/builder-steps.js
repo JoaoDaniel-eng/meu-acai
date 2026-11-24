@@ -85,7 +85,7 @@
 
   function scrollToTop() {
     const b = builder();
-    if (b && b.getBoundingClientRect().top < 70) b.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (b && b.getBoundingClientRect().top < 70) scrollRespectingMotion(b, { behavior: 'smooth', block: 'start' });
   }
 
   // force = true: quem chama já decidiu (atalhos para o pedido); sem validação.

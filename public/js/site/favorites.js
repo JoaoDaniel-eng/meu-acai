@@ -38,7 +38,7 @@ document.addEventListener('click', async (e) => {
     $('#coupon-message').textContent = '';
     renderCart();
     customerMessage('#favorites-message', `“${f.name}” foi adicionado ao seu pedido.`);
-    $('#pedido').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollRespectingMotion($('#pedido'), { behavior: 'smooth', block: 'start' });
     return;
   }
   if (del) {
