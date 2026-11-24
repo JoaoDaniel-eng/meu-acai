@@ -1005,7 +1005,7 @@ html[data-theme="dark"] .field-invalid{border-color:#ef5350!important;background
 /* ===== Pedido em passos (Tamanho → Complementos → Entrega e pagamento) ===== */
 .step-off { display: none !important; }
 #builder.is-stepped { grid-template-columns: minmax(0, 1fr); max-width: 760px; margin-left: auto; margin-right: auto; }
-#builder.is-stepped #view-order { display: none; }
+#builder.is-stepped #view-order, #builder.is-stepped #add-to-order { display: none; }
 .builder-sr { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .builder-steps { margin: 0 0 4px; }
 .builder-steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -1023,6 +1023,27 @@ html[data-theme="dark"] .field-invalid{border-color:#ef5350!important;background
 .builder-nav-row { display: flex; align-items: center; gap: 10px; }
 .builder-nav-info { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
 .builder-nav-info span { font-size: .74rem; color: var(--muted); }
+/* O bloco do total é um botão: com itens no pedido leva ao pedido ("ver pedido"). */
+button.builder-nav-info { margin: 0; padding: 0; border: 0; background: none; font: inherit; text-align: left; cursor: default; align-items: flex-start; }
+button.builder-nav-info.is-link { cursor: pointer; }
+body button.builder-nav-info.is-link span { color: var(--purple2); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+/* Telas estreitas: só "🛒 N itens" + total com seta; com espaço, aparece também "· ver pedido →". */
+.builder-nav-info .nav-see { display: none; }
+@media (min-width: 430px) {
+  .builder-nav-info .nav-see { display: inline; }
+  button.builder-nav-info.is-link strong::after { content: " ›"; color: var(--purple2); }
+  html[data-theme="dark"] button.builder-nav-info.is-link strong::after { color: #e0c3f3; }
+}
+button.builder-nav-info:focus-visible { outline: 3px solid var(--purple2); outline-offset: 3px; border-radius: 8px; }
+/* Aviso verde depois de adicionar um item */
+.builder-added-message { margin: 0 0 8px; padding: 8px 12px; border-radius: 10px; background: rgba(124, 194, 66, .18); color: #2c5a14; font-size: .88rem; font-weight: 600; line-height: 1.35; }
+.builder-added-message:empty { display: none; }
+html[data-theme="dark"] .builder-added-message { background: rgba(124, 194, 66, .18); color: #cfeeb0; }
+html[data-theme="dark"] body button.builder-nav-info.is-link span { color: #e0c3f3; }
+/* Botões novos do pedido */
+.add-more-items { margin: 4px 0 14px; }
+.truffle-add { margin-top: 16px; }
+.truffle-add:disabled { opacity: .6; cursor: not-allowed; }
 .builder-nav-info strong { font-size: 1.05rem; color: var(--purple); }
 .builder-nav .button { min-height: 48px; padding-left: 18px; padding-right: 18px; white-space: nowrap; }
 .builder-nav .button:disabled { opacity: .7; cursor: progress; }

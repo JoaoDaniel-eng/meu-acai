@@ -1,5 +1,6 @@
 // Carregamento do cardápio, carrinho, cupom, envio do pedido, passo do WhatsApp e Pix.
 let truffleQuantity = 1;
+let truffleSizeId = null;
 async function load() {
   try {
     [store, menu] = await Promise.all([api('/store'), api('/menu')]);
@@ -71,20 +72,20 @@ const flavorProducts = type => menu.products.filter(p => p.type === type && Arra
 // Troca a categoria visível: o montador (açaí tradicional ou sorvete) ou o cardápio de sabores prontos.
 function showMenuCategory(type) {
   const builderType = type === 'traditional' || type === 'ice_cream';
+  // Saindo do montador para os trufados: o que já foi montado entra no pedido (nada se perde sem o cliente perceber).
+  if (!builderType) commitPendingDraft({ announce: true });
   if (builderType) setBuilderCategory(type);
   $('.builder-main').classList.toggle('hidden', !builderType);
   for (const [key, cfg] of Object.entries(FLAVOR_CATEGORIES))
     $(cfg.menu).classList.toggle('hidden', key !== type);
   if (!builderType) renderTruffledMenu();
 }
-// Troca entre açaí e sorvete no montador: o que estava sendo montado continua no pedido e o montador recomeça em branco.
+// Troca entre açaí e sorvete no montador: o que já estava montado entra no pedido e o montador recomeça em branco.
 function setBuilderCategory(type) {
   if (builderCategory === type) return;
+  commitPendingDraft({ announce: true });
   builderCategory = type;
-  selectedIceCream = null;
-  const product = builderProduct();
-  selectedSize = product ? product.sizes.find(size => !size.soldOut) || product.sizes[0] : null;
-  resetBuilder();
+  freshBuilder();
 }
 function renderTruffledMenu() {
   for (const [type, cfg] of Object.entries(FLAVOR_CATEGORIES)) {
@@ -92,13 +93,20 @@ function renderTruffledMenu() {
     $(cfg.flavors).innerHTML = products.length ? products.map(p => `<button type="button" class="truffled-flavor-card ${selectedTruffleProduct?.id === p.id ? 'chosen' : ''}" data-truffle-flavor="${p.id}">${truffleFlavorBadge(p)}${p.image_url ? `<img src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}<strong>${esc(p.name)}</strong><span>Escolher tamanho →</span></button>`).join('') : `<p class="muted">${cfg.empty}</p>`;
   }
 }
+// Texto do botão de adicionar do trufado: mostra o total (quantidade × tamanho) assim que o tamanho é escolhido.
+function truffleAddLabel(product) {
+  const size = product?.sizes?.find(x => x.id === truffleSizeId);
+  return size ? `+ Adicionar ao pedido · ${brl(Number(size.price) * truffleQuantity)}` : 'Escolha um tamanho para adicionar';
+}
 function renderTruffledSizes() {
   for (const [type, cfg] of Object.entries(FLAVOR_CATEGORIES)) {
     const panel = $(cfg.sizes), product = selectedTruffleProduct;
     if (!product || product.type !== type || !Array.isArray(product.sizes) || !product.sizes.length) { panel.classList.add('hidden'); panel.innerHTML = ''; continue; }
+    // Tamanho que esgotou enquanto o cliente olhava deixa de estar escolhido.
+    if (truffleSizeId && !product.sizes.some(x => x.id === truffleSizeId && !x.soldOut)) truffleSizeId = null;
     panel.classList.remove('hidden');
     const quantityOptions = Array.from({ length: 20 }, (_, i) => i + 1).map(n => `<option value="${n}" ${n === truffleQuantity ? 'selected' : ''}>${n}</option>`).join('');
-    panel.innerHTML = `<h3>${esc(product.name)}</h3><div class="truffled-quantity-row"><label for="truffle-quantity">Quantidade</label><select id="truffle-quantity">${quantityOptions}</select></div><p class="muted">Agora escolha o tamanho:</p><div class="size-grid">${product.sizes.map(size => `<button type="button" class="size-card ${size.soldOut ? 'sold-out' : ''}" data-truffle-size="${size.id}" ${size.soldOut ? 'disabled' : ''}><span>${esc(size.name)}</span><strong>${size.soldOut ? 'Esgotado' : brl(size.price)}</strong>${size.stockLabel && !size.soldOut ? `<em class="stock-badge">${esc(size.stockLabel)}</em>` : ''}</button>`).join('')}</div><p class="form-message" id="truffle-message" role="status"></p>`;
+    panel.innerHTML = `<h3>${esc(product.name)}</h3><div class="truffled-quantity-row"><label for="truffle-quantity">Quantidade</label><select id="truffle-quantity">${quantityOptions}</select></div><p class="muted">Agora escolha o tamanho:</p><div class="size-grid">${product.sizes.map(size => `<button type="button" class="size-card ${size.soldOut ? 'sold-out' : ''} ${size.id === truffleSizeId ? 'chosen' : ''}" data-truffle-size="${size.id}" aria-pressed="${size.id === truffleSizeId}" ${size.soldOut ? 'disabled' : ''}><span>${esc(size.name)}</span><strong>${size.soldOut ? 'Esgotado' : brl(size.price)}</strong>${size.stockLabel && !size.soldOut ? `<em class="stock-badge">${esc(size.stockLabel)}</em>` : ''}</button>`).join('')}</div><button type="button" class="button button-green button-full truffle-add" id="truffle-add" data-truffle-add ${truffleSizeId ? '' : 'disabled'}>${esc(truffleAddLabel(product))}</button><p class="form-message" id="truffle-message" role="status"></p>`;
   }
 }
 function truffleMessage(text) {
@@ -132,30 +140,50 @@ document.addEventListener('click', e => {
   const flavor = e.target.closest('[data-truffle-flavor]');
   if (flavor) {
     selectedTruffleProduct = menu.products.find(p => p.id === Number(flavor.dataset.truffleFlavor));
-    renderTruffledMenu(); renderTruffledSizes(); return;
+    truffleSizeId = null;
+    announceAdded('');
+    renderTruffledMenu(); renderTruffledSizes();
+    scrollRespectingMotion($('#truffled-sizes'), { behavior: 'smooth', block: 'nearest' });
+    return;
   }
+  // Escolher o tamanho só marca a opção; quem coloca no pedido é o botão "Adicionar ao pedido".
   const truffleSize = e.target.closest('[data-truffle-size]');
   if (truffleSize && selectedTruffleProduct) {
     const size = selectedTruffleProduct.sizes.find(x => x.id === Number(truffleSize.dataset.truffleSize));
     if (!size || size.soldOut) return;
-    const quantity = Number($('#truffle-quantity')?.value || truffleQuantity || 1);
-    // Estoque por unidade: não deixa o carrinho passar do que a loja tem (o servidor confere de novo ao fechar o pedido).
-    if (size.stock !== null && size.stock !== undefined) {
-      const inCart = cart.filter(item => item.sizeId === size.id).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-      if (inCart + quantity > size.stock) {
-        truffleMessage(inCart ? `Você já tem ${inCart} no pedido e só temos ${size.stock} unidade${size.stock === 1 ? '' : 's'} desse tamanho.` : `Só temos ${size.stock} unidade${size.stock === 1 ? '' : 's'} desse tamanho. Diminua a quantidade.`);
-        return;
-      }
-    }
-    truffleMessage('');
-    cart.push({ sizeId: size.id, product: selectedTruffleProduct.name, size: size.name, quantity, optionIds: [], options: [], unitPriceCents: Number(size.price), lineTotalCents: Number(size.price) * quantity });
-    appliedCoupon = null; $('#coupon-message').textContent = ''; renderCart();
-    scrollRespectingMotion($('#pedido'), { behavior: 'smooth', block: 'start' });
+    truffleSizeId = size.id;
+    renderTruffledSizes();
+    return;
   }
+  if (e.target.closest('[data-truffle-add]') && selectedTruffleProduct) addTruffleToOrder();
 });
+// Coloca o trufado escolhido no pedido e deixa o cliente livre para escolher mais itens (outra categoria, outro sabor ou ir ao pedido).
+function addTruffleToOrder() {
+  const product = selectedTruffleProduct, size = product?.sizes?.find(x => x.id === truffleSizeId);
+  if (!product || !size || size.soldOut) { truffleMessage('Escolha um tamanho para adicionar ao pedido.'); return; }
+  const quantity = Math.min(20, Math.max(1, Math.trunc(Number($('#truffle-quantity')?.value || truffleQuantity || 1))));
+  // Estoque por unidade: não deixa o carrinho passar do que a loja tem (o servidor confere de novo ao fechar o pedido).
+  if (size.stock !== null && size.stock !== undefined) {
+    const inCart = cart.filter(item => item.sizeId === size.id).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    if (inCart + quantity > size.stock) {
+      truffleMessage(inCart ? `Você já tem ${inCart} no pedido e só temos ${size.stock} unidade${size.stock === 1 ? '' : 's'} desse tamanho.` : `Só temos ${size.stock} unidade${size.stock === 1 ? '' : 's'} desse tamanho. Diminua a quantidade.`);
+      return;
+    }
+  }
+  cart.push({ sizeId: size.id, product: product.name, size: size.name, quantity, optionIds: [], options: [], unitPriceCents: Number(size.price), lineTotalCents: Number(size.price) * quantity });
+  couponNeedsRecheck();
+  // Recomeça a escolha de trufados: o item já está no pedido.
+  selectedTruffleProduct = null; truffleSizeId = null; truffleQuantity = 1;
+  renderTruffledMenu(); renderTruffledSizes();
+  renderCart();
+  announceAdded(`✓ ${quantity}× ${product.name} ${size.name} adicionado ao pedido.`);
+  document.dispatchEvent(new CustomEvent('acai:item-added'));
+}
 document.addEventListener('change', e => {
   if (e.target.matches('#truffle-quantity')) {
     truffleQuantity = Math.min(20, Math.max(1, Math.trunc(Number(e.target.value) || 1)));
+    const addBtn = $('#truffle-add');
+    if (addBtn) addBtn.textContent = truffleAddLabel(selectedTruffleProduct);
     return;
   }
   if (e.target.matches('[data-size]')) {
@@ -241,39 +269,47 @@ document.addEventListener('focusout', e => {
     syncDraft();
   }
 });
-// Clicar no tamanho que já está marcado não dispara "change": também coloca o açaí no pedido.
+// Clicar no tamanho que já está marcado não dispara "change": conta como escolha do cliente.
 document.addEventListener('click', e => {
-  if (e.target.matches?.('[data-size]') && selectedSize && Number(e.target.dataset.size) === selectedSize.id && !draftInCart())
+  if (e.target.matches?.('[data-size]') && selectedSize && Number(e.target.dataset.size) === selectedSize.id)
     syncDraft();
 });
 document.addEventListener('click', e => {
   const remove = e.target.closest('[data-remove]');
   if (remove) {
-    const [removed] = cart.splice(Number(remove.dataset.remove), 1);
-    // Se saiu o açaí que estava sendo montado, o montador volta ao começo.
-    if (removed && removed === draftItem) resetBuilder();
+    cart.splice(Number(remove.dataset.remove), 1);
     appliedCoupon = null;
     $('#coupon-message').textContent = '';
     renderCart();
   }
 });
-// O açaí que o cliente está montando já fica no pedido: entra na primeira escolha e acompanha cada mudança
-// (tamanho, acompanhamentos, adicionais, camadas e quantidade). Não existe mais o passo "Adicionar ao pedido".
-let draftItem = null;
-const draftInCart = () => !!draftItem && cart.includes(draftItem);
+// O açaí ou sorvete que o cliente está montando fica num "rascunho" e só entra no pedido quando ele toca em
+// "Adicionar ao pedido". Depois de adicionar, o montador recomeça em branco e o cliente escolhe o próximo item
+// (açaí, trufado ou sorvete) sem sair do cardápio; no fim, toca em "Ir para o pedido" e paga tudo de uma vez.
+let draftTouched = false;
+// Aviso verde "✓ ... adicionado ao pedido" na barra de baixo (aparece em todas as categorias).
+function announceAdded(text) {
+  const el = $('#builder-added-message');
+  if (el) el.textContent = text || '';
+}
+// Mudou o pedido: um cupom já aplicado precisa ser validado de novo.
+function couponNeedsRecheck() {
+  if (!appliedCoupon) return;
+  appliedCoupon = null;
+  $('#coupon-message').textContent = 'O pedido mudou. Aplique o cupom novamente.';
+  $('#coupon-message').classList.remove('is-success');
+}
 function paintCartNote() {
-  const note = $('#builder-cart-note'), another = $('#another-acai');
+  const note = $('#builder-cart-note');
   if (!note) return;
-  const inCart = draftInCart(), what = builderCategory === 'ice_cream' ? 'sorvete' : 'açaí';
-  if (another) another.textContent = `+ Montar outro ${what}`;
-  another?.classList.toggle('hidden', !inCart);
-  note.classList.toggle('is-in-cart', inCart);
-  note.textContent = inCart
-    ? `✓ No seu pedido: ${draftItem.quantity}× ${draftItem.product} ${draftItem.size} · ${brl(draftItem.lineTotalCents)}. Pode continuar escolhendo e tocar em “Continuar” quando terminar.`
-    : (builderCategory === 'ice_cream' ? 'Escolha o sabor, o tamanho e os acompanhamentos: seu sorvete entra no pedido automaticamente.' : 'Escolha o tamanho e os acompanhamentos: seu açaí entra no pedido automaticamente.');
+  const count = cart.reduce((n, i) => n + i.quantity, 0), ice = builderCategory === 'ice_cream';
+  note.classList.toggle('is-in-cart', count > 0);
+  note.textContent = count
+    ? `🛒 Seu pedido já tem ${count} ${count === 1 ? 'item' : 'itens'}. Toque em “Adicionar ao pedido” para incluir ${ice ? 'este sorvete' : 'este açaí'} ou em “ver pedido” para fechar a compra.`
+    : `Escolha ${ice ? 'o sabor, o tamanho' : 'o tamanho'} e os acompanhamentos e toque em “Adicionar ao pedido”. Dá para juntar açaí, trufado e sorvete no mesmo pedido.`;
 }
 function resetBuilder() {
-  draftItem = null;
+  draftTouched = false;
   halfIceOn = false;
   selectedHalfIce = null;
   selected.clear();
@@ -283,45 +319,61 @@ function resetBuilder() {
   if (menu) renderBuilder();
   paintCartNote();
 }
-function syncDraft() {
-  if (!menu || !selectedSize || halfPending()) {
-    if (draftInCart()) { cart.splice(cart.indexOf(draftItem), 1); renderCart(); }
-    draftItem = null;
-    paintCartNote();
-    return;
-  }
+// Montador em branco para o próximo item: sem sabor de sorvete escolhido e com o primeiro tamanho disponível.
+function freshBuilder() {
+  selectedIceCream = null;
+  const product = builderProduct();
+  selectedSize = product ? product.sizes.find(size => !size.soldOut) || product.sizes[0] : null;
+  resetBuilder();
+}
+// O item que está na tela do montador (ou null enquanto faltar escolher o tamanho, o sabor ou a metade sorvete).
+function draftData() {
+  if (!menu || !selectedSize || halfPending()) return null;
+  const product = builderProduct();
+  if (!product) return null;
   const opts = [...selected].map(id => menu.options.find(o => o.id === id)).filter(Boolean);
   const unit = priceForBuilder(), quantity = Math.max(1, Number($('#builder-quantity').value || 1));
   const optionLayers = layersObject(opts.filter(isLayered).map(o => o.id), layerCountOf);
   const half = halfIceProduct();
-  const data = { sizeId: selectedSize.id, product: builderProduct().name, halfIceCreamId: half ? half.id : null, halfIceCream: half ? { id: half.id, name: half.name } : null, size: selectedSize.name, quantity, optionIds: opts.map(o => o.id), optionLayers, options: opts, unitPriceCents: unit, lineTotalCents: unit * quantity };
-  if (draftInCart())
-    Object.assign(draftItem, data);
-  else {
-    draftItem = data;
-    cart.push(draftItem);
-  }
-  // O valor mudou: o cupom precisa ser validado de novo.
-  if (appliedCoupon) {
-    appliedCoupon = null;
-    $('#coupon-message').textContent = 'O pedido mudou. Aplique o cupom novamente.';
-    $('#coupon-message').classList.remove('is-success');
-  }
-  renderCart();
+  return { sizeId: selectedSize.id, product: product.name, halfIceCreamId: half ? half.id : null, halfIceCream: half ? { id: half.id, name: half.name } : null, size: selectedSize.name, quantity, optionIds: opts.map(o => o.id), optionLayers, options: opts, unitPriceCents: unit, lineTotalCents: unit * quantity };
+}
+// O cliente mexeu no montador. Ainda não está no pedido: só entra ao tocar em "Adicionar ao pedido".
+function syncDraft() {
+  draftTouched = true;
+  announceAdded('');
   paintCartNote();
 }
+// Coloca no pedido o que está no montador e deixa o montador pronto para o próximo item. Devolve false se ainda falta escolher algo.
+function commitDraft({ announce = true } = {}) {
+  const data = draftData();
+  if (!data) return false;
+  cart.push(data);
+  couponNeedsRecheck();
+  freshBuilder();
+  renderCart();
+  if (announce) announceAdded(`✓ ${data.quantity}× ${data.product} ${data.size}${data.halfIceCream ? ` (${halfLabel(data.halfIceCream)})` : ''} adicionado ao pedido.`);
+  return true;
+}
+// Rede de segurança: se o cliente mexeu no montador e foi para outra aba ou para o pedido sem tocar em "Adicionar",
+// o item entra no pedido (e o aviso verde mostra isso) em vez de ficar para trás sem ele perceber.
+function commitPendingDraft({ announce = false } = {}) {
+  return draftTouched ? commitDraft({ announce }) : false;
+}
+// "Adicionar ao pedido" do açaí/sorvete.
+function addCurrentToOrder() {
+  if (!commitDraft({ announce: true })) return false;
+  document.dispatchEvent(new CustomEvent('acai:item-added'));
+  return true;
+}
+$('#add-to-order').addEventListener('click', () => {
+  if (!addCurrentToOrder()) builderMessage(needSizeMessage());
+});
+// Botão "Ir para o pedido" do montador (só aparece sozinho se a tela de passos não carregar).
 $('#view-order').addEventListener('click', () => {
-  // Quem gostou do açaí que já está na tela e não mexeu em nada: entra no pedido ao tocar em "Ver meu pedido".
-  if (!cart.length) syncDraft();
+  commitPendingDraft();
   if (!cart.length) { builderMessage(needSizeMessage()); return; }
   builderMessage('');
   scrollRespectingMotion($('#pedido'), { behavior: 'smooth', block: 'start' });
-});
-$('#another-acai').addEventListener('click', () => {
-  // Fecha o açaí atual (ele continua no pedido) e começa um novo, em branco.
-  resetBuilder();
-  builderMessage(`Pronto! O ${builderCategory === 'ice_cream' ? 'sorvete' : 'açaí'} anterior está no pedido. Monte o próximo.`);
-  scrollRespectingMotion($('#builder'), { behavior: 'smooth', block: 'start' });
 });
 $('#zone-select').addEventListener('change', renderCart);
 // Entrega x retirada: na retirada some endereço e bairro (não são obrigatórios) e o frete é zero.
