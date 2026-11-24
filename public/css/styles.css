@@ -1005,7 +1005,7 @@ html[data-theme="dark"] .field-invalid{border-color:#ef5350!important;background
 /* ===== Pedido em passos (Tamanho → Complementos → Entrega e pagamento) ===== */
 .step-off { display: none !important; }
 #builder.is-stepped { grid-template-columns: minmax(0, 1fr); max-width: 760px; margin-left: auto; margin-right: auto; }
-#builder.is-stepped #view-order, #builder.is-stepped #add-to-order { display: none; }
+#builder.is-stepped #view-order { display: none; }
 .builder-sr { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .builder-steps { margin: 0 0 4px; }
 .builder-steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }

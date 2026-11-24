@@ -17,7 +17,9 @@
   const itemCount = () => cart.reduce((n, i) => n + i.quantity, 0);
   const plural = n => `${n} ${n === 1 ? 'item' : 'itens'}`;
   // Quem montou algo e foi direto para o pedido sem tocar em "Adicionar": o item entra junto (ver commitPendingDraft).
-  const commitDraft = () => (typeof commitPendingDraft === 'function' ? commitPendingDraft() : false);
+  // Só entra sozinho quando o pedido ainda está vazio (cliente que escolheu um açaí e foi direto finalizar).
+  // Com itens já no pedido, adicionar é sempre uma ação explícita no botão "Adicionar ao pedido".
+  const commitDraft = () => (!cart.length && typeof commitPendingDraft === 'function' ? commitPendingDraft() : false);
   const emptyMessage = () => traditionalMode() && (!selectedSize || halfPending()) ? needSizeMessage() : 'Seu pedido está vazio. Escolha o que quer e toque em “Adicionar ao pedido”.';
 
   function say(text) {
@@ -45,6 +47,8 @@
     const count = itemCount();
     $('#builder-nav').classList.toggle('step-off', !traditional && step !== LAST && count === 0);
     back.classList.toggle('step-off', step === 1 || (!traditional && step !== LAST));
+    // Etapa 1 com itens no pedido: atalho "Finalizar" no lugar do "Voltar" (que não existe na etapa 1).
+    $('#builder-finish')?.classList.toggle('step-off', !(traditional && step === 1 && count > 0));
     $('#view-order')?.classList.toggle('hidden', count === 0);
     if (step === LAST) {
       info.disabled = true;
@@ -69,7 +73,8 @@
       else $('#builder-nav-label').textContent = chosen ? `Seu ${builderCategory === 'ice_cream' ? 'sorvete' : 'açaí'}: ${selectedSize.name}` : 'Seu pedido';
       $('#builder-nav-total').textContent = count ? total : (chosen ? brl(priceForBuilder()) : 'R$ 0,00');
       next.disabled = false;
-      next.textContent = !traditional ? 'Ir para o pedido →' : (step === 1 ? 'Continuar' : '+ Adicionar ao pedido');
+      // "Continuar" só avança de etapa. Quem adiciona é o botão "Adicionar ao pedido" da etapa 2; quem fecha a compra é "Finalizar".
+      next.textContent = !traditional ? 'Ir para o pedido →' : (step === 1 ? 'Continuar' : 'Finalizar pedido →');
     }
   }
 
@@ -148,8 +153,9 @@
         $('#submit-order').click();
       } else if (!traditionalMode()) goTo(LAST);
       else if (step === 1) goTo(2);
-      else if (!addCurrentToOrder()) say(needSizeMessage());
+      else goTo(LAST);
     }
+    if (e.target.closest('#builder-finish')) goTo(LAST);
   });
 
   // Depois de "Adicionar ao pedido" (açaí, sorvete ou trufado): volta ao começo do cardápio para escolher o próximo item.
