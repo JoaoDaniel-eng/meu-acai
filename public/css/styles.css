@@ -1065,6 +1065,13 @@ html[data-theme="dark"] .zone-result { background: rgba(124, 194, 66, .18); colo
 .push-invite .muted{color:#4a3a55}
 .push-invite p{margin:0 0 .6rem}
 .push-invite-actions{display:flex;flex-wrap:wrap;gap:.5rem}
+.push-invite strong{color:#2b0a3d}
+.push-invite .form-message{margin:.6rem 0 0}
+html[data-theme="dark"] .push-invite{background:#2a1838;border-color:#7a4a9c;color:#f5ecfa}
+html[data-theme="dark"] .push-invite strong{color:#fff}
+html[data-theme="dark"] .push-invite .muted{color:#ddd0e8}
+html[data-theme="dark"] .push-invite .error-message{color:#ffb4b4!important}
+html[data-theme="dark"] .push-invite .button-outline{background:transparent;color:#f5ecfa;border-color:#9d72bd}
 
 /* Convite de promoções flutuante (aparece ao abrir o site) */
 .push-invite-float{position:fixed;left:12px;right:12px;bottom:calc(5.5rem + env(safe-area-inset-bottom,0px));margin:0 auto;max-width:420px;z-index:70;box-shadow:0 10px 30px rgba(43,10,61,.35);animation:push-invite-in .35s ease-out}

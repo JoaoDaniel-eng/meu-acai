@@ -43,8 +43,10 @@ function syncDailyPushUI() {
   toggle.checked = localStorage.getItem('acaiDailyPush') === '1' && Notification.permission === 'granted';
   dailyPushGetConfig().then(config => { if (!config.enabled) fail('Os lembretes ainda não estão disponíveis. Tente novamente mais tarde.'); }).catch(() => { });
 }
-$('#daily-push-toggle')?.addEventListener('change', async (e) => {
-  const toggle = e.target, msg = $('#daily-push-message'), wantOn = toggle.checked;
+// Liga/desliga o lembrete. Devolve { ok, message } para quem chamou (interruptor das Configurações ou convite flutuante).
+async function setDailyPush(toggle, wantOn) {
+  const msg = $('#daily-push-message');
+  let result = { ok: true, message: '' };
   msg.textContent = '';
   msg.classList.remove('error-message');
   toggle.disabled = true;
@@ -70,10 +72,13 @@ $('#daily-push-toggle')?.addEventListener('change', async (e) => {
     toggle.checked = !wantOn;
     msg.textContent = err.message || 'Não foi possível concluir. Tente novamente.';
     msg.classList.add('error-message');
+    result = { ok: false, message: msg.textContent };
   }
   toggle.disabled = false;
   syncDailyPushUI();
-});
+  return result;
+}
+$('#daily-push-toggle')?.addEventListener('change', e => setDailyPush(e.target, e.target.checked));
 // Ao abrir o site com o lembrete ligado, reenvia a assinatura ao servidor: cura assinaturas apagadas e liga o aparelho à conta, se o cliente entrou depois de ativar.
 window.addEventListener('load', async () => {
   if (localStorage.getItem('acaiDailyPush') !== '1' || !pushSupported() || Notification.permission !== 'granted') return;
@@ -104,15 +109,23 @@ window.addEventListener('load', async () => {
     $('#push-invite-no').addEventListener('click', () => { try { localStorage.setItem(KEY, String(Date.now())); } catch { } box.remove(); });
     $('#push-invite-yes').addEventListener('click', async () => {
       const toggle = $('#daily-push-toggle'), msg = $('#push-invite-msg'), btn = $('#push-invite-yes');
-      if (!toggle) return;
+      if (!toggle) { box.remove(); return; }
       btn.disabled = true;
+      btn.textContent = 'Ativando...';
       toggle.checked = true;
-      toggle.dispatchEvent(new Event('change', { bubbles: true }));
-      // O interruptor cuida da permissão e do cadastro; aqui só espera o resultado para mostrar no convite.
-      for (let i = 0; i < 40 && toggle.disabled; i++) await new Promise(r => setTimeout(r, 250));
-      await new Promise(r => setTimeout(r, 100));
-      if (localStorage.getItem('acaiDailyPush') === '1') { box.innerHTML = '<p><strong>✅ Pronto!</strong> Você vai receber nossas promoções.</p>'; setTimeout(() => box.remove(), 4000); }
-      else { btn.disabled = false; msg.textContent = $('#daily-push-message')?.textContent || 'Não foi possível ativar agora.'; msg.classList.add('error-message'); }
+      const result = await setDailyPush(toggle, true);
+      if (result.ok) {
+        box.innerHTML = '<p><strong>✅ Pronto!</strong> Você vai receber nossas promoções.</p>';
+        setTimeout(() => box.remove(), 3500);
+      }
+      else {
+        // Se o navegador bloqueou ou a pessoa negou, não adianta insistir: mostra o motivo e deixa só o botão de fechar.
+        btn.remove();
+        $('#push-invite-no').textContent = 'Fechar';
+        msg.textContent = result.message || 'Não foi possível ativar agora.';
+        msg.classList.add('error-message');
+        try { localStorage.setItem(KEY, String(Date.now())); } catch { }
+      }
     });
   }).catch(() => { });
 })();
