@@ -4,6 +4,7 @@ var dailyPushConfig = null;
 function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
 function isIosBrowserTab() { return /iphone|ipad|ipod/i.test(navigator.userAgent) && !(window.matchMedia('(display-mode: standalone)').matches || navigator.standalone); }
 function pushKeyBytes(base64Url) {
+  base64Url = String(base64Url || '').replace(/[\s"']/g, '');
   const raw = atob((base64Url + '='.repeat((4 - base64Url.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
   return Uint8Array.from(raw, c => c.charCodeAt(0));
 }
@@ -43,6 +44,13 @@ function syncDailyPushUI() {
   toggle.checked = localStorage.getItem('acaiDailyPush') === '1' && Notification.permission === 'granted';
   dailyPushGetConfig().then(config => { if (!config.enabled) fail('Os lembretes ainda não estão disponíveis. Tente novamente mais tarde.'); }).catch(() => { });
 }
+// O navegador devolve erros em inglês quando não consegue falar com o serviço de push (Brave, rede bloqueando o Google, chave inválida).
+function pushFriendlyError(err) {
+  const text = String(err?.message || '');
+  if (/push service|registration failed|AbortError|NotAllowedError/i.test(err?.name + ' ' + text))
+    return 'Seu navegador não conseguiu ativar as notificações. Se for o Brave, ative “Usar serviços do Google para mensagens push” em brave://settings/privacy. Ou tente no Chrome.';
+  return text || 'Não foi possível concluir. Tente novamente.';
+}
 // Liga/desliga o lembrete. Devolve { ok, message } para quem chamou (interruptor das Configurações ou convite flutuante).
 async function setDailyPush(toggle, wantOn) {
   const msg = $('#daily-push-message');
@@ -70,7 +78,7 @@ async function setDailyPush(toggle, wantOn) {
   }
   catch (err) {
     toggle.checked = !wantOn;
-    msg.textContent = err.message || 'Não foi possível concluir. Tente novamente.';
+    msg.textContent = pushFriendlyError(err);
     msg.classList.add('error-message');
     result = { ok: false, message: msg.textContent };
   }
