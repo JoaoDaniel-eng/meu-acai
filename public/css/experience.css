@@ -470,3 +470,16 @@ html[data-theme="dark"] body[data-acai-redesign] .error-message{color:#ffaaaa!im
   html[data-acai-redesign]{scroll-behavior:auto!important}
   body[data-acai-redesign] *,body[data-acai-redesign] *:before,body[data-acai-redesign] *:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}
 }
+
+/* Cores anteriores dos valores monetários; os tokens se adaptam ao tema. */
+body[data-acai-redesign] .builder-actions .price-large,
+body[data-acai-redesign] .cart-total strong,
+body[data-acai-redesign] .cart-grand-total,
+body[data-acai-redesign] .cart-grand-total strong,
+body[data-acai-redesign] .tracking-total strong{color:var(--purple)}
+body[data-acai-redesign] .mobile-cart-bar strong{color:#c8f09b}
+html[data-theme="dark"] body[data-acai-redesign] .builder-actions .price-large,
+html[data-theme="dark"] body[data-acai-redesign] .cart-total strong,
+html[data-theme="dark"] body[data-acai-redesign] .cart-grand-total,
+html[data-theme="dark"] body[data-acai-redesign] .cart-grand-total strong,
+html[data-theme="dark"] body[data-acai-redesign] .tracking-total strong{color:var(--purple)}
