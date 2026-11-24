@@ -105,13 +105,14 @@ window.addEventListener('load', async () => {
     box.setAttribute('role', 'region');
     box.setAttribute('aria-label', 'Receber promoções');
     box.innerHTML = '<p><strong>🔔 Quer receber nossas promoções?</strong><br><span class="muted">Avisamos no seu celular das ofertas e lembramos de você no fim da tarde. Você desliga quando quiser.</span></p><div class="push-invite-actions"><button type="button" class="button button-green button-small" id="push-invite-yes">Quero receber</button><button type="button" class="button button-outline button-small" id="push-invite-no">Agora não</button></div><p class="form-message" id="push-invite-msg" role="status"></p>';
-    setTimeout(() => { if (document.body.dataset.pushInviteShown) return; document.body.dataset.pushInviteShown = '1'; document.body.appendChild(box); }, SHOW_AFTER_MS);
-    $('#push-invite-no').addEventListener('click', () => { try { localStorage.setItem(KEY, String(Date.now())); } catch { } box.remove(); });
-    $('#push-invite-yes').addEventListener('click', async () => {
-      const toggle = $('#daily-push-toggle'), msg = $('#push-invite-msg'), btn = $('#push-invite-yes');
+    // Os botões só existem depois que a caixa entra na página, então os cliques são ligados a partir da própria caixa.
+    const noBtn = box.querySelector('#push-invite-no'), yesBtn = box.querySelector('#push-invite-yes'), msg = box.querySelector('#push-invite-msg');
+    noBtn.addEventListener('click', () => { try { localStorage.setItem(KEY, String(Date.now())); } catch { } box.remove(); });
+    yesBtn.addEventListener('click', async () => {
+      const toggle = $('#daily-push-toggle');
       if (!toggle) { box.remove(); return; }
-      btn.disabled = true;
-      btn.textContent = 'Ativando...';
+      yesBtn.disabled = true;
+      yesBtn.textContent = 'Ativando...';
       toggle.checked = true;
       const result = await setDailyPush(toggle, true);
       if (result.ok) {
@@ -120,12 +121,13 @@ window.addEventListener('load', async () => {
       }
       else {
         // Se o navegador bloqueou ou a pessoa negou, não adianta insistir: mostra o motivo e deixa só o botão de fechar.
-        btn.remove();
-        $('#push-invite-no').textContent = 'Fechar';
+        yesBtn.remove();
+        noBtn.textContent = 'Fechar';
         msg.textContent = result.message || 'Não foi possível ativar agora.';
         msg.classList.add('error-message');
         try { localStorage.setItem(KEY, String(Date.now())); } catch { }
       }
     });
+    setTimeout(() => { if (document.body.dataset.pushInviteShown) return; document.body.dataset.pushInviteShown = '1'; document.body.appendChild(box); }, SHOW_AFTER_MS);
   }).catch(() => { });
 })();
