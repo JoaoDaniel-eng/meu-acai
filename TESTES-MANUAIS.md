@@ -245,11 +245,22 @@ A tela chega na 3.3b; por enquanto confira a rota (use o token do painel, que fi
 ## Pedido em passos, dados salvos e frete (08/11/2026)
 1. Abrir o site no celular: aparece só o passo 1 (Tamanho), com indicador de progresso e botão "Continuar" visível. O formulário de entrega não aparece.
 2. Continuar → passo 2: acompanhamentos, calda, adicionais, mousses e quantidade. A barra de baixo mostra itens e total e fica fixa ao rolar.
-3. Continuar → passo 3: itens, totais e formulário. "Voltar" retorna ao passo 2 sem perder as escolhas.
+3. No passo 2, tocar em "+ Adicionar ao pedido" coloca o item no pedido; depois "ver pedido" (ou Continuar/Fazer pedido) abre o passo 3 com itens, totais e formulário. "Voltar" no passo 3 retorna ao cardápio sem perder os itens.
 4. Escolher o bairro: logo abaixo aparecem o frete e o total com entrega. Trocar para "Retirar na loja" some com o frete. Com compra acima do mínimo, mostra "Grátis".
 5. Fazer um pedido marcando "Salvar meus dados neste aparelho". Recarregar a página e ir até o passo 3: deve aparecer "Confira seus dados" com nome, telefone, endereço e bairro; "Alterar dados" abre os campos preenchidos.
 6. "Não sou eu · apagar dados" limpa os campos, desmarca a caixa e apaga os dados do aparelho.
 7. Pedido sem marcar a caixa: ao voltar, os campos vêm vazios e a caixa desmarcada.
-8. Aba "Açaís Trufados": escolher sabor e tamanho leva ao passo 3; "Voltar" mostra os trufados; trocar de aba mostra/esconde os passos 1 e 2.
+8. Aba "Açaís Trufados": escolher sabor e tamanho só marca a opção; o item entra no pedido ao tocar em "+ Adicionar ao pedido" e a pessoa continua no cardápio (veja a seção abaixo). Trocar de aba mostra/esconde os passos 1 e 2.
 9. Tocar em "Meu pedido" no topo ou na barra do carrinho (celular) abre o passo 3.
 10. Tema escuro: conferir leitura do indicador, da barra de baixo, do resumo e da linha de frete.
+
+## Montar um pedido só com açaí, trufado e sorvete (24/11/2026)
+1. Açaí: escolher o tamanho e os complementos **não** coloca nada no pedido sozinho. No passo 2, tocar em "+ Adicionar ao pedido": aparece o aviso verde "✓ ... adicionado ao pedido", a tela volta ao topo do cardápio (abas visíveis) e a barra de baixo mostra "🛒 1 item" com o total.
+2. Sem sair do cardápio, abrir a aba **Trufados da casa**: escolher sabor, quantidade e tamanho; o botão mostra o total ("+ Adicionar ao pedido · R$ ..."). Ao tocar nele o item entra no pedido e a tela **não** pula para a entrega.
+3. Abrir a aba **Sorvetes**, escolher sabor, tamanho, Continuar e "+ Adicionar ao pedido".
+4. Tocar em "🛒 N itens" na barra de baixo (ou "Ir para o pedido →" na aba Trufados): abre a entrega e pagamento com todos os itens juntos. Fazer o pedido: um único pedido com açaí, trufado e sorvete.
+5. Na entrega e pagamento, "+ Adicionar mais itens" (ou "Voltar") leva de volta ao cardápio com as abas, sem perder o que já está no pedido.
+6. Montar um açaí (mexer no tamanho ou nos complementos), **não** tocar em Adicionar e trocar de aba ou ir para o pedido: o item entra no pedido e o aviso verde informa. Trocar de aba sem mexer em nada não adiciona nada.
+7. Trufado com estoque limitado: pedir mais do que o estoque mostra o aviso e não adiciona; na quantidade permitida, adiciona.
+8. Recarregar a página com itens no pedido: os itens adicionados continuam; um açaí que estava só em montagem (sem Adicionar) não vira item.
+9. Conferir no celular estreito (360 px) e no tema escuro: a barra de baixo (Voltar · itens/total · botão) não quebra nem esconde o botão principal.
