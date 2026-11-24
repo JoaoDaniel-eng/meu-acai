@@ -172,7 +172,8 @@ body[data-acai-redesign] .builder-steps li.is-active .step-num{background:var(--
 body[data-acai-redesign] .builder-steps li.is-done .step-num{background:var(--roca-leaf);color:#283715}
 body[data-acai-redesign] .step-label{display:block;color:inherit;font-size:.79rem;font-weight:800;line-height:1.2}
 body[data-acai-redesign] .builder-steps button small{display:block;color:var(--roca-muted);font-size:.66rem;line-height:1.35}
-body[data-acai-redesign] .builder-steps li.is-active button{color:var(--roca-aubergine)}
+body[data-acai-redesign] .builder-steps li.is-active button,
+body[data-acai-redesign] .builder-steps li.is-active .step-label{color:var(--roca-aubergine)}
 body[data-acai-redesign] .builder-progress{height:5px;margin-top:10px;background:#eee6dc}
 body[data-acai-redesign] .builder-progress span{background:linear-gradient(90deg,var(--roca-purple),var(--roca-leaf));transition:width .42s cubic-bezier(.22,1,.36,1)}
 body[data-acai-redesign] .builder-nav{width:min(1160px,100%);margin:0 auto;border:1px solid rgba(232,223,210,.95);border-radius:19px 19px 0 0;background:rgba(255,253,249,.96);box-shadow:0 -10px 28px rgba(42,16,52,.12);backdrop-filter:blur(14px)}
@@ -221,8 +222,11 @@ body[data-acai-redesign] select:focus,
 body[data-acai-redesign] textarea:focus{border-color:var(--roca-purple);box-shadow:0 0 0 4px rgba(85,38,107,.1)}
 body[data-acai-redesign] input::placeholder,
 body[data-acai-redesign] textarea::placeholder{color:#9b909c}
-body[data-acai-redesign] .spoon-choice{border:1px solid var(--roca-line);border-radius:14px;background:#fffefa}
-body[data-acai-redesign] .spoon-btn{border-color:var(--roca-line);border-radius:12px;background:#f6f0e7;color:var(--roca-aubergine)}
+body[data-acai-redesign] .spoon-choice{width:100%;margin:0 0 12px;padding:4px 12px 10px;border:1px solid var(--roca-line);border-radius:14px;background:transparent}
+body[data-acai-redesign] .spoon-choice legend{padding:0 6px;color:var(--roca-ink);font-size:.8rem;font-weight:700;line-height:1.2}
+body[data-acai-redesign] .spoon-stepper{gap:8px}
+body[data-acai-redesign] .spoon-btn{width:38px;height:38px;border-color:var(--roca-line);border-radius:11px;background:#f6f0e7;color:var(--roca-aubergine)}
+body[data-acai-redesign] .spoon-hint{color:var(--roca-muted);font-size:.8rem}
 body[data-acai-redesign] .zone-result{border-radius:12px;background:#edf5df;color:#405c25}
 body[data-acai-redesign] .coupon-entry button{border-radius:11px}
 body[data-acai-redesign] .checkout-note{margin:17px 0;padding:15px 17px;border:1px solid rgba(85,38,107,.12);border-radius:14px;background:#f7f2e9;color:#625767;font-size:.77rem;line-height:1.62}
@@ -483,3 +487,25 @@ html[data-theme="dark"] body[data-acai-redesign] .cart-total strong,
 html[data-theme="dark"] body[data-acai-redesign] .cart-grand-total,
 html[data-theme="dark"] body[data-acai-redesign] .cart-grand-total strong,
 html[data-theme="dark"] body[data-acai-redesign] .tracking-total strong{color:var(--purple)}
+
+/* Correções do modo escuro: textos que ficavam escuros sobre fundo escuro
+   (etapa ativa do pedido) e caixa de colheres que ficava clara. */
+html[data-theme="dark"] body[data-acai-redesign] .builder-steps li button,
+html[data-theme="dark"] body[data-acai-redesign] .builder-steps li .step-label{color:#d9cde0}
+html[data-theme="dark"] body[data-acai-redesign] .builder-steps li.is-active button,
+html[data-theme="dark"] body[data-acai-redesign] .builder-steps li.is-active .step-label{color:#fff}
+html[data-theme="dark"] body[data-acai-redesign] .builder-steps li.is-active .step-num{background:#9a63b3;color:#fff}
+html[data-theme="dark"] body[data-acai-redesign] .builder-steps li.is-done .step-num{background:var(--roca-leaf);color:#1f2d0d}
+html[data-theme="dark"] body[data-acai-redesign] .builder-steps li button small{color:#b9acbf}
+html[data-theme="dark"] body[data-acai-redesign] .spoon-choice{border-color:var(--roca-line);background:transparent}
+html[data-theme="dark"] body[data-acai-redesign] .spoon-choice legend{color:#f3edf5}
+html[data-theme="dark"] body[data-acai-redesign] .spoon-btn{border-color:#51425a;background:#2b2130;color:#f3edf5}
+html[data-theme="dark"] body[data-acai-redesign] .spoon-hint{color:#c9bad3}
+html[data-theme="dark"] body[data-acai-redesign] .subheading,
+html[data-theme="dark"] body[data-acai-redesign] .counter,
+html[data-theme="dark"] body[data-acai-redesign] .cart-item strong,
+html[data-theme="dark"] body[data-acai-redesign] .builder-nav-info strong{color:#f3edf5}
+html[data-theme="dark"] body[data-acai-redesign] .counter{background:#3a2d42}
+body[data-acai-redesign] .step-copy{display:block;text-align:left}
+body[data-acai-redesign] .step-copy .step-label{text-align:left}
+@media(max-width:620px){body[data-acai-redesign] .step-copy,body[data-acai-redesign] .step-copy .step-label{text-align:center}}

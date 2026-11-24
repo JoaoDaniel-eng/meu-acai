@@ -1,9 +1,10 @@
-const CACHE_NAME = 'acai-da-roca-v20261124-redesign4';
+const CACHE_NAME = 'acai-da-roca-v20261124-redesign5';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/css/styles.css?v=20261124-acai-redesign2',
   '/css/experience.css?v=20261124-acai-redesign4',
+  '/css/original-colors.css?v=20261124-original-colors1',
   '/js/diagnostics.js?v=20261105-ignora-externos',
   '/js/site/core.js?v=20261124-acai-redesign2',
   '/js/site/checkout.js?v=20261124-acai-redesign3',
